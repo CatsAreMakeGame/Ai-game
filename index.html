@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alien Shooter — Survive 50 Waves</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">◆</span> ALIEN SHOOTER</div>
+      <div class="topbar-right">
+        <span class="live-dot"></span><span class="build-tag">FOUNDATION BUILD · v0.1</span>
+      </div>
+    </header>
+
+    <div id="stage" class="stage">
+      <canvas id="game-canvas" width="900" height="640" aria-label="Alien Shooter game area"></canvas>
+
+      <!-- In-game HUD -->
+      <div id="hud" class="hud hidden">
+        <div class="hud-left">
+          <div class="hud-block">
+            <span class="hud-label">WAVE</span>
+            <span class="hud-value" id="hud-wave">1 / 50</span>
+          </div>
+          <div class="hud-block">
+            <span class="hud-label">SCORE</span>
+            <span class="hud-value" id="hud-score">0</span>
+          </div>
+          <div class="hud-block">
+            <span class="hud-label">CREDITS</span>
+            <span class="hud-value hud-credits" id="hud-credits">0</span>
+          </div>
+        </div>
+        <div class="hud-right">
+          <div class="hud-label hud-hull-label">HULL</div>
+          <div class="hull-bar"><div class="hull-fill" id="hud-hull-fill"></div></div>
+          <div class="hull-text" id="hud-hull-text">100 / 100</div>
+          <div id="hud-boosts" class="boost-strip"></div>
+        </div>
+      </div>
+
+      <!-- Announcement banner -->
+      <div id="wave-banner" class="wave-banner hidden">
+        <div class="banner-title" id="banner-title">WAVE 1</div>
+        <div class="banner-sub" id="banner-sub">INCOMING</div>
+      </div>
+
+      <!-- Full-screen overlay screens -->
+      <div id="overlay" class="overlay">
+        <section id="screen-menu" class="screen active">
+          <div class="eyebrow">SECTOR 7 // DEEP SPACE</div>
+          <h1 class="title">ALIEN <span>SHOOTER</span></h1>
+          <p class="subtitle">Survive <strong>50 waves</strong>. Each wave hits harder than the last.</p>
+          <div class="controls-grid">
+            <div><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd><span> or </span><kbd>WASD</kbd><small>Move (or move the mouse)</small></div>
+            <div><kbd>SPACE</kbd><small>Fire is automatic — hold to focus</small></div>
+            <div><kbd>P</kbd> / <kbd>ESC</kbd><small>Pause</small></div>
+          </div>
+          <button class="btn primary" id="btn-start">LAUNCH MISSION</button>
+          <p class="hint">Drop your icon pack into <code>icons/</code> to replace the placeholder art.</p>
+        </section>
+
+        <section id="screen-paused" class="screen">
+          <div class="eyebrow">SYSTEM SUSPENDED</div>
+          <h2 class="title small">PAUSED</h2>
+          <button class="btn primary" id="btn-resume">RESUME</button>
+          <button class="btn ghost" id="btn-quit">ABORT RUN</button>
+        </section>
+
+        <section id="screen-gameover" class="screen">
+          <div class="eyebrow danger">HULL CRITICAL</div>
+          <h2 class="title small danger-text">SHIP DESTROYED</h2>
+          <div class="stats" id="gameover-stats"></div>
+          <button class="btn primary" id="btn-retry">RETRY MISSION</button>
+        </section>
+
+        <section id="screen-victory" class="screen">
+          <div class="eyebrow success">ALL SECTORS CLEAR</div>
+          <h2 class="title small success-text">YOU SURVIVED<br />ALL 50 WAVES</h2>
+          <div class="stats" id="victory-stats"></div>
+          <button class="btn primary" id="btn-play-again">PLAY AGAIN</button>
+        </section>
+
+        <section id="screen-shop" class="screen">
+          <div class="eyebrow">HANGAR // LOADOUT</div>
+          <h2 class="title small">SHOP <span class="soon">SOON</span></h2>
+          <p class="subtitle">Item data and icon hooks are already wired. Unlock logic lands in a future build.</p>
+          <div class="shop-grid" id="shop-grid"></div>
+          <button class="btn ghost" id="btn-shop-close">BACK</button>
+        </section>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <span>One ship · 50 waves · exponential difficulty</span>
+      <button class="footer-link" id="btn-shop">HANGAR / SHOP</button>
+    </footer>
+  </div>
+
+  <!-- Load order matters: config + data first, then systems, then bootstrap. -->
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/assets.js"></script>
+  <script src="js/entities.js"></script>
+  <script src="js/waves.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
