@@ -3,6 +3,10 @@
 A browser-based alien spaceship shooter. One ship, 50 waves, exponential difficulty.
 Built with plain HTML, CSS and JavaScript — no build step, no dependencies.
 
+**Handover:** `JOURNAL.md` summarises the game and records everything that has
+been done, including verification results and future work. Read it first when
+picking this project up in a new session.
+
 ## Play
 
 Open `index.html` in a browser. That's it.
