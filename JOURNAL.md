@@ -139,3 +139,46 @@ Commit order: `8b5c2a2` initial -> `bef5d81` Successful -> `b3413e8` Create icon
 inject `window.__errs`, click start, wait, force a collision, check `kills`/`score`,
 exercise boss/wave-clear/victory/shop, require no errors, screenshot and inspect.
 See the `browser-game-development` skill for the full recipe.
+
+---
+
+## 4. Game updates — Part 1 (user spec, save verbatim)
+
+### 4.1 Files and folders
+- Two currency icons have been added to `icons/currency/` — use them in the game.
+  (They are `credit_gold.png` and `star_gem.png`; the manifest still points at the
+  old `credit.png` / `gem.png` paths.)
+- Create a new folder called `crates`.
+
+### 4.2 Gameplay and controls
+- Remove excess side text, including "One ship · 50 waves · exponential difficulty".
+- Players must hold left-click to move the spaceship.
+- Restrict movement to left and right only. No up or down movement.
+- These restrictions are intentional because players should earn additional
+  movement abilities later — do not "fix" this back into free movement.
+- Reduce the number of bullets fired by the rocket ship; there are currently too many.
+
+### 4.3 Wave system
+- Add a wave completion percentage bar.
+- Add a manual Skip Wave button.
+- Add an Auto Skip option. It can only activate once at least 60% of the enemies
+  scheduled for the current wave have spawned.
+- Make round completion messages smaller and less intrusive so they don't
+  obstruct gameplay.
+
+### 4.4 Notifications
+- Add action-bar notifications at the bottom of the screen whenever players:
+  - receive an upgrade,
+  - earn coins,
+  - receive repairs.
+
+### 4.5 Shop and hangar
+- Fix the issue preventing players from exiting the Shop and Hangar.
+- Players cannot access the Shop or Hangar while actively playing a wave. They
+  can access them once the game is finished.
+- Add an in-round shop that unlocks at level 5.
+- Below level 5, display `ui/shaded_lock.png` as the locked shop icon.
+- At level 5 and above, display `ui/in_round_shop.png` as the unlocked shop icon.
+  The actual filename is `in_round_shop.png`, not `normal_shop.png`.
+
+**Note:** Part 2 of this spec will arrive after Part 1 is reported ready.
