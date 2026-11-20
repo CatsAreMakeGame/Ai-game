@@ -28,7 +28,7 @@
 
     player: {
       width: 34, height: 40,
-      speed: 315,
+      speed: 430,
       maxHealth: 100,
       fireDelay: 0.28,
       bulletSpeed: 560,
@@ -48,8 +48,13 @@
 
     wave: {
       breakTime: 2.6, bannerTime: 1.9, interWaveHeal: 8,
-      autoSkipAt: 0.6,      // auto skip needs 60% of the wave spawned
-      inRoundShopLevel: 5   // level/wave at which the in-round shop unlocks
+      autoSkipAt: 0.6       // auto skip needs 60% of the wave spawned
+    },
+    leveling: {
+      shopUnlock: 5,        // PLAYER level, not wave
+      baseXp: 30, growth: 1.3,
+      xpPerKill: 2, xpPerWave: 12, xpPerBoss: 25,
+      maxLevel: 50, levelUpHeal: 10
     },
     drops: { chance: 0.11, lifetime: 12 }
   };
@@ -72,6 +77,12 @@
   };
 
   /** Player damage at a given wave — foundation for a future upgrade system. */
+  /** XP needed to advance FROM the given player level to the next one. */
+  AG.xpForLevel = function (level) {
+    var l = AG.CONFIG.leveling;
+    return Math.round(l.baseXp * Math.pow(l.growth, Math.max(0, level - 1)));
+  };
+
   AG.playerDamageFor = function (wave) {
     return AG.CONFIG.player.bulletDamage + Math.floor((wave - 1) / AG.CONFIG.player.damagePerWaves);
   };

@@ -41,7 +41,8 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--muted);
 }
 .topbar { margin-bottom: 12px; }
@@ -64,7 +65,7 @@ html, body {
 .stage {
   position: relative;
   width: 100%;
-  border: 1px solid var(--line);
+  border: 2px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
   background: #03050c;
@@ -83,21 +84,21 @@ html, body {
 .hud {
   position: absolute; inset: 0 0 auto 0;
   display: flex; justify-content: space-between; align-items: flex-start;
-  padding: 14px 18px;
+  padding: 16px 20px;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(3,5,12,.82), transparent);
+  background: linear-gradient(180deg, rgba(3,5,12,.95), rgba(3,5,12,.55) 75%, transparent);
   font-variant-numeric: tabular-nums;
 }
 .hud-left { display: flex; gap: 22px; }
 .hud-block { display: flex; flex-direction: column; gap: 2px; }
-.hud-label { font-size: 9px; letter-spacing: .22em; color: var(--muted); }
-.hud-value { font-size: 19px; font-weight: 800; color: #fff; line-height: 1; }
+.hud-label { font-size: 10px; font-weight: 800; letter-spacing: .2em; color: var(--muted); }
+.hud-value { font-size: 22px; font-weight: 900; color: #fff; line-height: 1; }
 .hud-credits { color: var(--gold); }
 .hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 170px; }
 .hud-hull-label { align-self: flex-start; }
 .hull-bar {
-  width: 170px; height: 9px; border-radius: 6px;
-  background: #162036; border: 1px solid var(--line); overflow: hidden;
+  width: 170px; height: 12px; border-radius: 7px;
+  background: #162036; border: 2px solid var(--line); overflow: hidden;
 }
 .hull-fill {
   height: 100%; width: 100%;
@@ -182,19 +183,19 @@ kbd {
 
 .btn {
   display: inline-block; min-width: 190px; margin: 6px;
-  padding: 13px 26px; border-radius: 8px;
-  font: 800 12px/1 "Segoe UI", sans-serif; letter-spacing: .18em;
+  padding: 15px 28px; border-radius: 10px;
+  font: 900 13px/1 "Segoe UI", sans-serif; letter-spacing: .18em;
   cursor: pointer; transition: transform .12s, box-shadow .18s, background .18s;
 }
 .btn:hover { transform: translateY(-2px); }
 .btn:active { transform: translateY(0); }
 .btn.primary {
-  border: 1px solid var(--cyan); color: #03121a;
+  border: 2px solid var(--cyan); color: #03121a;
   background: linear-gradient(180deg, #9df6ff, var(--cyan));
   box-shadow: 0 0 22px rgba(110,240,255,.35);
 }
 .btn.primary:hover { box-shadow: 0 0 34px rgba(110,240,255,.6); }
-.btn.ghost { border: 1px solid var(--line); color: var(--muted); background: transparent; }
+border: 2px solid var(--line); color: var(--muted); background: transparent;
 .btn.ghost:hover { color: var(--text); border-color: var(--cyan-dim); }
 
 .hint { margin-top: 18px; font-size: 11px; color: #58657f; }
@@ -216,8 +217,8 @@ code { color: var(--cyan-dim); background: #0e1626; padding: 2px 5px; border-rad
   gap: 12px; margin: 24px 0; text-align: left;
 }
 .shop-item {
-  padding: 14px; border: 1px solid var(--line); border-radius: 9px;
-  background: #0a1020; opacity: .72;
+  padding: 16px; border: 2px solid var(--line); border-radius: 10px;
+  background: #0b1324; opacity: .72;
 }
 .shop-item .icon { width: 30px; height: 30px; }
 .shop-item h4 { margin: 8px 0 4px; font-size: 13px; }
@@ -232,8 +233,8 @@ code { color: var(--cyan-dim); background: #0e1626; padding: 2px 5px; border-rad
   pointer-events: none; font-variant-numeric: tabular-nums;
 }
 .wave-progress-track {
-  flex: 1; height: 6px; border-radius: 5px; overflow: hidden;
-  background: rgba(110,240,255,.12); border: 1px solid rgba(110,240,255,.2);
+  flex: 1; height: 9px; border-radius: 6px; overflow: hidden;
+  background: rgba(110,240,255,.14); border: 2px solid rgba(110,240,255,.28);
 }
 .wave-progress-fill {
   height: 100%; width: 0%;
@@ -251,10 +252,10 @@ code { color: var(--cyan-dim); background: #0e1626; padding: 2px 5px; border-rad
 }
 .small-btn {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 6px 11px; border-radius: 999px;
-  border: 1px solid rgba(110,240,255,.35); background: rgba(6,14,28,.88);
+  padding: 7px 12px; border-radius: 999px;
+  border: 2px solid rgba(110,240,255,.45); background: rgba(6,14,28,.96);
   color: var(--cyan); cursor: pointer;
-  font: 700 9px/1 "Segoe UI", sans-serif; letter-spacing: .14em;
+  font: 800 10px/1 "Segoe UI", sans-serif; letter-spacing: .14em;
   transition: background .15s, border-color .15s, opacity .15s;
 }
 .small-btn:hover:not(:disabled) { background: rgba(110,240,255,.18); border-color: var(--cyan); }
@@ -271,10 +272,10 @@ code { color: var(--cyan-dim); background: #0e1626; padding: 2px 5px; border-rad
 }
 .toast {
   display: inline-flex; align-items: center; gap: 7px;
-  padding: 6px 12px; border-radius: 999px;
-  background: rgba(5,11,23,.94); border: 1px solid var(--toast-color, var(--cyan));
+  padding: 8px 14px; border-radius: 999px;
+  background: rgba(5,11,23,.97); border: 2px solid var(--toast-color, var(--cyan));
   color: var(--toast-color, var(--cyan));
-  font: 800 10px/1 "Segoe UI", sans-serif; letter-spacing: .12em;
+  font: 800 11px/1 "Segoe UI", sans-serif; letter-spacing: .12em;
   box-shadow: 0 0 18px rgba(0,0,0,.5);
   animation: toastIn .18s ease-out, toastOut .35s ease-in forwards;
   animation-delay: 0s, 2.15s;
@@ -300,6 +301,57 @@ code { color: var(--cyan-dim); background: #0e1626; padding: 2px 5px; border-rad
 }
 .shop-item .buy-btn:hover:not(:disabled) { background: rgba(110,240,255,.14); }
 .shop-item .buy-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ---------- player level ---------- */
+.hud-level-block { align-items: flex-start; }
+.xp-bar {
+  width: 76px; height: 6px; margin-top: 4px; border-radius: 5px; overflow: hidden;
+  background: rgba(110,240,255,.14); border: 1px solid rgba(110,240,255,.3);
+}
+.xp-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--cyan), #b388ff);
+  box-shadow: 0 0 10px rgba(110,240,255,.55);
+  transition: width .18s ease-out;
+}
+
+/* ---------- home-screen tutorial ---------- */
+.menu-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 20px; }
+.tutorial {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(2,5,12,.86); backdrop-filter: blur(5px);
+}
+.tutorial-card {
+  position: relative; width: min(88%, 460px);
+  padding: 28px 28px 22px; text-align: center;
+  border: 2px solid var(--cyan-dim); border-radius: 16px;
+  background: linear-gradient(180deg, #0d1830, #070c18);
+  box-shadow: 0 0 70px rgba(40,120,180,.28), inset 0 0 0 1px rgba(255,255,255,.03);
+}
+.tutorial-close {
+  position: absolute; top: 10px; right: 12px;
+  width: 32px; height: 32px; line-height: 1;
+  border-radius: 50%; border: 2px solid var(--line);
+  background: #111c32; color: var(--text); font-size: 19px; cursor: pointer;
+}
+.tutorial-close:hover { border-color: var(--cyan); color: var(--cyan); }
+.tutorial-body { min-height: 210px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.tutorial-glyph {
+  width: 76px; height: 76px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; border: 2px solid var(--cyan-dim);
+  background: rgba(110,240,255,.08); color: var(--cyan); font-size: 36px;
+  box-shadow: inset 0 0 24px rgba(110,240,255,.18);
+}
+.tutorial-card h3 { margin: 4px 0 0; font-size: 24px; letter-spacing: .16em; color: #fff; }
+.tutorial-card p { margin: 0; max-width: 350px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.tutorial-nav { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+.tutorial-dots { display: flex; flex: 1; gap: 7px; justify-content: center; }
+.tutorial-dot {
+  width: 10px; height: 10px; padding: 0; border-radius: 50%;
+  border: 1px solid var(--cyan-dim); background: transparent; cursor: pointer;
+}
+.tutorial-dot.active { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
 
 @media (max-width: 620px) {
   .hud-left { gap: 12px; }

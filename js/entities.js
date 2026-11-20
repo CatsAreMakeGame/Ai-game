@@ -167,16 +167,25 @@
     var p = C.player;
     this.age += dt;
 
-    // Hold left-click to steer. Left/right only, at the ship's top speed.
-    // Vertical movement is deliberately locked until earned as an upgrade.
-    if (input.holding && input.pointerActive) {
+    // Keyboard (arrows / WASD) gives full 2D movement at top speed.
+    // Holding left-click still steers horizontally toward the cursor.
+    var dx = 0, dy = 0;
+    if (input.left) dx -= 1;
+    if (input.right) dx += 1;
+    if (input.up) dy -= 1;
+    if (input.down) dy += 1;
+    if (dx || dy) {
+      var len = Math.sqrt(dx * dx + dy * dy);
+      this.x += (dx / len) * p.speed * dt;
+      this.y += (dy / len) * p.speed * dt;
+    } else if (input.holding && input.pointerActive) {
       var target = input.pointerX - this.w / 2;
       var step = p.speed * dt;
       var delta = target - this.x;
       this.x += Math.abs(delta) <= step ? delta : (delta > 0 ? step : -step);
     }
     this.x = Math.max(6, Math.min(C.canvasWidth - this.w - 6, this.x));
-    this.y = C.canvasHeight - 90;
+    this.y = Math.max(C.canvasHeight * 0.30, Math.min(C.canvasHeight - this.h - 10, this.y));
 
     this.invulnerable = Math.max(0, this.invulnerable - dt);
     Object.keys(this.boosts).forEach(function (key) {

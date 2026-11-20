@@ -20,6 +20,8 @@
       score: $('hud-score'),
       credits: $('hud-credits'),
       gems: $('hud-gems'),
+      level: $('hud-level'),
+      xpFill: $('hud-xp-fill'),
       hullFill: $('hud-hull-fill'),
       hullText: $('hud-hull-text'),
       boosts: $('hud-boosts'),
@@ -119,6 +121,10 @@
       this.el.btnSkip.disabled = !enabled;
     },
 
+    setAutoSkipEnabled: function (enabled) {
+      this.el.btnAutoSkip.disabled = !enabled;
+    },
+
     showBanner: function (title, sub, danger, duration, compact) {
       var b = this.el.banner;
       this.el.bannerTitle.textContent = title;
@@ -164,6 +170,9 @@
       this.el.score.textContent = g.score.toLocaleString();
       this.el.credits.textContent = g.credits.toLocaleString();
       this.el.gems.textContent = g.gems.toLocaleString();
+      this.el.level.textContent = g.level;
+      this.el.xpFill.style.width =
+        Math.min(100, Math.round((g.xp / AG.xpForLevel(g.level)) * 100)) + '%';
 
       var pct = Math.round(g.waves.completion * 100);
       this.el.waveProgressFill.style.width = pct + '%';
@@ -200,7 +209,7 @@
 
     _updateRoundShopIcon: function () {
       var g = this.game;
-      var unlocked = g.wave >= AG.CONFIG.wave.inRoundShopLevel;
+      var unlocked = g.level >= AG.CONFIG.leveling.shopUnlock;
       if (unlocked === this._roundShopUnlocked) return;
       this._roundShopUnlocked = unlocked;
       var host = this.el.roundShopIcon;

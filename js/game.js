@@ -19,7 +19,10 @@
 
     // Movement is hold-left-click only, horizontal only. Vertical movement is
     // intentionally earned later — do not restore keyboard/free movement here.
-    this.input = { holding: false, pointerX: C.canvasWidth / 2, pointerActive: false };
+    this.input = {
+      left: false, right: false, up: false, down: false,
+      holding: false, pointerX: C.canvasWidth / 2, pointerActive: false
+    };
 
     this.state = 'menu';
     this.prevState = 'menu';
@@ -35,6 +38,8 @@
     this.score = 0;
     this.credits = 0;
     this.gems = 0;
+    this.level = 1;
+    this.xp = 0;
     this.kills = 0;
     this.wave = 0;
     this.time = 0;
@@ -74,6 +79,8 @@
       this.score = 0;
       this.credits = 0;
       this.gems = 0;
+      this.level = 1;
+      this.xp = 0;
       this.kills = 0;
       this.wave = 0;
       this.shake = 0;
@@ -119,6 +126,7 @@
       }
       var bonus = 25 + wave * 5;
       this.addCredits(bonus);
+      this.addXp(C.leveling.xpPerWave);
       var healed = 0;
       if (this.player) {
         var before = this.player.health;
@@ -131,13 +139,39 @@
       this.ui.showBanner('WAVE ' + wave + ' CLEAR', '+' + bonus + ' CREDITS · HULL REPAIRED', false, 1.5, true);
     },
 
+    isBossWave: function () {
+      return this.wave % 10 === 0;
+    },
+
+    addXp: function (amount) {
+      this.xp += amount;
+      var L = C.leveling;
+      while (this.level < L.maxLevel && this.xp >= AG.xpForLevel(this.level)) {
+        this.xp -= AG.xpForLevel(this.level);
+        this.level++;
+        if (this.player) {
+          this.player.health = Math.min(this.player.maxHealth, this.player.health + L.levelUpHeal);
+        }
+        this.ui.notify('LEVEL ' + this.level, {
+          icon: AG.BOOSTS.shield.icon, glyph: '★', color: AG.CURRENCIES.gem.color
+        });
+      }
+    },
+
+    /* Skipping stops future spawns but leaves field enemies alive. Boss fights
+       cannot be skipped by any route (manual or auto). */
     skipWave: function () {
-      if (this.state !== 'playing' && this.state !== 'waveclear') return;
+      if (this.state !== 'playing' && this.state !== 'waveclear') return false;
+      if (this.isBossWave()) {
+        this.ui.notify('BOSS FIGHT — CANNOT SKIP', {
+          icon: 'ui.shadedLock', glyph: '×', color: '#ff5d7a'
+        });
+        return false;
+      }
       this.waves.active = false;
       this.waves.queue = [];
-      this.enemies = [];
-      this.enemyBullets = [];
       this.onWaveCleared(this.wave);
+      return true;
     },
 
     toggleAutoSkip: function () {
@@ -207,6 +241,7 @@
     onEnemyKilled: function (enemy) {
       this.score += enemy.score;
       this.addCredits(Math.max(1, Math.round(enemy.score / 4)));
+      this.addXp(enemy.type.boss ? C.leveling.xpPerBoss : C.leveling.xpPerKill);
       if (enemy.type.boss) {
         this.gems += 1;
         var gem = AG.CURRENCIES.gem;
@@ -301,8 +336,18 @@
     /* ---------- input ---------- */
     _bindInput: function () {
       var self = this;
+      var keyMap = {
+        ArrowLeft: 'left', KeyA: 'left',
+        ArrowRight: 'right', KeyD: 'right',
+        ArrowUp: 'up', KeyW: 'up',
+        ArrowDown: 'down', KeyS: 'down'
+      };
       window.addEventListener('keydown', function (e) {
-        if (e.code === 'Enter') {
+        var dir = keyMap[e.code];
+        if (dir) {
+          self.input[dir] = true;
+          e.preventDefault();
+        } else if (e.code === 'Enter') {
           if (self.state === 'menu' || self.state === 'gameover' || self.state === 'victory') {
             self.newRun();
           }
@@ -313,6 +358,10 @@
         } else if (e.code === 'KeyR' && (self.state === 'gameover' || self.state === 'victory')) {
           self.newRun();
         }
+      });
+      window.addEventListener('keyup', function (e) {
+        var dir = keyMap[e.code];
+        if (dir) self.input[dir] = false;
       });
 
       var canvas = this.canvas;
@@ -360,7 +409,7 @@
       bind('btn-skip-wave', function () { self.skipWave(); });
       bind('btn-auto-skip', function () { self.toggleAutoSkip(); });
       bind('btn-round-shop', function () {
-        if (self.wave < C.wave.inRoundShopLevel) return;
+        if (self.level < C.leveling.shopUnlock) return;
         if (self.state !== 'playing' && self.state !== 'waveclear') return;
         self.prevState = self.state;
         self.state = 'roundShop';
@@ -403,7 +452,8 @@
       // Shop/Hangar stay locked while a wave is active.
       this.ui.setRunControlsVisible(active);
       this.ui.setShopEnabled(!active);
-      this.ui.setSkipEnabled(this.state === 'playing');
+      this.ui.setSkipEnabled(this.state === 'playing' && !this.isBossWave());
+      this.ui.setAutoSkipEnabled(!this.isBossWave());
 
       // stars and particles keep moving on menus for a living backdrop
       for (i = 0; i < this.stars.length; i++) {
@@ -423,7 +473,8 @@
       this.player.update(dt, this.input, this);
       this.waves.update(dt);
 
-      if (this.autoSkip && this.state === 'playing' && this.waves.total > 0 &&
+      if (this.autoSkip && this.state === 'playing' && !this.isBossWave() &&
+          this.waves.total > 0 &&
           this.waves.spawned / this.waves.total >= C.wave.autoSkipAt) {
         this.skipWave();
       }

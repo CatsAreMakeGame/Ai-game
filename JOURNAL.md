@@ -254,3 +254,27 @@ inside the canvas without overlap.
 
 **Note on 5.4:** the build tag and icon-pack hint were already removed in Part 1;
 only code comments still contain the word "foundation", which is not user-facing.
+
+### 5.6 Implementation status (Part 2 — done)
+- Skip Wave / Auto Skip no longer erase field enemies: skipping only discards
+  the unspawned queue and advances the round, so live enemies carry over.
+  Boss waves (every 10th) cannot be skipped by either route; the buttons are
+  disabled on boss waves and the logic guards both paths.
+- Restored arrow keys / WASD full 2D movement alongside hold-left-click
+  steering, and raised ship speed 315 -> 430 px/s for snappier control.
+- Added a player level system in `config.js`/`game.js`: XP from kills, wave
+  clears and bosses; `AG.xpForLevel()` curve; HUD LEVEL + XP bar; level-up
+  toast and small heal. The in-round shop now checks `game.level >= 5`
+  (`CONFIG.leveling.shopUnlock`), not wave number.
+- Home-screen instructions replaced by `js/tutorial.js`: six-slide modal with
+  PREV/NEXT, clickable dots, X close button, arrow-key navigation, and a
+  first-visit auto-open via localStorage. "HOW TO PLAY" reopens it.
+- Visual weight raised across HUD, buttons, bars, cards and modal (thicker
+  borders, larger/bolder type, stronger panels) without adding new text.
+- No user-facing "Foundation" or icon-pack hint text remains.
+
+**Verification (headless Chromium via CDP):** zero console errors. Passed:
+tutorial next/prev/close and 6 dots; keyboard movement in both axes at 430
+px/s; skip preserves enemies; manual and auto skip both blocked on boss wave;
+XP levelling to 5; lock/unlock icon paths; in-round shop open/close; shop exit.
+Screenshots of the tutorial and gameplay were captured and visually inspected.
