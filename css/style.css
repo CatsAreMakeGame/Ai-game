@@ -224,10 +224,90 @@ code { color: var(--cyan-dim); background: #0e1626; padding: 2px 5px; border-rad
 .shop-item p { margin: 0 0 8px; font-size: 11px; color: var(--muted); line-height: 1.5; }
 .shop-cost { color: var(--gold); font-size: 12px; font-weight: 800; }
 
+/* ---------- currency + wave completion ---------- */
+.hud-gems { color: var(--cyan); }
+.wave-progress {
+  position: absolute; top: 76px; left: 18px; right: 18px;
+  display: flex; align-items: center; gap: 8px;
+  pointer-events: none; font-variant-numeric: tabular-nums;
+}
+.wave-progress-track {
+  flex: 1; height: 6px; border-radius: 5px; overflow: hidden;
+  background: rgba(110,240,255,.12); border: 1px solid rgba(110,240,255,.2);
+}
+.wave-progress-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--cyan-dim), var(--cyan));
+  box-shadow: 0 0 10px rgba(110,240,255,.6);
+  transition: width .18s ease-out;
+}
+.wave-progress-label { font-size: 9px; letter-spacing: .18em; color: var(--muted); white-space: nowrap; }
+
+/* ---------- in-run action buttons ---------- */
+.hud-actions {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  display: flex; gap: 8px; align-items: center; justify-content: center;
+  pointer-events: auto; z-index: 4;
+}
+.small-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 11px; border-radius: 999px;
+  border: 1px solid rgba(110,240,255,.35); background: rgba(6,14,28,.88);
+  color: var(--cyan); cursor: pointer;
+  font: 700 9px/1 "Segoe UI", sans-serif; letter-spacing: .14em;
+  transition: background .15s, border-color .15s, opacity .15s;
+}
+.small-btn:hover:not(:disabled) { background: rgba(110,240,255,.18); border-color: var(--cyan); }
+.small-btn:disabled { opacity: .38; cursor: not-allowed; }
+.small-btn.toggle[aria-pressed="true"] { color: #03121a; background: var(--cyan); }
+.small-btn .icon { width: 14px; height: 14px; }
+.small-btn .icon .icon-fallback { color: inherit; font-size: 11px; }
+
+/* ---------- action-bar notifications ---------- */
+.action-bar {
+  position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  pointer-events: none; z-index: 5; width: max-content; max-width: 90%;
+}
+.toast {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border-radius: 999px;
+  background: rgba(5,11,23,.94); border: 1px solid var(--toast-color, var(--cyan));
+  color: var(--toast-color, var(--cyan));
+  font: 800 10px/1 "Segoe UI", sans-serif; letter-spacing: .12em;
+  box-shadow: 0 0 18px rgba(0,0,0,.5);
+  animation: toastIn .18s ease-out, toastOut .35s ease-in forwards;
+  animation-delay: 0s, 2.15s;
+}
+.toast .icon { width: 14px; height: 14px; }
+.toast .icon .icon-fallback { color: inherit; font-size: 11px; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes toastOut { to { opacity: 0; transform: translateY(-6px); } }
+
+/* ---------- compact round-completion banner ---------- */
+.wave-banner.compact { top: 22%; text-shadow: 0 0 12px rgba(110,240,255,.3); }
+.wave-banner.compact .banner-title { font-size: clamp(16px, 3vw, 25px); letter-spacing: .12em; }
+.wave-banner.compact .banner-sub { font-size: 9px; letter-spacing: .22em; margin-top: 2px; }
+
+.mouse-icon { color: var(--cyan); font-size: 20px; line-height: 1; }
+.footer-link:disabled { opacity: .35; cursor: not-allowed; text-shadow: none; }
+.shop-item.buyable { opacity: 1; }
+.shop-item .buy-btn {
+  display: block; width: 100%; margin-top: 6px; padding: 6px;
+  border: 1px solid var(--cyan-dim); border-radius: 6px;
+  background: transparent; color: var(--cyan); cursor: pointer;
+  font: 700 9px/1 "Segoe UI", sans-serif; letter-spacing: .14em;
+}
+.shop-item .buy-btn:hover:not(:disabled) { background: rgba(110,240,255,.14); }
+.shop-item .buy-btn:disabled { opacity: .35; cursor: not-allowed; }
+
 @media (max-width: 620px) {
   .hud-left { gap: 12px; }
   .hud-value { font-size: 15px; }
   .hull-bar { width: 110px; }
   .hud-right { min-width: 110px; }
   .controls-grid { gap: 10px; }
+  .hud-actions { gap: 4px; }
+  .small-btn { padding: 5px 7px; font-size: 8px; }
+  .wave-progress { left: 10px; right: 10px; }
 }

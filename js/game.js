@@ -17,14 +17,13 @@
     this.ui = new AG.UI(this);
     this.waves = new AG.WaveManager(this);
 
-    this.input = {
-      left: false, right: false, up: false, down: false,
-      shooting: false, pointerActive: false, usePointer: false,
-      pointerX: 0, pointerY: 0
-    };
+    // Movement is hold-left-click only, horizontal only. Vertical movement is
+    // intentionally earned later — do not restore keyboard/free movement here.
+    this.input = { holding: false, pointerX: C.canvasWidth / 2, pointerActive: false };
 
     this.state = 'menu';
     this.prevState = 'menu';
+    this.shopReturnState = 'menu';
     this.player = null;
     this.enemies = [];
     this.bullets = [];
@@ -35,17 +34,22 @@
 
     this.score = 0;
     this.credits = 0;
+    this.gems = 0;
     this.kills = 0;
     this.wave = 0;
     this.time = 0;
     this.shake = 0;
     this.breakTimer = 0;
     this.lastTime = 0;
+    this.autoSkip = false;
+    this._pendingCoins = 0;
+    this._coinNotifyTimer = 0;
     this.loop = this.loop.bind(this);
 
     this._makeStars();
     this._bindInput();
     this._bindButtons();
+    this.ui.setShopEnabled(true);
 
     this.bgGradient = this.ctx.createLinearGradient(0, 0, 0, C.canvasHeight);
     this.bgGradient.addColorStop(0, '#060b1a');
@@ -69,9 +73,13 @@
     newRun: function () {
       this.score = 0;
       this.credits = 0;
+      this.gems = 0;
       this.kills = 0;
       this.wave = 0;
       this.shake = 0;
+      this.autoSkip = false;
+      this._pendingCoins = 0;
+      this._coinNotifyTimer = 0;
       this.enemies = [];
       this.bullets = [];
       this.enemyBullets = [];
@@ -81,6 +89,10 @@
       this.waves.reset();
       this.ui.hideOverlay();
       this.ui.setHudVisible(true);
+      this.ui.setRunControlsVisible(true);
+      this.ui.setAutoSkip(false);
+      this.ui.setShopEnabled(false);
+      this.ui._roundShopUnlocked = null;
       this.state = 'playing';
       this.startWave(1);
     },
@@ -89,6 +101,8 @@
       this.wave = n;
       this.waves.start(n);
       this.state = 'playing';
+      this.ui.setRunControlsVisible(true);
+      this.ui.setShopEnabled(false);
       var d = AG.difficultyFor(n);
       this.ui.showBanner(
         'WAVE ' + n,
@@ -104,18 +118,100 @@
         return;
       }
       var bonus = 25 + wave * 5;
-      this.credits += bonus;
+      this.addCredits(bonus);
+      var healed = 0;
       if (this.player) {
-        this.player.health = Math.min(this.player.maxHealth, this.player.health + C.wave.interWaveHeal);
+        var before = this.player.health;
+        this.player.health = Math.min(this.player.maxHealth, before + C.wave.interWaveHeal);
+        healed = Math.round(this.player.health - before);
       }
+      if (healed > 0) this.notifyRepair(healed);
       this.state = 'waveclear';
       this.breakTimer = C.wave.breakTime;
-      this.ui.showBanner('WAVE ' + wave + ' CLEAR', '+' + bonus + ' CREDITS · HULL REPAIRED', false, 2.2);
+      this.ui.showBanner('WAVE ' + wave + ' CLEAR', '+' + bonus + ' CREDITS · HULL REPAIRED', false, 1.5, true);
+    },
+
+    skipWave: function () {
+      if (this.state !== 'playing' && this.state !== 'waveclear') return;
+      this.waves.active = false;
+      this.waves.queue = [];
+      this.enemies = [];
+      this.enemyBullets = [];
+      this.onWaveCleared(this.wave);
+    },
+
+    toggleAutoSkip: function () {
+      this.autoSkip = !this.autoSkip;
+      this.ui.setAutoSkip(this.autoSkip);
+      this.ui.notify('AUTO SKIP ' + (this.autoSkip ? 'ON' : 'OFF'), {
+        color: AG.CURRENCIES.credit.color
+      });
+    },
+
+    /* ---------- currency + notifications ---------- */
+    addCredits: function (amount) {
+      this.credits += amount;
+      this._pendingCoins += amount;
+    },
+
+    flushCoins: function (dt) {
+      this._coinNotifyTimer -= dt;
+      if (this._pendingCoins > 0 && this._coinNotifyTimer <= 0) {
+        var credit = AG.CURRENCIES.credit;
+        this.ui.notify('+' + this._pendingCoins.toLocaleString() + ' CREDITS', {
+          icon: credit.icon, glyph: credit.glyph, color: credit.color
+        });
+        this._pendingCoins = 0;
+        this._coinNotifyTimer = 1.1;
+      }
+    },
+
+    notifyRepair: function (amount) {
+      var b = AG.BOOSTS.heal;
+      this.ui.notify('HULL REPAIRED +' + Math.round(amount), {
+        icon: b.icon, glyph: b.glyph, color: b.color
+      });
+    },
+
+    notifyUpgrade: function (key) {
+      var b = AG.BOOSTS[key];
+      if (!b) return;
+      this.ui.notify(b.name.toUpperCase() + ' ACQUIRED', {
+        icon: b.icon, glyph: b.glyph, color: b.color
+      });
+    },
+
+    buy: function (id) {
+      var item = null;
+      AG.SHOP_ITEMS.forEach(function (i) { if (i.id === id) item = i; });
+      if (!item || !item.available) return false;
+      var curKey = item.currency || 'credit';
+      var have = curKey === 'gem' ? this.gems : this.credits;
+      if (have < item.cost) return false;
+      if (curKey === 'gem') this.gems -= item.cost;
+      else this.credits -= item.cost;
+
+      if (id === 'hull_repair' && this.player) {
+        var before = this.player.health;
+        this.player.health = Math.min(this.player.maxHealth, before + AG.BOOSTS.heal.amount);
+        this.notifyRepair(this.player.health - before);
+      } else if (id === 'boost_rapid' && this.player) {
+        this.player.applyBoost('rapidFire');
+        this.notifyUpgrade('rapidFire');
+      } else {
+        this.ui.notify(item.name.toUpperCase() + ' UNLOCKED', { color: AG.CURRENCIES.gem.color });
+      }
+      return true;
     },
 
     onEnemyKilled: function (enemy) {
       this.score += enemy.score;
-      this.credits += Math.max(1, Math.round(enemy.score / 4));
+      this.addCredits(Math.max(1, Math.round(enemy.score / 4)));
+      if (enemy.type.boss) {
+        this.gems += 1;
+        var gem = AG.CURRENCIES.gem;
+        this.ui.notify('+1 STAR GEM', { icon: gem.icon, glyph: gem.glyph, color: gem.color });
+      }
       this.kills++;
       this.shake = Math.max(this.shake, enemy.type.boss ? 12 : 3);
       this.sparks(enemy.cx, enemy.cy, enemy.type.color, enemy.type.boss ? 46 : 14, enemy.type.boss ? 260 : 150);
@@ -131,6 +227,8 @@
       if (this.state === 'gameover') return;
       this.state = 'gameover';
       this.ui.setHudVisible(false);
+      this.ui.setRunControlsVisible(false);
+      this.ui.setShopEnabled(true);
       this.ui.showStats('gameover-stats', this);
       this.ui.showScreen('gameover');
       this.shake = 18;
@@ -139,12 +237,15 @@
     victory: function () {
       this.state = 'victory';
       this.ui.setHudVisible(false);
+      this.ui.setRunControlsVisible(false);
+      this.ui.setShopEnabled(true);
       this.ui.showStats('victory-stats', this);
       this.ui.showScreen('victory');
     },
 
     toMenu: function () {
       this.state = 'menu';
+      this.input.holding = false;
       this.enemies = [];
       this.bullets = [];
       this.enemyBullets = [];
@@ -152,6 +253,8 @@
       this.particles = [];
       this.player = null;
       this.ui.setHudVisible(false);
+      this.ui.setRunControlsVisible(false);
+      this.ui.setShopEnabled(true);
       this.ui.showScreen('menu');
     },
 
@@ -159,10 +262,32 @@
       if (this.state === 'playing' || this.state === 'waveclear') {
         this.prevState = this.state;
         this.state = 'paused';
+        this.input.holding = false;
         this.ui.showScreen('paused');
       } else if (this.state === 'paused') {
         this.state = this.prevState;
         this.ui.hideOverlay();
+      } else if (this.state === 'shop') {
+        this.leaveShop();
+      } else if (this.state === 'roundShop') {
+        this.ui.closeRoundShop();
+        this.state = this.prevState === 'playing' ? 'playing' : 'waveclear';
+      }
+    },
+
+    leaveShop: function () {
+      var back = this.shopReturnState || 'menu';
+      this.state = back;
+      if (back === 'menu' || back === 'gameover' || back === 'victory') {
+        this.ui.showScreen(back);
+        this.ui.setHudVisible(false);
+        this.ui.setRunControlsVisible(false);
+        this.ui.setShopEnabled(true);
+      } else {
+        this.ui.hideOverlay();
+        this.ui.setHudVisible(true);
+        this.ui.setRunControlsVisible(true);
+        this.ui.setShopEnabled(false);
       }
     },
 
@@ -176,23 +301,8 @@
     /* ---------- input ---------- */
     _bindInput: function () {
       var self = this;
-      var keyMap = {
-        ArrowLeft: 'left', KeyA: 'left',
-        ArrowRight: 'right', KeyD: 'right',
-        ArrowUp: 'up', KeyW: 'up',
-        ArrowDown: 'down', KeyS: 'down'
-      };
-
       window.addEventListener('keydown', function (e) {
-        var dir = keyMap[e.code];
-        if (dir) {
-          self.input[dir] = true;
-          self.input.usePointer = false;
-          e.preventDefault();
-        } else if (e.code === 'Space') {
-          self.input.shooting = true;
-          e.preventDefault();
-        } else if (e.code === 'Enter') {
+        if (e.code === 'Enter') {
           if (self.state === 'menu' || self.state === 'gameover' || self.state === 'victory') {
             self.newRun();
           }
@@ -205,25 +315,23 @@
         }
       });
 
-      window.addEventListener('keyup', function (e) {
-        var dir = keyMap[e.code];
-        if (dir) self.input[dir] = false;
-        if (e.code === 'Space') self.input.shooting = false;
-      });
-
       var canvas = this.canvas;
       var updatePointer = function (e) {
         var rect = canvas.getBoundingClientRect();
         var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        var clientY = e.touches ? e.touches[0].clientY : e.clientY;
         self.input.pointerX = (clientX - rect.left) * (C.canvasWidth / rect.width);
-        self.input.pointerY = (clientY - rect.top) * (C.canvasHeight / rect.height);
         self.input.pointerActive = true;
-        self.input.usePointer = true;
       };
       canvas.addEventListener('pointermove', updatePointer);
-      canvas.addEventListener('pointerdown', function (e) { updatePointer(e); self.input.shooting = true; });
-      window.addEventListener('pointerup', function () { self.input.shooting = false; });
+      canvas.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0) return;
+        updatePointer(e);
+        self.input.holding = true;
+        e.preventDefault();
+      });
+      window.addEventListener('pointerup', function () { self.input.holding = false; });
+      window.addEventListener('pointercancel', function () { self.input.holding = false; });
+      window.addEventListener('blur', function () { self.input.holding = false; });
       canvas.addEventListener('touchmove', function (e) { updatePointer(e); e.preventDefault(); }, { passive: false });
     },
 
@@ -239,13 +347,29 @@
       bind('btn-resume', function () { self.togglePause(); });
       bind('btn-quit', function () { self.toMenu(); });
       bind('btn-shop', function () {
+        if (self.state === 'playing' || self.state === 'waveclear' || self.state === 'paused') return;
+        self.shopReturnState = self.state;
         self.prevState = self.state;
         self.state = 'shop';
-        self.ui.openShop('screen-menu');
+        self.input.holding = false;
+        var backScreen = self.shopReturnState === 'gameover' ? 'screen-gameover'
+          : self.shopReturnState === 'victory' ? 'screen-victory' : 'screen-menu';
+        self.ui.openShop(backScreen, self.shopReturnState);
       });
-      bind('btn-shop-close', function () {
-        self.state = 'menu';
-        self.ui.closeShop();
+      bind('btn-shop-close', function () { self.leaveShop(); });
+      bind('btn-skip-wave', function () { self.skipWave(); });
+      bind('btn-auto-skip', function () { self.toggleAutoSkip(); });
+      bind('btn-round-shop', function () {
+        if (self.wave < C.wave.inRoundShopLevel) return;
+        if (self.state !== 'playing' && self.state !== 'waveclear') return;
+        self.prevState = self.state;
+        self.state = 'roundShop';
+        self.input.holding = false;
+        self.ui.openRoundShop();
+      });
+      bind('btn-round-shop-close', function () {
+        self.state = self.prevState === 'playing' ? 'playing' : 'waveclear';
+        self.ui.closeRoundShop();
       });
     },
 
@@ -276,6 +400,10 @@
     update: function (dt) {
       var i, j;
       var active = this.state === 'playing' || this.state === 'waveclear';
+      // Shop/Hangar stay locked while a wave is active.
+      this.ui.setRunControlsVisible(active);
+      this.ui.setShopEnabled(!active);
+      this.ui.setSkipEnabled(this.state === 'playing');
 
       // stars and particles keep moving on menus for a living backdrop
       for (i = 0; i < this.stars.length; i++) {
@@ -289,10 +417,16 @@
         p.update(dt); return p.active;
       });
 
+      this.flushCoins(dt);
       if (!active) return;
 
       this.player.update(dt, this.input, this);
       this.waves.update(dt);
+
+      if (this.autoSkip && this.state === 'playing' && this.waves.total > 0 &&
+          this.waves.spawned / this.waves.total >= C.wave.autoSkipAt) {
+        this.skipWave();
+      }
 
       for (i = 0; i < this.enemies.length; i++) this.enemies[i].update(dt, this);
       for (i = 0; i < this.bullets.length; i++) this.bullets[i].update(dt);
@@ -342,9 +476,10 @@
         var pu = this.powerups[i];
         if (!pu.active || !pu.hits(this.player)) continue;
         pu.active = false;
-        this.player.applyBoost(pu.boostKey);
+        var healed = this.player.applyBoost(pu.boostKey);
         this.sparks(pu.cx, pu.cy, AG.BOOSTS[pu.boostKey].color, 12, 110);
-        this.ui.showBanner(AG.BOOSTS[pu.boostKey].name.toUpperCase(), 'BOOST ACQUIRED', false, 1.1);
+        if (pu.boostKey === 'heal' && healed > 0) this.notifyRepair(healed);
+        else this.notifyUpgrade(pu.boostKey);
       }
 
       var isActive = function (o) { return o.active; };
@@ -368,7 +503,6 @@
       ctx.fillStyle = this.bgGradient;
       ctx.fillRect(0, 0, C.canvasWidth, C.canvasHeight);
 
-      // starfield
       for (var i = 0; i < this.stars.length; i++) {
         var s = this.stars[i];
         ctx.globalAlpha = s.alpha;
@@ -390,9 +524,8 @@
       for (i = 0; i < this.particles.length; i++) this.particles[i].draw(ctx);
       ctx.restore();
 
-      // wave progress rail
       if (this.state === 'playing' || this.state === 'waveclear') {
-        var p = this.waves.progress;
+        var p = this.waves.completion;
         ctx.fillStyle = 'rgba(110,240,255,.12)';
         ctx.fillRect(0, C.canvasHeight - 3, C.canvasWidth, 3);
         ctx.fillStyle = 'rgba(110,240,255,.75)';

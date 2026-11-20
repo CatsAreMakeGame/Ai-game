@@ -30,7 +30,7 @@
       width: 34, height: 40,
       speed: 315,
       maxHealth: 100,
-      fireDelay: 0.155,
+      fireDelay: 0.28,
       bulletSpeed: 560,
       bulletDamage: 1,
       hitInvulnerability: 1.05,
@@ -46,7 +46,11 @@
       enemyDamage: 9
     },
 
-    wave: { breakTime: 2.6, bannerTime: 1.9, interWaveHeal: 8 },
+    wave: {
+      breakTime: 2.6, bannerTime: 1.9, interWaveHeal: 8,
+      autoSkipAt: 0.6,      // auto skip needs 60% of the wave spawned
+      inRoundShopLevel: 5   // level/wave at which the in-round shop unlocks
+    },
     drops: { chance: 0.11, lifetime: 12 }
   };
 

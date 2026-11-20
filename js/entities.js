@@ -156,34 +156,27 @@
       this.boosts[key] = Math.max(this.boosts[key] || 0, b.duration);
     }
     if (key === 'heal') {
+      var before = this.health;
       this.health = Math.min(this.maxHealth, this.health + b.amount);
+      return this.health - before;
     }
+    return 0;
   };
 
   AG.Player.prototype.update = function (dt, input, game) {
     var p = C.player;
     this.age += dt;
-    var dx = 0, dy = 0;
-    if (input.left) dx -= 1;
-    if (input.right) dx += 1;
-    if (input.up) dy -= 1;
-    if (input.down) dy += 1;
 
-    if (dx || dy) {
-      input.usePointer = false;
-      var len = Math.sqrt(dx * dx + dy * dy);
-      this.x += (dx / len) * p.speed * dt;
-      this.y += (dy / len) * p.speed * dt;
-    } else if (input.usePointer && input.pointerActive) {
-      var tx = input.pointerX - this.w / 2;
-      var ty = input.pointerY - this.h / 2;
-      var ease = Math.min(1, dt * 13);
-      this.x += (tx - this.x) * ease;
-      this.y += (ty - this.y) * ease;
+    // Hold left-click to steer. Left/right only, at the ship's top speed.
+    // Vertical movement is deliberately locked until earned as an upgrade.
+    if (input.holding && input.pointerActive) {
+      var target = input.pointerX - this.w / 2;
+      var step = p.speed * dt;
+      var delta = target - this.x;
+      this.x += Math.abs(delta) <= step ? delta : (delta > 0 ? step : -step);
     }
-
     this.x = Math.max(6, Math.min(C.canvasWidth - this.w - 6, this.x));
-    this.y = Math.max(C.canvasHeight * 0.42, Math.min(C.canvasHeight - this.h - 10, this.y));
+    this.y = C.canvasHeight - 90;
 
     this.invulnerable = Math.max(0, this.invulnerable - dt);
     Object.keys(this.boosts).forEach(function (key) {

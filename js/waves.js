@@ -83,6 +83,13 @@
     get progress() {
       if (!this.total) return 0;
       return Math.min(1, (this.total - this.queue.length) / this.total);
+    },
+
+    /* Completion counts enemies actually eliminated, not merely spawned. */
+    get completion() {
+      if (!this.total) return 0;
+      var left = this.queue.length + this.game.enemies.length;
+      return Math.min(1, Math.max(0, (this.total - left) / this.total));
     }
   };
 })(window);

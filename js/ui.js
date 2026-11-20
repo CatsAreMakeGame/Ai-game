@@ -1,5 +1,5 @@
 /* ============================================================
-   ui.js — DOM overlay, HUD, banners and the icon-driven shop scaffold.
+   ui.js — DOM overlay, HUD, banners, notifications and shops.
    UI reads game state; it never mutates gameplay.
    ============================================================ */
 (function (global) {
@@ -11,11 +11,15 @@
     this.game = game;
     this.bannerTimer = 0;
     this.shopReturn = 'screen-menu';
+    this.shopReturnState = 'menu';
+    this._boostSig = '';
+    this._roundShopUnlocked = null;
     this.el = {
       hud: $('hud'),
       wave: $('hud-wave'),
       score: $('hud-score'),
       credits: $('hud-credits'),
+      gems: $('hud-gems'),
       hullFill: $('hud-hull-fill'),
       hullText: $('hud-hull-text'),
       boosts: $('hud-boosts'),
@@ -23,26 +27,39 @@
       banner: $('wave-banner'),
       bannerTitle: $('banner-title'),
       bannerSub: $('banner-sub'),
+      waveProgress: $('wave-progress'),
+      waveProgressFill: $('wave-progress-fill'),
+      waveProgressText: $('wave-progress-text'),
+      hudActions: $('hud-actions'),
+      actionBar: $('action-bar'),
+      roundShopIcon: $('round-shop-icon'),
+      roundShopLabel: $('round-shop-label'),
+      btnShop: $('btn-shop'),
+      btnSkip: $('btn-skip-wave'),
+      btnAutoSkip: $('btn-auto-skip'),
       screens: {
         menu: $('screen-menu'),
         paused: $('screen-paused'),
         gameover: $('screen-gameover'),
         victory: $('screen-victory'),
-        shop: $('screen-shop')
+        shop: $('screen-shop'),
+        roundShop: $('screen-round-shop')
       }
     };
-    this._buildCreditsIcon();
-    this._renderShop();
+    this._buildCurrencyIcons();
+    this._renderShop('shop-grid', AG.SHOP_ITEMS, false);
+    this._renderShop('round-shop-grid', AG.SHOP_ITEMS.filter(function (i) { return i.inRound; }), true);
   };
 
   AG.UI.prototype = {
-    /* Builds an icon element that gracefully falls back to a glyph. */
-    makeIcon: function (key, glyph) {
+    /* Builds an icon element with a glyph fallback tinted to its own colour. */
+    makeIcon: function (key, glyph, color) {
       var span = document.createElement('span');
       span.className = 'icon';
       var fallback = document.createElement('span');
       fallback.className = 'icon-fallback';
       fallback.textContent = glyph || '◆';
+      if (color) fallback.style.color = color;
       span.appendChild(fallback);
 
       var path = AG.ICON_MANIFEST[key];
@@ -57,10 +74,13 @@
       return span;
     },
 
-    _buildCreditsIcon: function () {
-      var holder = this.el.credits.parentNode;
-      var icon = this.makeIcon(AG.CURRENCIES.credit.icon, AG.CURRENCIES.credit.glyph);
-      holder.insertBefore(icon, this.el.credits);
+    _buildCurrencyIcons: function () {
+      var credit = AG.CURRENCIES.credit;
+      var gem = AG.CURRENCIES.gem;
+      this.el.credits.parentNode.insertBefore(
+        this.makeIcon(credit.icon, credit.glyph, credit.color), this.el.credits);
+      this.el.gems.parentNode.insertBefore(
+        this.makeIcon(gem.icon, gem.glyph, gem.color), this.el.gems);
     },
 
     showScreen: function (name) {
@@ -81,17 +101,55 @@
       this.el.hud.classList.toggle('hidden', !visible);
     },
 
-    showBanner: function (title, sub, danger, duration) {
+    setRunControlsVisible: function (visible) {
+      this.el.hudActions.classList.toggle('hidden', !visible);
+      this.el.waveProgress.classList.toggle('hidden', !visible);
+    },
+
+    setShopEnabled: function (enabled) {
+      if (this.el.btnShop) this.el.btnShop.disabled = !enabled;
+    },
+
+    setAutoSkip: function (on) {
+      this.el.btnAutoSkip.setAttribute('aria-pressed', on ? 'true' : 'false');
+      this.el.btnAutoSkip.textContent = 'AUTO SKIP: ' + (on ? 'ON' : 'OFF');
+    },
+
+    setSkipEnabled: function (enabled) {
+      this.el.btnSkip.disabled = !enabled;
+    },
+
+    showBanner: function (title, sub, danger, duration, compact) {
       var b = this.el.banner;
       this.el.bannerTitle.textContent = title;
       this.el.bannerSub.textContent = sub;
       b.classList.toggle('danger', !!danger);
+      b.classList.toggle('compact', !!compact);
       b.classList.remove('hidden');
-      // restart the entrance animation
       b.style.animation = 'none';
       void b.offsetWidth;
       b.style.animation = '';
       this.bannerTimer = duration || AG.CONFIG.wave.bannerTime;
+    },
+
+    /* Bottom action-bar toast: upgrades, coins, repairs. */
+    notify: function (text, opts) {
+      opts = opts || {};
+      var toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.style.setProperty('--toast-color', opts.color || AG.CURRENCIES.credit.color);
+      if (opts.icon) {
+        toast.appendChild(this.makeIcon(opts.icon, opts.glyph, opts.color));
+      }
+      toast.appendChild(document.createTextNode(text));
+      this.el.actionBar.appendChild(toast);
+      global.setTimeout(function () {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 2500);
+      // keep the action bar short
+      while (this.el.actionBar.children.length > 4) {
+        this.el.actionBar.removeChild(this.el.actionBar.firstChild);
+      }
     },
 
     update: function (dt) {
@@ -105,6 +163,11 @@
       this.el.wave.textContent = Math.min(g.wave, AG.CONFIG.maxWaves) + ' / ' + AG.CONFIG.maxWaves;
       this.el.score.textContent = g.score.toLocaleString();
       this.el.credits.textContent = g.credits.toLocaleString();
+      this.el.gems.textContent = g.gems.toLocaleString();
+
+      var pct = Math.round(g.waves.completion * 100);
+      this.el.waveProgressFill.style.width = pct + '%';
+      this.el.waveProgressText.textContent = pct + '%';
 
       var ratio = Math.max(0, p.health / p.maxHealth);
       this.el.hullFill.style.width = (ratio * 100) + '%';
@@ -112,6 +175,8 @@
       this.el.hullFill.classList.toggle('crit', ratio <= 0.25);
       this.el.hullText.textContent = Math.ceil(p.health) + ' / ' + p.maxHealth;
       this._renderBoosts(p);
+      this._updateRoundShopIcon();
+      this._updateBuyButtons();
     },
 
     _renderBoosts: function (player) {
@@ -127,10 +192,33 @@
         chip.className = 'boost-chip';
         chip.style.color = b.color;
         chip.style.borderColor = b.color;
-        chip.appendChild(this.makeIcon(b.icon, b.glyph));
+        chip.appendChild(this.makeIcon(b.icon, b.glyph, b.color));
         chip.appendChild(document.createTextNode(b.name + ' ' + Math.ceil(player.boosts[key]) + 's'));
         host.appendChild(chip);
       }, this);
+    },
+
+    _updateRoundShopIcon: function () {
+      var g = this.game;
+      var unlocked = g.wave >= AG.CONFIG.wave.inRoundShopLevel;
+      if (unlocked === this._roundShopUnlocked) return;
+      this._roundShopUnlocked = unlocked;
+      var host = this.el.roundShopIcon;
+      host.textContent = '';
+      var key = unlocked ? 'ui.inRoundShop' : 'ui.shadedLock';
+      var glyph = unlocked ? '▣' : '▤';
+      var color = unlocked ? AG.CURRENCIES.credit.color : '#7c8ba8';
+      host.appendChild(this.makeIcon(key, glyph, color));
+      this.el.roundShopLabel.textContent = unlocked ? 'IN-ROUND SHOP' : 'SHOP LOCKED';
+    },
+
+    _updateBuyButtons: function () {
+      var g = this.game;
+      this._buyCards.forEach(function (card) {
+        var cur = card.item.currency || 'credit';
+        var have = cur === 'gem' ? g.gems : g.credits;
+        card.btn.disabled = !card.item.available || have < card.item.cost;
+      });
     },
 
     showStats: function (targetId, game) {
@@ -156,8 +244,9 @@
       });
     },
 
-    openShop: function (returnScreen) {
+    openShop: function (returnScreen, returnState) {
       this.shopReturn = returnScreen || 'screen-menu';
+      this.shopReturnState = returnState || 'menu';
       this.showScreen('shop');
     },
 
@@ -165,16 +254,23 @@
       this.showScreen(this.shopReturn);
     },
 
-    /* Reads AG.SHOP_ITEMS — adding a new item in data.js makes it appear here
-       automatically, with its icon resolved through the same registry. */
-    _renderShop: function () {
-      var grid = $('shop-grid');
+    openRoundShop: function () {
+      this.showScreen('roundShop');
+    },
+
+    closeRoundShop: function () {
+      this.hideOverlay();
+    },
+
+    /* Shared card renderer: the manifest resolves every icon. */
+    _renderShop: function (gridId, items, allowBuy) {
+      this._buyCards = this._buyCards || [];
+      var grid = $(gridId);
       if (!grid) return;
       grid.textContent = '';
-      var credit = AG.CURRENCIES.credit;
-      AG.SHOP_ITEMS.forEach(function (item) {
+      items.forEach(function (item) {
         var card = document.createElement('div');
-        card.className = 'shop-item';
+        card.className = 'shop-item' + (item.available ? ' buyable' : '');
         card.appendChild(this.makeIcon(item.icon, '◆'));
         var h = document.createElement('h4');
         h.textContent = item.name;
@@ -182,11 +278,23 @@
         var p = document.createElement('p');
         p.textContent = item.description;
         card.appendChild(p);
+        var cur = AG.CURRENCIES[item.currency || 'credit'];
         var cost = document.createElement('div');
         cost.className = 'shop-cost';
-        cost.appendChild(this.makeIcon(credit.icon, credit.glyph));
+        cost.style.color = cur.color;
+        cost.appendChild(this.makeIcon(cur.icon, cur.glyph, cur.color));
         cost.appendChild(document.createTextNode(' ' + item.cost.toLocaleString() + (item.available ? '' : ' · locked')));
         card.appendChild(cost);
+        if (allowBuy && item.available) {
+          var self = this;
+          var btn = document.createElement('button');
+          btn.className = 'buy-btn';
+          btn.type = 'button';
+          btn.textContent = 'BUY';
+          btn.addEventListener('click', function () { self.game.buy(item.id); });
+          card.appendChild(btn);
+          this._buyCards.push({ item: item, btn: btn });
+        }
         grid.appendChild(card);
       }, this);
     }

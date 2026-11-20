@@ -17,14 +17,16 @@
     'enemies.shooter':     'icons/enemies/shooter.png',
     'enemies.tank':        'icons/enemies/tank.png',
     'enemies.boss':        'icons/enemies/boss.png',
-    'currency.credit':     'icons/currency/credit.png',
-    'currency.gem':        'icons/currency/gem.png',
+    'currency.credit':     'icons/currency/credit_gold.png',
+    'currency.gem':        'icons/currency/star_gem.png',
     'boosts.heal':         'icons/boosts/heal.png',
     'boosts.rapidFire':    'icons/boosts/rapid-fire.png',
     'boosts.doubleDamage': 'icons/boosts/double-damage.png',
     'boosts.shield':       'icons/boosts/shield.png',
     'shop.locked':         'icons/shop/locked.png',
-    'ui.heart':            'icons/ui/heart.png'
+    'ui.heart':            'icons/ui/heart.png',
+    'ui.shadedLock':       'icons/ui/shaded_lock.png',
+    'ui.inRoundShop':      'icons/ui/in_round_shop.png'
   };
 
   /* Only one ship is playable now. The array shape means more can be added
@@ -37,7 +39,7 @@
       icon: 'spaceships.scout',
       unlocked: true,
       description: 'Balanced starter ship. Fast, reliable, no frills.',
-      stats: { speed: 315, maxHealth: 100, fireDelay: 0.155, damage: 1 }
+      stats: { speed: 315, maxHealth: 100, fireDelay: 0.28, damage: 1 }
     }
   ];
 
@@ -77,18 +79,21 @@
   };
 
   AG.CURRENCIES = {
-    credit: { name: 'Credits', icon: 'currency.credit', color: '#ffd75c', glyph: '●' },
-    gem:    { name: 'Gems',    icon: 'currency.gem',    color: '#6ef0ff', glyph: '◆' }
+    credit: { name: 'Credits',   icon: 'currency.credit', color: '#ffd75c', glyph: '●' },
+    gem:    { name: 'Star Gems', icon: 'currency.gem',  color: '#6ef0ff', glyph: '◆' }
   };
 
   /* Shop entries are data only for now. Buying/equipping is a later feature;
      renderShop() in ui.js already reads this list and resolves each icon. */
   AG.SHOP_ITEMS = [
     { id: 'ship_falcon', name: 'Falcon', category: 'spaceships', icon: 'spaceships.falcon',
-      cost: 1200, available: false, description: 'A faster, heavily armed second ship.' },
+      cost: 1, currency: 'gem', available: false,
+      description: 'A faster, heavily armed second ship.' },
     { id: 'boost_rapid', name: 'Rapid Fire+', category: 'boosts', icon: 'boosts.rapidFire',
-      cost: 350, available: false, description: 'Permanently faster firing.' },
+      cost: 350, currency: 'credit', available: true, inRound: true,
+      description: 'Faster firing for the next 9 seconds.' },
     { id: 'hull_repair', name: 'Hull Repair', category: 'boosts', icon: 'boosts.heal',
-      cost: 150, available: false, description: 'Restore hull between waves.' }
+      cost: 150, currency: 'credit', available: true, inRound: true,
+      description: 'Restore 25 hull, instantly.' }
   ];
 })(window);

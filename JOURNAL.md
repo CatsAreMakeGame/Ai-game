@@ -182,3 +182,32 @@ See the `browser-game-development` skill for the full recipe.
   The actual filename is `in_round_shop.png`, not `normal_shop.png`.
 
 **Note:** Part 2 of this spec will arrive after Part 1 is reported ready.
+
+### 4.6 Implementation status (Part 1 — done)
+- Wired `icons/currency/credit_gold.png` and `star_gem.png` through
+  `AG.ICON_MANIFEST`; both now appear in the HUD and the shop. Boss kills award
+  a star gem, and the Falcon is priced in gems.
+- Created `icons/crates/.gitkeep`.
+- Removed the footer tagline, top-bar build tag and icon-pack hint.
+- Movement is hold-left-click only and horizontal only; keyboard movement and
+  vertical movement were removed. Player fire delay 0.155 -> 0.28 (~3 shots/s).
+- Added a DOM wave-completion bar (kills-based, not spawn-based), manual Skip
+  Wave, and Auto Skip gated at 60% spawned (`CONFIG.wave.autoSkipAt`).
+- Wave-clear banners now use a `.compact` style.
+- Added bottom action-bar toasts for credits, repairs and upgrades.
+- Shop/Hangar button is disabled during playing/waveclear; Shop BACK now
+  restores the screen and state it came from (Escape/P also closes it).
+- In-round shop unlocks at wave/level 5. Below it shows
+  `ui/shaded_lock.png`, at/above it shows `ui/in_round_shop.png` (copied from
+  the uploaded `icons/shop/In_round_shop.png`). It opens only between waves and
+  sells Hull Repair / Rapid Fire+ for credits; `game.buy()` handles purchase.
+- Level mapping: "level" is the current wave number. If Part 2 defines a
+  separate player-level system, rewire `CONFIG.wave.inRoundShopLevel`.
+
+**Verification (headless Chromium via CDP, no browser harness):** all checks
+passed with zero console errors — hold-left movement moves X only, ~3 shots/s,
+forced kill raises credits and emits a toast, completion bar reaches 100%,
+skip and auto-skip at 60% work, shop gating and exit restore state, both
+in-round shop icons resolve from the manifest, and purchasing works. A
+screenshot was captured; DOM layout boxes confirm HUD/progress/controls sit
+inside the canvas without overlap.
