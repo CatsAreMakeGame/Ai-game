@@ -278,3 +278,102 @@ tutorial next/prev/close and 6 dots; keyboard movement in both axes at 430
 px/s; skip preserves enemies; manual and auto skip both blocked on boss wave;
 XP levelling to 5; lock/unlock icon paths; in-round shop open/close; shop exit.
 Screenshots of the tutorial and gameplay were captured and visually inspected.
+
+---
+
+## 6. Handover — complete session context
+
+### 6.1 Access and environment
+- `gh` is authenticated as **CatsAreMakeGame** (keyring token `gho_…`, scopes
+  `gist`, `read:org`, `repo`, `workflow`; HTTPS protocol). The token lacks the
+  `user` scope, so `gh api user` cannot look up the account email.
+- Working checkout: `C:/Users/chich/Ai-game`, branch `main`, remote
+  `https://github.com/CatsAreMakeGame/Ai-game.git`. Repo-local identity:
+  `user.name=CatsAreMakeGame`, `user.email=CatsAreMakeGame@users.noreply.github.com`;
+  `gh auth setup-git` set `credential.helper=helper-selector` so HTTPS pushes
+  use the `gh` token without prompts.
+- The remote has repeatedly received **out-of-band commits** (icons uploaded or
+  renamed through the GitHub web UI). Always `git fetch` + `git pull --rebase
+  origin main` before pushing, inspect divergence, and never force-push. When
+  local and remote files collide, compare hashes before removing duplicates.
+- Game has no build step and no dependencies: double-click `index.html` (`file://`).
+- The `browser_exec` harness fails on this host with "Chromium exited with code 0
+  during startup". Working verification path: launch the bundled Chromium at
+  `C:/Users/chich/AppData/Local/hermes/tools/chromium-1248/chrome-win64/chrome.exe`
+  with `--headless=new --disable-gpu --no-sandbox --remote-debugging-port=9222
+  --user-data-dir=<scratch>`, then drive CDP from Node (built-in global
+  `WebSocket`) using the page target from `http://127.0.0.1:9222/json/list`.
+  `--dump-dom` produced no output here. A temporary copy of `index.html` with an
+  injected `VERIFY_JSON` marker makes verification one call; delete it after.
+  `vision_analyze` intermittently returns 429 — retry or fall back to DOM rects.
+  This workaround is recorded in the `browser-game-development` skill.
+
+### 6.2 Currency design decisions (chat)
+- Two-tier economy: **Credits** = common soft currency, gold `#ffd75c`, glyph
+  `●`, earned from kills and wave clears, spends on consumables (Hull Repair,
+  Rapid Fire+). **Star Gems** = rare, cyan `#6ef0ff`, glyph `◆`, dropped by
+  Mothership bosses, spend on permanent unlocks (Falcon ship).
+- "Coins" was rejected as too earthy for a space shooter. "Space Gems" was
+  rejected as too literal; "Star Gems" was chosen. Purple is reserved for a
+  possible third, premium tier.
+- The old fallback rendered every missing icon in cyan; fallback colour now
+  follows each currency's own colour.
+- Purchases are still in-memory only — no localStorage persistence yet.
+
+### 6.3 Icon art spec (chat)
+- Use **256x256 transparent PNG**, with a thin near-black outline (`#0a0d14`)
+  about 6-8px at source so it survives downscaling to the 15px HUD / 30px shop
+  sizes. Centre the shape with padding, no baked-in text, no heavy drop shadow.
+- 256px is deliberately oversized for current display but power-of-two and
+  future-proof; 64px would be sufficient for today's use.
+
+### 6.4 Icon files and manifest
+- Source pack: `C:/Users/chich/Downloads/vector-icon-pack/General/...`.
+- Shop basket history: `paid_shopping.png` = Red Outline 256,
+  `premium_shopping.png` = Yellow Outline 256, `normal_shop.png` = Blue Outline
+  256. The remote later renamed `normal_shop.png` to `In_round_shop.png`; that
+  image was copied to `icons/ui/in_round_shop.png` for the level-5 unlocked shop
+  icon. `icons/ui/shaded_lock.png` was uploaded on the remote for the locked state.
+- Currency files: `icons/currency/credit_gold.png`, `star_gem.png`.
+- Manifest: `currency.credit` -> `icons/currency/credit_gold.png`,
+  `currency.gem` -> `icons/currency/star_gem.png`, `ui.shadedLock` ->
+  `icons/ui/shaded_lock.png`, `ui.inRoundShop` -> `icons/ui/in_round_shop.png`.
+  `shop.locked` still points at `icons/shop/locked.png`, which does not exist.
+- `icons/README.md` lists the current expected filenames. `icons/crates/` was
+  created with a `.gitkeep` and is currently empty (no crate drops yet).
+
+### 6.5 Current remote icon tree
+```
+icons/README.md
+icons/crates/.gitkeep
+icons/currency/.gitkeep, credit_gold.png, star_gem.png
+icons/enemies/.gitkeep
+icons/shop/.gitkeep, In_round_shop.png, paid_shopping.png, premium_shopping.png
+icons/spaceships/.gitkeep
+icons/ui/.gitkeep, in_round_shop.png, shaded_lock.png
+```
+
+### 6.6 Feature state at handover
+- Controls: arrow keys / WASD for full 2D movement plus hold-left-click steering;
+  automatic fire; P/Esc pause; Enter restart. Speed 430 px/s.
+- "Level" means **player level**, not wave. XP from kills, wave clears and
+  bosses; in-round shop unlocks at level 5.
+- Skip Wave / Auto Skip stop future spawns but leave field enemies alive; boss
+  waves cannot be skipped by either route. Auto Skip requires 60% spawned.
+- HUD: wave, level + XP bar, score, credits, star gems, hull, wave completion %.
+- Tutorial: six slides, PREV/NEXT, dots, X close, first-visit auto-open,
+  "HOW TO PLAY" button to reopen.
+- Shop/Hangar locked during a wave; in-round shop opens between waves at level 5.
+- Recent commits: `b503cbb` icons renamed, `ff0a0b5` Part 1 spec, `b3cda79`
+  Part 1 implementation, `15a0d6c` Part 2 spec, `0a7e758` Part 2 implementation.
+  `main` was clean and in sync with `origin/main` at handover.
+
+### 6.7 Remaining / future work
+- More playable ships and a ship-select screen.
+- Real shop: purchase persistence (localStorage), equipping, `available` flags,
+  and a sink for star gems.
+- Crates folder is empty — no crate drops or crate opening yet.
+- Sound, mobile on-screen controls, difficulty setting.
+- Boss waves disable the Auto Skip toggle visually but leave the flag set; the
+  guard in `Game.update` prevents actual skipping. Revisit if a cleaner UX is
+  wanted.
