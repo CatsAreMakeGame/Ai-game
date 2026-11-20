@@ -211,3 +211,46 @@ skip and auto-skip at 60% work, shop gating and exit restore state, both
 in-round shop icons resolve from the manifest, and purchasing works. A
 screenshot was captured; DOM layout boxes confirm HUD/progress/controls sit
 inside the canvas without overlap.
+
+---
+
+## 5. Game updates — Part 2 (user spec, save verbatim)
+
+### 5.1 Fixes requested alongside Part 2
+- Fix auto skip and Skip Wave clearing all enemies from the field.
+- Make it impossible to skip boss fights.
+- Allow arrow keys or WASD to move again, and make movement more responsive
+  because it feels slow.
+
+### 5.2 Level system
+- Add a player level system.
+- Players must reach level 5 to unlock the in-round shop. (Level is a player
+  stat, NOT the wave number — this supersedes the Part 1 assumption.)
+
+### 5.3 Home screen tutorial
+- Remove all gameplay instructions currently displayed on the home screen.
+- Replace them with a tutorial slideshow popup.
+- Display one instruction at a time.
+- Include navigation controls to move between slides.
+- Add an X button in the top-right corner so players can close the tutorial at
+  any time.
+- Keep the tutorial visually polished and easy to understand.
+- The tutorial should not obstruct the home screen once closed.
+
+### 5.4 Visual improvements
+- Remove the word "Foundation" from the top-right corner of the build.
+- Make the UI less thin and more substantial. Improve the visual weight of UI
+  elements while keeping the design consistent.
+- Keep the interface clean and avoid unnecessary text or visual clutter.
+- Completely remove this developer-facing text from the home screen:
+  "Drop your icon pack into `icons/` to replace the placeholder art."
+  This should not be visible to players.
+
+### 5.5 General requirements
+- Preserve existing working features.
+- Ensure all buttons and menus work correctly.
+- Keep the code organised and maintainable.
+- Test the changes to make sure they work properly.
+
+**Note on 5.4:** the build tag and icon-pack hint were already removed in Part 1;
+only code comments still contain the word "foundation", which is not user-facing.
