@@ -127,3 +127,40 @@ progress::-webkit-progress-value { background: var(--lime); border-radius: 20px;
   color: var(--ink); background: #0a1719;
 }
 .admin-status { color: var(--lime); margin: 10px 0; }
+
+.panel:has(.armory-cards, .outfit-layout) { width: min(100%, 780px); }
+.item-card { grid-template-columns: 43px minmax(0, 1fr) auto; }
+.item-rarity { text-transform: uppercase; font: 700 .65rem ui-monospace, monospace; letter-spacing: .08em; }
+.item-icon, .ship-graphic { display: grid; place-items: center; width: 42px; height: 42px; }
+.item-icon { border: 1px solid var(--rarity); border-radius: 9px; color: var(--rarity); font-size: 1.35rem; background: #0b171d; }
+.item-icon img { width: 26px; height: 26px; object-fit: contain; }
+.loot-strip { position: absolute; z-index: 3; bottom: 10px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; pointer-events: none; }
+.loot-strip:empty { display: none; }
+.loot-tile { display: inline-flex; align-items: center; gap: 5px; color: var(--rarity); font: 700 .73rem system-ui, sans-serif; border: 1px solid var(--rarity); border-radius: 7px; background: #091519ee; padding: 3px 6px; }
+.loot-tile .item-icon, .loot-tile .ship-graphic { width: 23px; height: 23px; border: 0; font-size: .95rem; }
+.loot-tile img { width: 18px; height: 18px; }
+.alert { bottom: 52px; }
+.crate-switch { display: flex; gap: 9px; align-items: center; margin-bottom: 12px; }
+.crate-switch input { accent-color: var(--lime); width: 18px; height: 18px; }
+.outfit-layout { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(130px, 1fr); gap: 12px; margin-bottom: 14px; }
+.ship-diagram { position: relative; display: grid; min-height: 270px; padding: 8px; gap: 9px 4px; align-items: center; grid-template-columns: repeat(3, minmax(0,1fr)); grid-template-rows: auto 1fr auto; border: 1px solid var(--line); border-radius: 10px; background: radial-gradient(ellipse,#173f3b,#0a181d 70%); }
+.diagram-art { position: absolute; width: 66%; height: auto; inset: 50% auto auto 50%; translate: -50% -50%; opacity: .89; }
+.mount { z-index: 1; min-height: 43px; font-size: .65rem; padding: 4px 3px; background: #0d1c22e8; }
+.mount small { display: block; font-size: .63rem; color: var(--muted); }
+.mount-nose { grid-area: 1 / 2; }
+.mount-leftWing { grid-area: 2 / 1; }
+.mount-special { grid-area: 2 / 2; }
+.mount-rightWing { grid-area: 2 / 3; }
+.mount-engine1 { grid-area: 3 / 2; }
+.mount-engine2 { grid-area: 3 / 1; }
+.mount-engine3 { grid-area: 3 / 3; }
+.outfit-parts { display: grid; align-content: start; gap: 7px; }
+.outfit-parts button { font-size: .75rem; color: var(--rarity); text-align: left; }
+@media (max-width: 580px) {
+  .item-card { grid-template-columns: 32px minmax(0, 1fr); }
+  .item-card > button { grid-column: 2; justify-self: start; }
+  .item-card .item-icon, .item-card .ship-graphic { width: 31px; height: 31px; }
+  .outfit-layout { grid-template-columns: minmax(0, 1fr); }
+  .ship-diagram { min-height: 190px; }
+  .loot-tile { font-size: .62rem; }
+}

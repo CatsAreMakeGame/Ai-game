@@ -2,7 +2,7 @@
   'use strict';
 
   const AG = window.AG;
-  const { WIDTH, HEIGHT, LAST_WAVE, SUPPLY_LEVEL, AUTO_SKIP_AT, SHIPS, BOOSTS, UPGRADES,
+  const { WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, BOSSES, CRATES, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, SHIPS, BOOSTS, UPGRADES,
     ENEMIES, SUPPLIES, clamp, difficultyFor, xpForLevel } = AG;
   const MOVE = { arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0],
     arrowup: [0, -1], w: [0, -1], arrowdown: [0, 1], s: [0, 1] };
@@ -21,7 +21,11 @@
       this.run = null;
       this.testing = false;
       this.liveSession = null;
+      this.testProfile = null;
     }
+
+    get credits() { return this.profile.credits; }
+    get waveLimit() { return this.testing ? MAX_WAVE : LAST_WAVE; }
 
     save() {
       if (this.testing) return;
@@ -33,7 +37,7 @@
       this.liveSession = {
         profile: this.profile, run: this.run, state: this.state, resumeState: this.resumeState
       };
-      this.profile = { ...this.profile, unlocked: [...this.profile.unlocked], bestScore: 0, bestWave: 0 };
+      this.profile = this.testProfile ?? JSON.parse(JSON.stringify(this.profile));
       this.testing = true;
       this.run = null;
       this.state = 'home';
@@ -42,6 +46,7 @@
     leaveTesting() {
       if (!this.testing) return;
       const { profile, run, state, resumeState } = this.liveSession;
+      this.testProfile = this.profile;
       this.profile = profile;
       this.run = run;
       this.state = state;
@@ -49,6 +54,16 @@
       this.liveSession = null;
       this.testing = false;
       this.releaseInput();
+    }
+
+    clearTestingData() {
+      if (!this.testing) return false;
+      this.profile = AG.readProfile(null);
+      this.testProfile = this.profile;
+      this.run = null;
+      this.state = 'home';
+      this.releaseInput();
+      return true;
     }
 
     releaseInput() {
@@ -60,8 +75,7 @@
       const ship = SHIPS[this.profile.ship];
       this.releaseInput();
       this.run = {
-        wave: 0, level: 1, xp: 0, score: 0, credits: 0, boosts: {}, ship,
-        inventory: { boosts: {}, upgrades: new Set(), equipped: {} },
+        wave: 0, level: 1, xp: 0, score: 0, boosts: {}, ship,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: []
       };
@@ -70,12 +84,12 @@
 
     beginWave(number, carryShots = false) {
       const run = this.run;
+      number = clamp(Math.trunc(number) || 1, 1, this.waveLimit);
       const diff = difficultyFor(number);
       run.wave = number;
       run.diff = diff;
-      run.pending = [];
-      if (diff.boss) run.pending.push('boss');
-      const pool = Object.keys(ENEMIES).filter(type => type !== 'boss' && ENEMIES[type].unlock <= number);
+      run.pending = AG.bossLineup(number);
+      const pool = Object.keys(ENEMIES).filter(type => !BOSSES[type] && ENEMIES[type].unlock <= number);
       const count = diff.boss ? Math.ceil(diff.count * 0.42) : diff.count;
       for (let index = 0; index < count; index++) {
         run.pending.push(pool[Math.floor(this.random() * pool.length)]);
@@ -89,12 +103,12 @@
         run.hostile = [];
       }
       this.state = 'playing';
-      this.notify('wave', diff.boss ? 'Mothership incoming' : 'Wave ' + number);
+      this.notify('wave', diff.boss ? (BOSSES[run.pending[Math.min(4, number / 10 - 1)]].name + ' incoming') : 'Wave ' + number.toLocaleString());
     }
 
     canSkip() {
       const run = this.run;
-      return this.state === 'playing' && !run.diff.boss && run.wave < LAST_WAVE && run.pending.length > 0;
+      return this.state === 'playing' && !run.diff.boss && run.wave < this.waveLimit && run.pending.length > 0;
     }
 
     skip() {
@@ -105,18 +119,15 @@
 
     finishWave() {
       const run = this.run;
-      const credits = 18 + run.wave * 2;
-      run.credits += credits;
+      const credits = 18 + Math.min(500, run.wave * 2);
+      this.profile.credits += credits;
+      this.save();
       const before = run.player.hp;
       this.gainXp(12);
       this.repair(8, false);
       const repaired = run.player.hp - before;
       this.notify('reward', '+' + credits + ' credits' + (repaired ? ' · +' + repaired + ' hull' : ''));
-      if (run.wave === LAST_WAVE) {
-        this.finish('victory');
-        return;
-      }
-      run.breakTime = 4.8;
+      run.breakTime = run.wave === this.waveLimit ? 7 : 4.8;
       run.hostile = [];
       this.state = 'intermission';
       this.notify('wave', 'Wave ' + run.wave + ' clear');
@@ -153,68 +164,108 @@
     }
 
     applyBoost(type) {
-      if (type === 'heal') {
-        this.repair(25);
-      } else {
+      if (BOOSTS[type].repair) this.repair(BOOSTS[type].repair);
+      else {
         this.run.boosts[type] = BOOSTS[type].duration;
         this.notify('upgrade', BOOSTS[type].name + ' online');
       }
     }
 
-    hasUpgrade(slot) {
-      return UPGRADES[this.run.inventory.equipped[slot]];
+    upgradeEffects() {
+      const mounts = this.profile.loadouts[this.profile.ship] ?? {};
+      const effects = { speed: 1, damage: 0, vertical: false };
+      for (const id of Object.values(mounts)) {
+        const upgrade = UPGRADES[id];
+        effects.speed += upgrade.speed ?? 0;
+        effects.damage += upgrade.damage ?? 0;
+        effects.vertical ||= Boolean(upgrade.vertical);
+      }
+      return effects;
     }
 
-    grantItem(type) {
-      const { inventory } = this.run;
-      const upgrade = UPGRADES[type];
-      if (upgrade) {
-        if (inventory.upgrades.has(type)) return false;
-        inventory.upgrades.add(type);
-      } else if (Object.hasOwn(BOOSTS, type)) {
-        inventory.boosts[type] = (inventory.boosts[type] ?? 0) + 1;
+    mountUpgrade(ship, slot, type) {
+      if (!this.profile.unlocked.includes(ship) || !Object.hasOwn(SLOTS, slot)) return false;
+      if (slot === 'special' || (slot.startsWith('engine') && +slot.slice(-1) > SHIPS[ship].engines)) return false;
+      const mounts = this.profile.loadouts[ship] ??= {};
+      if (type) {
+        if (UPGRADES[type]?.slot !== SLOTS[slot][0] || !this.profile.upgrades[type]) return false;
+        const used = Object.entries(mounts).filter(([key, id]) => key !== slot && id === type).length;
+        if (used >= this.profile.upgrades[type]) return false;
+        mounts[slot] = type;
       } else {
-        return false;
+        delete mounts[slot];
       }
-      this.notify('upgrade', (upgrade ?? BOOSTS[type]).name + ' added to inventory');
+      if (this.run && !this.canVisitBase() && ship === this.profile.ship && !this.upgradeEffects().vertical) {
+        this.run.player.y = FLIGHT_LANE;
+      }
+      this.save();
+      return true;
+    }
+
+    grantItem(type, amount = 1) {
+      if (!Object.hasOwn(AG.ITEMS, type)) return false;
+      const profile = this.profile;
+      if (type === 'credit') profile.credits += amount;
+      else if (type === 'gem') profile.gems += amount;
+      else if (SHIPS[type]) {
+        if (profile.unlocked.includes(type)) return false;
+        profile.unlocked.push(type);
+      } else {
+        const stock = UPGRADES[type] ? profile.upgrades : BOOSTS[type] ? profile.boosts : profile.crates;
+        stock[type] = (stock[type] ?? 0) + amount;
+      }
+      this.save();
+      this.notify('loot', { type, amount });
       return true;
     }
 
     canUseBoost(type) {
-      const { inventory, player, ship } = this.run;
-      return (inventory.boosts[type] ?? 0) > 0 && (type !== 'heal' || player.hp < ship.hull);
+      return Boolean(this.run && !this.canVisitBase() && this.run.player.hp > 0 && this.profile.boosts[type] &&
+        (!BOOSTS[type].repair || this.run.player.hp < this.run.ship.hull));
     }
 
     useBoost(type) {
       if (!this.canUseBoost(type)) return false;
-      this.run.inventory.boosts[type]--;
+      this.profile.boosts[type]--;
       this.applyBoost(type);
+      this.save();
       return true;
     }
 
-    toggleUpgrade(type) {
-      const { inventory, player } = this.run;
-      if (!inventory.upgrades.has(type)) return false;
-      const { slot, vertical } = UPGRADES[type];
-      if (inventory.equipped[slot] === type) {
-        delete inventory.equipped[slot];
-        if (vertical) player.y = FLIGHT_LANE;
-      } else {
-        inventory.equipped[slot] = type;
+    buyCrate(type, autoOpen = false) {
+      const crate = CRATES[type];
+      if (!this.canVisitBase() || !crate || this.profile.gems < crate.price) return false;
+      this.profile.gems -= crate.price;
+      this.grantItem(type);
+      return autoOpen ? this.openCrate(type) : true;
+    }
+
+    openCrate(type) {
+      if (!this.profile.crates[type] || !CRATES[type]) return false;
+      const crate = CRATES[type];
+      let roll = this.random() * 100;
+      const outcome = crate.outcomes.find(entry => (roll -= entry.weight) < 0) ?? crate.outcomes.at(-1);
+      const id = outcome.items[Math.floor(this.random() * outcome.items.length)];
+      this.profile.crates[type]--;
+      if (!this.grantItem(id)) {
+        this.grantItem('credit', 250);
+        return { type: 'credit', text: 'Duplicate ' + SHIPS[id].name + ' converted to 250 Credits.' };
       }
-      return true;
+      return { type: id, text: AG.ITEMS[id].name + ' · ' + outcome.rarity };
     }
 
     canBuy(type) {
       const run = this.run;
       return Boolean(SUPPLIES[type] && this.state === 'intermission' && run.level >= SUPPLY_LEVEL &&
-        run.credits >= SUPPLIES[type].price && (type !== 'heal' || run.player.hp < run.ship.hull));
+        this.credits >= SUPPLIES[type].price && (type !== 'heal' || run.player.hp < run.ship.hull));
     }
 
     buy(type) {
       if (!this.canBuy(type)) return false;
-      this.run.credits -= SUPPLIES[type].price;
+      this.profile.credits -= SUPPLIES[type].price;
       this.applyBoost(type);
+      this.save();
+      this.notify('loot', { type, amount: 1 });
       return true;
     }
 
@@ -224,15 +275,13 @@
 
     canUnlockShip(id) {
       return this.canVisitBase() && Object.hasOwn(SHIPS, id) &&
-        !this.profile.unlocked.includes(id) && this.profile.gems >= SHIPS[id].price;
+        SHIPS[id].price > 0 && !this.profile.unlocked.includes(id) && this.credits >= SHIPS[id].price;
     }
 
     unlockShip(id) {
       if (!this.canUnlockShip(id)) return false;
-      this.profile.gems -= SHIPS[id].price;
-      this.profile.unlocked.push(id);
-      this.save();
-      return true;
+      this.profile.credits -= SHIPS[id].price;
+      return this.grantItem(id);
     }
 
     equip(id) {
@@ -245,14 +294,14 @@
     spawn(type, extra = false) {
       const run = this.run;
       const spec = ENEMIES[type];
-      const boss = type === 'boss';
+      const boss = BOSSES[type];
       const margin = spec.size + 24;
       const lane = run.spawned % 10;
       const x = boss ? WIDTH / 2 : clamp(90 + lane * 80 + (this.random() - 0.5) * 100, margin, WIDTH - margin);
-      const hp = boss ? Math.round(spec.hp * (1 + (run.wave - 10) * 0.085)) : Math.ceil(spec.hp * run.diff.health);
+      const hp = boss ? Math.round(spec.hp * (1 + .25 * Math.max(0, Math.log10(run.wave / 50)))) : Math.ceil(spec.hp * run.diff.health);
       run.enemies.push({
         type, x, origin: x, y: -spec.size, size: spec.size, hp, maxHp: hp,
-        speed: run.diff.speed * spec.speed, fireIn: 1 + this.random() * run.diff.fire,
+        speed: run.diff.speed * (spec.speed ?? 0), lane: run.spawned % 5, fireIn: 1 + this.random() * run.diff.fire,
         fireDelay: run.diff.fire, age: 0, bornWave: run.wave, flash: 0, volley: 0
       });
       if (extra) run.total++;
@@ -261,8 +310,9 @@
 
     movePlayer(dt) {
       const player = this.run.player;
-      const speed = this.run.ship.speed * (this.hasUpgrade('Wings')?.speed ?? 1);
-      const vertical = this.hasUpgrade('Engine')?.vertical;
+      const effects = this.upgradeEffects();
+      const speed = this.run.ship.speed * effects.speed * (this.run.boosts.overdrive ? 1.4 : 1);
+      const vertical = effects.vertical;
       let x = 0;
       let y = 0;
       for (const key of this.keys) {
@@ -295,7 +345,10 @@
         this.updatePlayerShots(dt);
         this.collectDrops(dt);
         run.breakTime -= dt;
-        if (run.breakTime <= 0) this.beginWave(run.wave + 1);
+        if (run.breakTime <= 0) {
+          if (run.wave === this.waveLimit) this.finish('victory');
+          else this.beginWave(run.wave + 1);
+        }
         return;
       }
 
@@ -303,20 +356,21 @@
         run.boosts[type] -= dt;
         if (run.boosts[type] <= 0) delete run.boosts[type];
       }
-      run.spawnIn -= dt;
-      if (run.pending.length && run.spawnIn <= 0) {
-        this.spawn(run.pending.shift());
-        run.spawnIn += run.diff.spawn;
+      run.spawnIn = Math.max(0, run.spawnIn - dt);
+      if (run.pending.length && run.spawnIn === 0 &&
+        (!BOSSES[run.pending[0]] || run.enemies.filter(enemy => BOSSES[enemy.type]).length < 5)) {
+        const type = run.pending.shift();
+        this.spawn(type);
+        run.spawnIn = BOSSES[type] ? 1.35 : run.diff.spawn;
       }
       if (this.profile.auto && this.canSkip() && run.spawned / run.total >= AUTO_SKIP_AT) this.skip();
 
       const { player, ship } = run;
       player.fireIn -= dt;
       if (player.fireIn <= 0) {
-        const damage = (ship.damage + Math.floor((run.wave - 1) / 7) +
-          (this.hasUpgrade('Weapon')?.damage ?? 0)) * (run.boosts.doubleDamage ? 2 : 1);
+        const damage = (ship.damage + Math.floor((Math.min(run.wave, 50) - 1) / 7) + this.upgradeEffects().damage) * (run.boosts.doubleDamage ? 2 : 1);
         run.shots.push({ x: player.x, y: player.y - 20, vx: 0, vy: -720, size: 5, damage });
-        player.fireIn += ship.delay * (run.boosts.rapidFire ? 0.52 : 1);
+        player.fireIn += ship.delay * (run.boosts.rapidFire ? .52 : run.boosts.overdrive ? .68 : 1);
         this.notify('fire');
       }
 
@@ -337,10 +391,11 @@
         const enemy = run.enemies[index];
         enemy.age += dt;
         enemy.flash -= dt;
-        const boss = enemy.type === 'boss';
+        const boss = BOSSES[enemy.type];
         if (boss) {
-          enemy.y = Math.min(enemy.y + 70 * dt, 150);
-          enemy.x = WIDTH / 2 + Math.sin(enemy.age * 0.78) * 275;
+          enemy.y = Math.min(enemy.y + (68 + boss.tier * 8) * dt, 128 + enemy.lane * 33);
+          const center = enemy.bornWave === 10 ? WIDTH / 2 : 120 + enemy.lane * 164;
+          enemy.x = clamp(center + Math.sin(enemy.age * (.78 + boss.tier * .18)) * (enemy.bornWave === 10 ? 275 : 90), boss.size + 12, WIDTH - boss.size - 12);
         } else {
           enemy.y += enemy.speed * dt;
           const diver = enemy.type === 'diver';
@@ -356,25 +411,32 @@
           if (!boss) this.removeEnemy(index, false);
           continue;
         }
-        if (enemy.y < 75 || !['boss', 'shooter', 'tank'].includes(enemy.type)) continue;
+        if (enemy.y < 75 || !boss && !['shooter', 'tank'].includes(enemy.type)) continue;
         enemy.fireIn -= dt;
         if (enemy.fireIn <= 0) {
           const phase = enemy.hp / enemy.maxHp < 0.45;
-          this.fireAtPlayer(enemy, boss ? (phase ? 7 : 5) : 1);
-          enemy.fireIn = boss ? (phase ? 1.13 : 1.8) : enemy.fireDelay;
+          this.fireAtPlayer(enemy, boss ? boss.shots + (phase ? 2 : 0) : 1);
+          enemy.fireIn = boss ? boss.cadence * (phase ? .72 : 1) : enemy.fireDelay;
         }
       }
     }
 
     fireAtPlayer(enemy, count) {
       const { player, hostile } = this.run;
-      const aim = Math.atan2(player.y - enemy.y, player.x - enemy.x);
-      const spread = enemy.volley++ % 2 === 0 ? 0.17 : 0.28;
-      const speed = enemy.type === 'boss' ? 250 : 205;
+      const boss = BOSSES[enemy.type];
+      const volley = enemy.volley++;
+      const direct = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+      const aim = enemy.type === 'dread' && volley % 2 ? Math.PI / 2 : direct;
+      const sweep = enemy.type === 'phantom' ? Math.sin(volley * 1.45) * .33 : 0;
+      const spread = (boss?.spread ?? .17) * (volley % 2 ? 1.35 : 1);
+      const speed = boss ? 220 + boss.tier * 12 : 205;
       for (let index = 0; index < count; index++) {
-        const angle = aim + (index - (count - 1) / 2) * spread;
-        hostile.push({ x: enemy.x, y: enemy.y + 4, size: 6, vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed, damage: enemy.type === 'boss' ? 14 : 9 });
+        const offset = index - (count - 1) / 2;
+        const angle = aim + sweep + offset * spread;
+        const shotSpeed = enemy.type === 'prism' && index % 2 ? speed * 1.32 :
+          enemy.type === 'nexus' && index % 2 ? speed * .72 : speed;
+        hostile.push({ x: enemy.x, y: enemy.y + 4, size: 6, vx: Math.cos(angle) * shotSpeed,
+          vy: Math.sin(angle) * shotSpeed, damage: boss ? 12 + boss.tier : 9 });
       }
     }
 
@@ -408,7 +470,7 @@
 
     hurt(damage) {
       const { player, boosts } = this.run;
-      if ((this.testing && this.run.godMode) || player.invulnerable > 0 || boosts.shield) return;
+      if ((this.testing && this.run.godMode) || player.invulnerable > 0 || boosts.shield || boosts.fortress) return;
       player.hp = Math.max(0, player.hp - damage);
       player.invulnerable = 0.78;
       this.notify('hit');
@@ -422,48 +484,44 @@
         if (escaped) this.hurt(5);
         return;
       }
-      const boss = enemy.type === 'boss';
-      const credits = boss ? 95 : Math.max(3, Math.ceil(ENEMIES[enemy.type].score / 4));
-      run.score += ENEMIES[enemy.type].score;
-      run.credits += credits;
+      const boss = BOSSES[enemy.type];
+      const score = ENEMIES[enemy.type].score;
+      run.score += score;
       this.notify('destroy', enemy);
-      this.notify('reward', '+' + credits + ' credits' + (boss ? ' · +1 Star Gem' : ''));
-      if (boss) {
-        this.profile.gems++;
-        this.save();
-      }
+      this.dropItem('credit', enemy.x, enemy.y, boss ? 95 + boss.tier * 25 : Math.max(4, Math.ceil(score / 3)));
+      if (boss) this.dropItem('gem', enemy.x + 12, enemy.y, 1);
       this.gainXp(boss ? 25 : 2);
-      if (boss || this.random() < 0.14) {
+      if (boss || this.random() < .14) {
         const types = Object.keys(BOOSTS);
-        const type = boss ? 'shield' : types[Math.floor(this.random() * types.length)];
-        this.dropItem(type, enemy.x - 17, enemy.y);
+        this.dropItem(boss ? 'shield' : types[Math.floor(this.random() ** 1.65 * types.length)], enemy.x - 20, enemy.y);
       }
       let roll = this.random();
       for (const [type, upgrade] of Object.entries(UPGRADES)) {
         roll -= upgrade.chance;
         if (roll >= 0) continue;
-        if (!run.inventory.upgrades.has(type) && !run.drops.some(drop => drop.type === type)) {
-          this.dropItem(type, enemy.x + 17, enemy.y);
-        }
+        this.dropItem(type, enemy.x + 21, enemy.y);
         break;
       }
+      const crateRoll = this.random();
+      if (crateRoll < (boss ? .06 : .001)) this.dropItem('shipCrate', enemy.x - 31, enemy.y);
+      else if (crateRoll < (boss ? .17 : .004)) this.dropItem('upgradeCrate', enemy.x - 31, enemy.y);
     }
 
-    dropItem(type, x, y) {
-      this.run.drops.push({ type, x: clamp(x, 22, WIDTH - 22), y: clamp(y, 100, FLIGHT_LANE),
-        age: 0, size: 16 });
+    dropItem(type, x, y, amount = 1) {
+      this.run.drops.push({ type, amount, x: clamp(x, 22, WIDTH - 22),
+        y: clamp(y, 100, FLIGHT_LANE), age: 0, size: 16 });
     }
 
     collectDrops(dt) {
       const run = this.run;
       run.drops = run.drops.filter(drop => {
         drop.age += dt;
-        drop.y = Math.min(FLIGHT_LANE, drop.y + 70 * dt);
+        drop.y = Math.min(FLIGHT_LANE, drop.y + 140 * dt);
         if (touches(drop, run.player)) {
-          this.grantItem(drop.type);
+          this.grantItem(drop.type, drop.amount);
           return false;
         }
-        return drop.age < 12;
+        return drop.age < 16;
       });
     }
   }

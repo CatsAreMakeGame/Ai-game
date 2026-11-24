@@ -415,3 +415,18 @@ Audio is opt-in, and pointer steering works with touch.
 Admin is accessible during the tutorial and during flight. Closing the code
 prompt returns to the previous panel or flight. Unlocking testing suspends the
 normal run and exiting testing restores it, including any open panel.
+
+---
+
+## 9. Boss fleets and persistent armory
+
+- Campaign waves 10–50 introduce Mothership, Prism Carrier, Iron Dreadnought,
+  Phantom Ark and Nexus Overlord in order, with previous bosses returning.
+- The admin extension goes to signed 32-bit max. Spawn scaling is logarithmic
+  beyond the campaign and at most five bosses are active at once.
+- Credits, Star Gems, parts, boosts and crates are proximity pickups. Inventory
+  and per-ship loadouts now persist with the original profile save, while old
+  ship unlocks and gems are migrated forward.
+- Seven ships are sold for Credits, including the existing Falcon. Three more
+  are exclusive to the Spaceship Crate. Both Star Gem crates show their odds.
+- Admin remembers unlock for the tab session and can reset its isolated data.

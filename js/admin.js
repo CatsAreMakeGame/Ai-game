@@ -4,7 +4,7 @@
   const AG = window.AG;
   const UNLOCK_CODE = 'ADMIN99';
 
-  function renderAdmin({ body, game, button, element, dismiss, resumeFlight, enterTesting, exitTesting }) {
+  function renderAdmin({ body, game, button, element, dismiss, resumeFlight, enterTesting, exitTesting, refresh, shop }) {
     if (!game.testing) {
       const form = element('form', '', 'admin-group');
       const label = element('label', 'Access code');
@@ -78,26 +78,25 @@
 
     body.append(intro);
     const wave = group('Wave controls');
-    const label = element('label', 'Wave number (1–50)');
+    const label = element('label', 'Wave number (1–2,147,483,647)');
     const number = element('input');
     number.type = 'number';
     number.min = '1';
-    number.max = String(AG.LAST_WAVE);
     number.value = String(run?.wave ?? 1);
     number.step = '1';
     label.append(number);
     wave.append(label);
     actions(wave, button('Jump to wave', () => {
-      if (number.value && number.checkValidity()) waveJump(number.valueAsNumber);
+      if (Number.isInteger(number.valueAsNumber) && number.valueAsNumber >= 1) waveJump(Math.min(AG.MAX_WAVE, number.valueAsNumber));
       else {
-        status.textContent = 'Enter a whole wave number from 1 to ' + AG.LAST_WAVE + '.';
+        status.textContent = 'Enter a positive whole wave number.';
         number.focus();
       }
     }), button('Fresh test run', () => { game.start(); resumeFlight(); }));
 
     if (run) {
       actions(wave, button('Clear wave', () => {
-        if (run.pending.includes('boss')) game.spawn('boss');
+        for (const type of run.pending) if (AG.BOSSES[type]) game.spawn(type);
         run.pending.length = 0;
         while (run.enemies.length) game.removeEnemy(0, true);
         run.resolved = run.total;
@@ -124,12 +123,12 @@
         if (run.level < 50) game.gainXp(AG.xpForLevel(run.level) - run.xp);
         status.textContent = 'Pilot level ' + run.level + '.';
       }), button('+1,000 Credits', () => {
-        run.credits += 1000;
-        status.textContent = run.credits + ' Credits available.';
+        game.grantItem('credit', 1000);
+        status.textContent = game.credits + ' Credits available.';
       }));
 
       const items = group('Inventory and drops');
-      const catalog = { ...AG.BOOSTS, ...AG.UPGRADES };
+      const catalog = AG.ITEMS;
       const item = select(items, 'Item', Object.entries(catalog).map(([id, spec]) => [id, spec.name]));
       actions(items, button('Grant item', () => {
         status.textContent = catalog[item.value].name + (game.grantItem(item.value) ? ' added.' : ' already owned.');
@@ -139,7 +138,7 @@
       }));
       const combat = group('Enemy testing');
       const enemy = select(combat, 'Enemy type', Object.keys(AG.ENEMIES)
-        .map(id => [id, id === 'boss' ? 'Mothership' : id[0].toUpperCase() + id.slice(1)]));
+        .map(id => [id, AG.BOSSES[id]?.name ?? (id[0].toUpperCase() + id.slice(1))]));
       actions(combat, button('Spawn enemy', () => {
         game.spawn(enemy.value, true);
         status.textContent = 'Enemy spawned.';
@@ -148,8 +147,21 @@
 
     const profile = group('Shop testing');
     actions(profile, button('+5 Star Gems', () => {
-      game.profile.gems += 5;
+      game.grantItem('gem', 5);
       status.textContent = game.profile.gems + ' Star Gems available.';
+    }), button('+5,000 Credits', () => {
+      game.grantItem('credit', 5000);
+      status.textContent = game.credits + ' Credits available.';
+    }));
+    if (!flight) actions(profile, button('Open Shop', shop));
+    const reset = group('Testing data');
+    actions(reset, button('Clear all testing data', () => {
+      reset.replaceChildren(element('h3', 'Delete all testing progress?'),
+        element('p', 'This clears the testing run, ships, inventory and currency. Normal progress stays saved.', 'panel-note'));
+      actions(reset, button('Clear testing data', () => {
+        game.clearTestingData();
+        refresh();
+      }), button('Cancel', refresh));
     }));
     const leave = element('div', '', 'admin-actions');
     leave.append(button(flight ? 'Back to flight' : 'Back', dismiss, { primary: true }),

@@ -19,6 +19,43 @@
     ctx.fill();
   }
 
+  const frames = {
+    dart: [0,-28, 11,-2, 25,16, 11,12, 0,17,-11,12,-25,16,-11,-2],
+    swept: [0,-26, 8,-9, 32,5, 29,-8, 27,19, 9,11, 0,19,-9,11,-27,19,-29,-8,-32,5,-8,-9],
+    block: [0,-23, 13,-18, 13,-8, 28,-7, 28,18, 11,15, 0,22,-11,15,-28,18,-28,-7,-13,-8,-13,-18],
+    split: [0,-21, 8,-1, 26,-27, 31,-7, 22,20, 10,14, 0,21,-10,14,-22,20,-31,-7,-26,-27,-8,-1],
+    crescent: [0,-27, 9,-9, 25,-4, 33,-19, 30,11, 16,17, 0,13,-16,17,-30,11,-33,-19,-25,-4,-9,-9],
+    delta: [0,-32, 29,14, 21,22, 0,15,-21,22,-29,14],
+    hex: [0,-25, 18,-22, 30,-7, 30,11, 17,22,-17,22,-30,11,-30,-7,-18,-22],
+    arrow: [0,-34, 16,-11, 33,14, 14,9, 12,24, 0,17,-12,24,-14,9,-33,14,-16,-11],
+    needle: [0,-35, 7,-9, 28,14, 25,23, 8,13, 0,24,-8,13,-25,23,-28,14,-7,-9],
+    fang: [0,-22, 13,-10, 33,-20, 27,18, 10,22, 0,12,-10,22,-27,18,-33,-20,-13,-10],
+    star: [0,-34, 13,-11, 33,-6, 21,8, 22,25, 0,16,-22,25,-21,8,-33,-6,-13,-11]
+  };
+  function paintShip(ctx, spec, flame = 26) {
+    const outline = frames[spec.frame];
+    const points = Array.from({ length: outline.length / 2 }, (_, i) => [outline[i * 2], outline[i * 2 + 1]]);
+    for (let i = 0; i < spec.engines; i++) {
+      const x = (i - (spec.engines - 1) / 2) * 11;
+      polygon(ctx, [[x - 4, 12], [x, flame], [x + 4, 12]], spec.color);
+    }
+    polygon(ctx, points, '#30495b');
+    polygon(ctx, points.map(([x,y]) => [x * .83, y * .87 - 1]), spec.color);
+    polygon(ctx, [[0,-24],[8,-2],[7,15],[0,20],[-7,15],[-8,-2]], '#e2f2f6');
+    polygon(ctx, [[0,-16],[5,-4],[0,3],[-5,-4]], '#14283c');
+  }
+  function shipGraphic(id) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 128;
+    canvas.className = 'ship-graphic';
+    canvas.setAttribute('aria-hidden', 'true');
+    const ctx = canvas.getContext('2d');
+    ctx.translate(64, 66);
+    ctx.scale(1.67, 1.67);
+    paintShip(ctx, AG.SHIPS[id]);
+    return canvas;
+  }
+
   class FlightView {
     constructor(canvas) {
       this.ctx = canvas.getContext('2d');
@@ -38,6 +75,11 @@
           image.src = 'icons/' + folder + '/' + name + '.png';
           this.images[folder + '/' + name] = image;
         }
+      }
+      for (const id of ['credit', 'gem']) {
+        const image = new Image();
+        image.src = AG.ITEMS[id].file;
+        this.images[id] = image;
       }
       this.backdrop = this.createBackdrop();
     }
@@ -103,16 +145,7 @@
       ctx.save();
       ctx.translate(x, y);
       ctx.scale(scale, scale);
-      if (!this.sprite('spaceships/' + id, 27)) {
-        const flame = 29 + Math.sin(this.time * 23) * 5;
-        polygon(ctx, [[-7, 12], [0, flame], [7, 12]], '#6be8c6');
-        polygon(ctx, [[-4, 14], [0, flame - 9], [4, 14]], '#ecffee');
-        polygon(ctx, [[0, -26], [11, -2], [24, 17], [11, 15], [0, 10], [-11, 15], [-24, 17], [-11, -2]], '#314c4e');
-        polygon(ctx, [[0, -26], [8, -5], [8, 13], [0, 19], [-8, 13], [-8, -5]], '#e7eee2');
-        polygon(ctx, [[-20, 12], [-9, -1], [-10, 11], [-14, 15]], color);
-        polygon(ctx, [[20, 12], [9, -1], [10, 11], [14, 15]], color);
-        polygon(ctx, [[0, -15], [4, -5], [0, 4], [-4, -5]], '#19373e');
-      }
+      if (!this.sprite('spaceships/' + id, 27)) paintShip(ctx, AG.SHIPS[id], 29 + Math.sin(this.time * 23) * 4);
       ctx.restore();
     }
 
@@ -129,21 +162,31 @@
           diver: [[-20, -17], [0, -9], [20, -17], [11, 4], [0, 19], [-11, 4]],
           shooter: [[-19, -5], [-9, -17], [9, -17], [19, -5], [16, 12], [0, 16], [-16, 12]],
           tank: [[-20, -9], [-10, -16], [10, -16], [20, -9], [20, 9], [9, 16], [-9, 16], [-20, 9]],
+          prism: [[0,-21],[21,-6],[16,13],[0,7],[-16,13],[-21,-6]],
+          dread: [[-23,-11],[-13,-16],[13,-16],[23,-11],[23,12],[13,15],[-13,15],[-23,12]],
+          phantom: [[-24,-16],[0,-6],[24,-16],[15,10],[0,20],[-15,10]],
+          nexus: [[0,-22],[8,-12],[24,-17],[18,0],[24,12],[0,18],[-24,12],[-18,0],[-24,-17],[-8,-12]],
           boss: [[-22, -2], [-15, -11], [-3, -9], [0, -16], [3, -9], [15, -11], [22, -2], [18, 10], [9, 7], [0, 14], [-9, 7], [-18, 10]]
         };
         polygon(ctx, hulls[type], color);
         polygon(ctx, [[-13, -4], [0, -10], [13, -4], [0, 11]], '#29323f');
-        disc(ctx, 0, 0, type === 'boss' ? 4.5 : 3.5, color);
-        if (type === 'boss') {
+        disc(ctx, 0, 0, AG.BOSSES[type] ? 4.5 : 3.5, color);
+        if (AG.BOSSES[type]) {
           disc(ctx, -15, 0, 2.3, '#fff4cf');
           disc(ctx, 15, 0, 2.3, '#fff4cf');
         }
       }
       ctx.restore();
+      if (AG.BOSSES[type] && enemy.y > 75) {
+        ctx.fillStyle = '#131921';
+        ctx.fillRect(enemy.x - 32, enemy.y + size + 4, 64, 4);
+        ctx.fillStyle = ENEMIES[type].color;
+        ctx.fillRect(enemy.x - 32, enemy.y + size + 4, 64 * enemy.hp / enemy.maxHp, 4);
+      }
     }
 
     burst(enemy) {
-      const count = enemy.type === 'boss' ? 40 : 10;
+      const count = AG.BOSSES[enemy.type] ? 40 : 10;
       for (let index = 0; index < count; index++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 38 + Math.random() * 160;
@@ -179,13 +222,16 @@
       }
       for (const enemy of run.enemies) this.enemy(enemy);
       for (const drop of run.drops) {
-        const item = BOOSTS[drop.type] ?? AG.UPGRADES[drop.type];
+        const item = AG.ITEMS[drop.type];
         ctx.save();
         ctx.translate(drop.x, drop.y);
-        if (!item.file || !this.sprite('boosts/' + item.file, 16)) {
+        if (AG.SHIPS[drop.type]) {
+          ctx.scale(.44, .44);
+          paintShip(ctx, AG.SHIPS[drop.type]);
+        } else if (!this.sprite(['credit', 'gem'].includes(drop.type) ? drop.type : 'boosts/' + item.file, 16)) {
           const shape = item.slot ? [[-10, -15], [10, -15], [17, 0], [10, 15], [-10, 15], [-17, 0]] :
             [[0, -15], [15, 0], [0, 15], [-15, 0]];
-          polygon(ctx, shape, item.color);
+          polygon(ctx, shape, AG.RARITIES[item.rarity ?? 'common']);
           ctx.font = 'bold 15px system-ui';
           ctx.fillStyle = '#101a20';
           ctx.textAlign = 'center';
@@ -195,7 +241,7 @@
         ctx.restore();
       }
       const { player } = run;
-      if (run.boosts.shield) {
+      if (run.boosts.shield || run.boosts.fortress) {
         ctx.strokeStyle = '#8be8fb';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -248,5 +294,5 @@
     }
   }
 
-  Object.assign(AG, { FlightView, FlightAudio });
+  Object.assign(AG, { FlightView, FlightAudio, shipGraphic });
 })();
