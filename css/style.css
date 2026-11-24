@@ -111,3 +111,19 @@ progress::-webkit-progress-value { background: var(--lime); border-radius: 20px;
   .boss, .boosts { top: 54px; }
   .overlay { padding: 15px; }
 }
+
+.console-actions, .inventory-tabs, .admin-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.console-actions { justify-content: end; }
+.inventory-tabs { margin-bottom: 12px; }
+.admin-actions { margin-top: 10px; }
+.admin-group + .admin-group { margin-top: 18px; }
+.admin-group h3 { margin: 0 0 6px; font-size: 1rem; }
+.admin-group label { display: grid; gap: 5px; color: var(--muted); }
+.admin-group input, .admin-group select {
+  min-height: 40px; padding: 7px 9px; max-width: 100%;
+  border: 1px solid var(--line); border-radius: 8px; font: inherit;
+  color: var(--ink); background: #0a1719;
+}
+.admin-status { color: var(--lime); margin: 10px 0; }

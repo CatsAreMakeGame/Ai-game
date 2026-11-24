@@ -179,16 +179,18 @@
       }
       for (const enemy of run.enemies) this.enemy(enemy);
       for (const drop of run.drops) {
-        const boost = BOOSTS[drop.type];
+        const item = BOOSTS[drop.type] ?? AG.UPGRADES[drop.type];
         ctx.save();
         ctx.translate(drop.x, drop.y);
-        if (!this.sprite('boosts/' + boost.file, 16)) {
-          polygon(ctx, [[0, -15], [15, 0], [0, 15], [-15, 0]], boost.color);
+        if (!item.file || !this.sprite('boosts/' + item.file, 16)) {
+          const shape = item.slot ? [[-10, -15], [10, -15], [17, 0], [10, 15], [-10, 15], [-17, 0]] :
+            [[0, -15], [15, 0], [0, 15], [-15, 0]];
+          polygon(ctx, shape, item.color);
           ctx.font = 'bold 15px system-ui';
           ctx.fillStyle = '#101a20';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(boost.glyph, 0, 0);
+          ctx.fillText(item.glyph, 0, 0);
         }
         ctx.restore();
       }

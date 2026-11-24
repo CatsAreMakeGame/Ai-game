@@ -9,13 +9,17 @@
   <script defer src="js/data.js"></script>
   <script defer src="js/game.js"></script>
   <script defer src="js/flight-view.js"></script>
+  <script defer src="js/admin.js"></script>
   <script defer src="js/main.js"></script>
 </head>
 <body>
   <main class="console">
     <header class="top">
       <a class="brand" href="./index.html" aria-label="Alien Shooter home"><span class="mark" aria-hidden="true">✦</span> ALIEN<span class="brand-end">/SHOOTER</span></a>
-      <button id="sound" class="quiet" type="button" aria-pressed="false">Sound off</button>
+      <div class="console-actions">
+        <button id="admin" class="quiet" type="button">Admin</button>
+        <button id="sound" class="quiet" type="button" aria-pressed="false">Sound off</button>
+      </div>
     </header>
     <section class="stage" aria-label="Flight deck">
       <canvas id="sky" width="900" height="600" aria-label="Alien Shooter playfield"></canvas>
@@ -36,7 +40,8 @@
           <h1 id="title">ALIEN<br><em>SHOOTER</em></h1>
           <div class="home-actions">
             <button id="launch" class="primary">Launch run <span aria-hidden="true">↗</span></button>
-            <button id="hangar-open">Hangar &amp; shop</button>
+            <button id="hangar-open">Hangar</button>
+            <button id="shop-open">Shop</button>
             <button id="help">How to play</button>
           </div>
           <p id="record" class="record" hidden></p>
@@ -53,6 +58,7 @@
       <button id="skip">Skip wave</button>
       <button id="auto" aria-pressed="false">Auto skip</button>
       <button id="supplies"><img id="supply-icon" alt=""><span id="supply-label">Supplies · Lv 5</span></button>
+      <button id="inventory">Inventory</button>
       <button id="pause">Pause</button>
     </section>
   </main>

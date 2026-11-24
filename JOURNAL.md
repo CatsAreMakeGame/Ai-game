@@ -393,3 +393,19 @@ The Hangar now lets players spend a boss-earned Star Gem on the Falcon and
 equip it. Credits, hull, XP and boosts belong to the current run. Gems,
 unlocks, equipped ship, best results and preferences are stored in the browser.
 Audio is opt-in, and pointer steering works with touch.
+
+---
+
+## 8. Inventory, flight upgrades and local testing
+
+- Player projectiles keep travelling after a wave clears. Shots are cleared on
+  final result screens.
+- The starting flight lane is horizontal. A Vector Engine drops on 1.5% of
+  kills before ownership and enables vertical steering when equipped. Swift
+  Wings and Pulse Cannon provide speed and damage upgrades. Drops are
+  collected into a run-scoped inventory with Boosts and Upgrades tabs.
+- The home and results menus have separate Shop and Hangar screens. The Shop
+  unlocks ships and the Hangar equips them. Intermission supplies still unlock
+  at pilot level 5.
+- The Admin panel opens local testing with code `ADMIN99`. It uses a temporary
+  profile so testing cannot overwrite normal progress.

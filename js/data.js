@@ -22,10 +22,18 @@ window.AG = (() => {
     boss: { hp: 110, size: 62, unlock: 10, speed: 0, color: '#ff7894', score: 600 }
   };
   const BOOSTS = {
-    heal: { name: 'Hull repair', file: 'heal', color: '#71efad', glyph: '+', duration: 0 },
-    rapidFire: { name: 'Rapid fire', file: 'rapid-fire', color: '#ffe177', glyph: '»', duration: 9 },
-    doubleDamage: { name: 'Double damage', file: 'double-damage', color: '#ffab83', glyph: '×', duration: 9 },
-    shield: { name: 'Shield', file: 'shield', color: '#87def9', glyph: '◇', duration: 10 }
+    heal: { name: 'Hull repair', description: 'Restores up to 25 hull.', file: 'heal', color: '#71efad', glyph: '+', duration: 0 },
+    rapidFire: { name: 'Rapid fire', description: 'Fires faster for 9 seconds.', file: 'rapid-fire', color: '#ffe177', glyph: '»', duration: 9 },
+    doubleDamage: { name: 'Double damage', description: 'Doubles shot damage for 9 seconds.', file: 'double-damage', color: '#ffab83', glyph: '×', duration: 9 },
+    shield: { name: 'Shield', description: 'Blocks damage for 10 seconds.', file: 'shield', color: '#87def9', glyph: '◇', duration: 10 }
+  };
+  const UPGRADES = {
+    vector: { name: 'Vector Engine', description: 'Unlocks vertical and horizontal steering.',
+      slot: 'Engine', chance: 0.015, color: '#87def9', glyph: '↕', vertical: true },
+    wings: { name: 'Swift Wings', description: 'Increases movement speed by 20%.',
+      slot: 'Wings', chance: 0.025, color: '#d5fa74', glyph: '»', speed: 1.2 },
+    cannon: { name: 'Pulse Cannon', description: 'Adds 1 damage to every shot.',
+      slot: 'Weapon', chance: 0.03, color: '#ffad83', glyph: '✦', damage: 1 }
   };
   const SUPPLIES = {
     heal: { name: 'Hull repair', description: 'Restores up to 25 hull.', price: 150 },
@@ -62,5 +70,5 @@ window.AG = (() => {
   }
 
   return { WIDTH, HEIGHT, LAST_WAVE, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
-    BOOSTS, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
+    BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

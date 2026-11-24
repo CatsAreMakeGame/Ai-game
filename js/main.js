@@ -18,6 +18,7 @@
   let panelKind = '';
   let returnFocus = $('launch');
   let tutorialIndex = 0;
+  let inventoryTab = 'boosts';
   let lastState = '';
   let announcementUntil = 0;
   let rewardUntil = 0;
@@ -27,12 +28,13 @@
   let pointerId = null;
 
   const tutorial = [
-    ['Steer your ship', 'Use WASD or the arrow keys, or hold and drag on the playfield. On a touchscreen, drag with one finger.'],
+    ['Steer your ship', 'Move left and right with A/D, the arrow keys, or a held drag. Find and equip the rare Vector Engine to move up and down.'],
     ['Fire automatically', 'Your ship fires whenever a wave is active. Line up with enemies and dodge incoming fire.'],
     ['Fight the Mothership', 'Survive 50 waves. Every tenth wave is a Mothership fight. Destroy it to earn a Star Gem.'],
     ['Skip reinforcements', 'Skip Wave advances to the next wave and enemies already on the field stay in play. Auto Skip waits for 60% to spawn. Boss waves must be cleared.'],
     ['Level up and resupply', 'Earn pilot XP from combat. At level 5, spend Credits on repairs and rapid fire between cleared waves.'],
-    ['Equip the Falcon', 'Visit the Hangar from the home or results screen. Spend a Star Gem once to unlock the Falcon for future runs.']
+    ['Use your inventory', 'Fly into drops to store them. Open Inventory or press I to use a boost or equip an upgrade for this run.'],
+    ['Fly the Falcon', 'Spend a Star Gem in the Shop to unlock the Falcon, then equip it in the Hangar. Both menus are available before or after a run.']
   ];
 
   function getStorage() {
@@ -74,6 +76,9 @@
     const run = game.run;
     const active = ['playing', 'intermission', 'paused'].includes(game.state);
     hud.hidden = controls.hidden = !active;
+    $('admin').hidden = active && !game.testing;
+    setText($('admin'), game.testing ? 'Admin · Testing' : 'Admin');
+    $('admin').disabled = Boolean(panelKind && panelKind !== 'result');
     alert.hidden = !active || Boolean(panelKind) || now >= Math.max(rewardUntil, creditUntil);
     banner.hidden = !active || Boolean(panelKind) || now >= waveUntil;
     const boss = active && run.enemies.find(enemy => enemy.type === 'boss' && enemy.y > 65);
@@ -105,7 +110,7 @@
     setText($('supply-label'), levelLocked ? 'Supplies · Lv 5' : 'Supplies');
     $('supplies').disabled = levelLocked || game.state !== 'intermission' || Boolean(panelKind);
     $('supplies').title = levelLocked ? 'Unlocks at pilot level 5' : 'Available between cleared waves';
-    $('pause').disabled = Boolean(panelKind);
+    $('inventory').disabled = $('pause').disabled = Boolean(panelKind);
   }
 
   function button(label, action, options = {}) {
@@ -151,12 +156,16 @@
   }
 
   function start() {
+    game.start();
+    resumeFlight();
+  }
+
+  function resumeFlight() {
     if (game.profile.sound) audio.unlock();
     panelKind = '';
     panel.hidden = overlay.hidden = true;
     view.effects.length = 0;
     rewardUntil = creditUntil = announcementUntil = 0;
-    game.start();
     canvas.tabIndex = -1;
     canvas.focus({ preventScroll: true });
   }
@@ -181,7 +190,7 @@
       showHome();
       return;
     }
-    if (kind === 'hangar' && ['gameover', 'victory'].includes(game.state)) {
+    if (['hangar', 'shop', 'admin'].includes(kind) && ['gameover', 'victory'].includes(game.state)) {
       open('result', false);
       return;
     }
@@ -219,21 +228,14 @@
         dots, button(tutorialIndex === tutorial.length - 1 ? 'Done' : 'Next',
           () => tutorialIndex === tutorial.length - 1 ? dismiss() : showSlide(tutorialIndex + 1), { primary: true }));
       body.append(slide, nav);
-    } else if (panelKind === 'hangar') {
-      setText(title, 'Hangar & shop');
-      setText(note, 'Star Gems available  ·  ' + game.profile.gems);
-      note.hidden = false;
-      const cards = element('div', '', 'cards');
-      for (const [id, ship] of Object.entries(AG.SHIPS)) {
-        const equipped = game.profile.ship === id;
-        const unlocked = game.profile.unlocked.includes(id);
-        const label = equipped ? 'Equipped' : unlocked ? 'Equip' : 'Unlock · ' + ship.price + ' Star Gem';
-        cards.append(card(ship.name, ship.description, button(label, () => {
-          game.equip(id);
-          drawPanel(true);
-        }, { disabled: equipped || (!unlocked && game.profile.gems < ship.price) })));
-      }
-      body.append(cards, button('Back', dismiss));
+    } else if (panelKind === 'hangar' || panelKind === 'shop') {
+      drawBase(title);
+    } else if (panelKind === 'inventory') {
+      drawInventory(title);
+    } else if (panelKind === 'admin') {
+      setText(title, 'Admin testing');
+      AG.renderAdmin({ body, game, button, element, dismiss, showHome, resumeFlight, syncAudio,
+        refresh: () => drawPanel(true) });
     } else if (panelKind === 'supplies') {
       setText(title, 'Flight supplies');
       setText(note, 'Credits available  ·  ' + game.run.credits);
@@ -254,7 +256,8 @@
       note.hidden = false;
       const actions = element('div', '', 'home-actions');
       if (paused) actions.append(button('Resume', dismiss, { primary: true }));
-      else actions.append(button('Launch again', start, { primary: true }), button('Hangar & shop', () => open('hangar')));
+      else actions.append(button('Launch again', start, { primary: true }),
+        button('Hangar', () => open('hangar')), button('Shop', () => open('shop')));
       actions.append(button('Main menu', showHome));
       body.append(actions);
     }
@@ -265,6 +268,70 @@
     } else {
       overlay.scrollTop = 0;
     }
+  }
+
+  function drawBase(title) {
+    const shopping = panelKind === 'shop';
+    setText(title, shopping ? 'Shop' : 'Hangar');
+    setText(note, shopping ? 'Star Gems available  ·  ' + game.profile.gems : 'Choose your ship for the next run.');
+    note.hidden = false;
+    const cards = element('div', '', 'cards');
+    for (const [id, ship] of Object.entries(AG.SHIPS)) {
+      if (shopping && !ship.price) continue;
+      const unlocked = game.profile.unlocked.includes(id);
+      const equipped = game.profile.ship === id;
+      const label = shopping ? (unlocked ? 'Owned' : 'Unlock · ' + ship.price + ' Star Gem') :
+        (equipped ? 'Equipped' : unlocked ? 'Equip' : 'Locked');
+      const action = button(label, () => {
+        if (shopping) game.unlockShip(id);
+        else game.equip(id);
+        drawPanel(true);
+      }, { disabled: shopping ? !game.canUnlockShip(id) : equipped || !unlocked });
+      cards.append(card(ship.name, ship.description, action));
+    }
+    const links = element('div', '', 'home-actions');
+    links.append(button('Back', dismiss), button(shopping ? 'Go to Hangar' : 'Visit Shop',
+      () => open(shopping ? 'hangar' : 'shop', false)));
+    body.append(cards, links);
+  }
+
+  function drawInventory(title) {
+    const inventory = game.run.inventory;
+    const showBoosts = inventoryTab === 'boosts';
+    setText(title, 'Flight inventory');
+    const tabs = element('div', '', 'inventory-tabs');
+    for (const [id, label] of [['boosts', 'Boosts'], ['upgrades', 'Upgrades']]) {
+      const tab = button(label, () => {
+        inventoryTab = id;
+        drawPanel(true);
+      });
+      tab.setAttribute('aria-pressed', String(inventoryTab === id));
+      tabs.append(tab);
+    }
+    const cards = element('div', '', 'cards');
+    if (showBoosts) {
+      for (const [type, boost] of Object.entries(AG.BOOSTS)) {
+        const count = inventory.boosts[type] ?? 0;
+        if (!count) continue;
+        const action = button(type === 'heal' && !game.canUseBoost(type) ? 'Hull full' : 'Use', () => {
+          game.useBoost(type);
+          drawPanel(true);
+        }, { disabled: !game.canUseBoost(type) });
+        cards.append(card(boost.name + ' ×' + count, boost.description, action));
+      }
+    } else {
+      for (const [type, upgrade] of Object.entries(AG.UPGRADES)) {
+        const owned = inventory.upgrades.has(type);
+        const equipped = inventory.equipped[upgrade.slot] === type;
+        const action = button(equipped ? 'Unequip' : owned ? 'Equip' : 'Find in flight', () => {
+          game.toggleUpgrade(type);
+          drawPanel(true);
+        }, { disabled: !owned });
+        cards.append(card(upgrade.name, upgrade.slot + (equipped ? ' · Equipped · ' : ' · ') + upgrade.description, action));
+      }
+    }
+    if (showBoosts && !cards.children.length) cards.append(element('p', 'Fly into a boost drop to store it.', 'panel-note'));
+    body.append(tabs, cards, button('Back to flight', dismiss, { primary: true }));
   }
 
   function showSlide(index) {
@@ -281,6 +348,15 @@
 
   $('launch').addEventListener('click', start);
   $('hangar-open').addEventListener('click', () => open('hangar'));
+  $('shop-open').addEventListener('click', () => open('shop'));
+  $('admin').addEventListener('click', () => {
+    if ((!panelKind || panelKind === 'result') && (game.testing || game.canVisitBase())) open('admin', !panelKind);
+  });
+  function openInventory() {
+    if (panelKind === 'inventory') dismiss();
+    else if (!panelKind && ['playing', 'intermission'].includes(game.state)) open('inventory');
+  }
+  $('inventory').addEventListener('click', openInventory);
   $('help').addEventListener('click', () => { tutorialIndex = 0; open('tutorial'); });
   $('close').addEventListener('click', dismiss);
   $('skip').addEventListener('click', () => game.skip());
@@ -330,7 +406,10 @@
   window.addEventListener('keydown', event => {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     const key = event.key.toLowerCase();
-    if (key === 'escape' || key === 'p') {
+    if (['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName) && key !== 'escape') return;
+    if (key === 'i' && !event.repeat && (!panelKind || panelKind === 'inventory')) {
+      openInventory();
+    } else if (key === 'escape' || key === 'p') {
       event.preventDefault();
       if (event.repeat) return;
       if (panelKind) dismiss();
@@ -365,7 +444,7 @@
       if (!panelKind) game.update(tick);
       accumulated -= tick;
     }
-    if (lastState !== game.state && ['gameover', 'victory'].includes(game.state)) open('result');
+    if (lastState !== game.state && !panelKind && ['gameover', 'victory'].includes(game.state)) open('result');
     lastState = game.state;
     view.draw(game, panelKind && game.run ? 0 : dt);
     renderHUD(now);

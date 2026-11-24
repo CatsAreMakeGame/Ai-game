@@ -2,10 +2,11 @@
   'use strict';
 
   const AG = window.AG;
-  const { WIDTH, HEIGHT, LAST_WAVE, SUPPLY_LEVEL, AUTO_SKIP_AT, SHIPS, BOOSTS,
+  const { WIDTH, HEIGHT, LAST_WAVE, SUPPLY_LEVEL, AUTO_SKIP_AT, SHIPS, BOOSTS, UPGRADES,
     ENEMIES, SUPPLIES, clamp, difficultyFor, xpForLevel } = AG;
   const MOVE = { arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0],
     arrowup: [0, -1], w: [0, -1], arrowdown: [0, 1], s: [0, 1] };
+  const FLIGHT_LANE = HEIGHT - 58;
   const touches = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2 < (a.size + b.size) ** 2;
 
   class Game {
@@ -18,10 +19,32 @@
       this.pointer = null;
       this.state = 'home';
       this.run = null;
+      this.testing = false;
+      this.liveProfile = null;
     }
 
     save() {
+      if (this.testing) return;
       try { this.storage.setItem('alien-shooter.profile.v1', JSON.stringify(this.profile)); } catch {}
+    }
+
+    enterTesting() {
+      if (this.testing || !this.canVisitBase()) return;
+      this.liveProfile = this.profile;
+      this.profile = { ...this.profile, unlocked: [...this.profile.unlocked], bestScore: 0, bestWave: 0 };
+      this.testing = true;
+      this.run = null;
+      this.state = 'home';
+    }
+
+    leaveTesting() {
+      if (!this.testing) return;
+      this.profile = this.liveProfile;
+      this.liveProfile = null;
+      this.testing = false;
+      this.run = null;
+      this.state = 'home';
+      this.releaseInput();
     }
 
     releaseInput() {
@@ -34,7 +57,8 @@
       this.releaseInput();
       this.run = {
         wave: 0, level: 1, xp: 0, score: 0, credits: 0, boosts: {}, ship,
-        player: { x: WIDTH / 2, y: HEIGHT - 58, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
+        inventory: { boosts: {}, upgrades: new Set(), equipped: {} },
+        player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: []
       };
       this.beginWave(1);
@@ -96,6 +120,8 @@
 
     finish(state) {
       const run = this.run;
+      run.shots = [];
+      run.hostile = [];
       this.profile.bestScore = Math.max(this.profile.bestScore, run.score);
       this.profile.bestWave = Math.max(this.profile.bestWave, run.wave);
       this.save();
@@ -131,6 +157,50 @@
       }
     }
 
+    hasUpgrade(slot) {
+      return UPGRADES[this.run.inventory.equipped[slot]];
+    }
+
+    grantItem(type) {
+      const { inventory } = this.run;
+      const upgrade = UPGRADES[type];
+      if (upgrade) {
+        if (inventory.upgrades.has(type)) return false;
+        inventory.upgrades.add(type);
+      } else if (Object.hasOwn(BOOSTS, type)) {
+        inventory.boosts[type] = (inventory.boosts[type] ?? 0) + 1;
+      } else {
+        return false;
+      }
+      this.notify('upgrade', (upgrade ?? BOOSTS[type]).name + ' added to inventory');
+      return true;
+    }
+
+    canUseBoost(type) {
+      const { inventory, player, ship } = this.run;
+      return (inventory.boosts[type] ?? 0) > 0 && (type !== 'heal' || player.hp < ship.hull);
+    }
+
+    useBoost(type) {
+      if (!this.canUseBoost(type)) return false;
+      this.run.inventory.boosts[type]--;
+      this.applyBoost(type);
+      return true;
+    }
+
+    toggleUpgrade(type) {
+      const { inventory, player } = this.run;
+      if (!inventory.upgrades.has(type)) return false;
+      const { slot, vertical } = UPGRADES[type];
+      if (inventory.equipped[slot] === type) {
+        delete inventory.equipped[slot];
+        if (vertical) player.y = FLIGHT_LANE;
+      } else {
+        inventory.equipped[slot] = type;
+      }
+      return true;
+    }
+
     canBuy(type) {
       const run = this.run;
       return Boolean(SUPPLIES[type] && this.state === 'intermission' && run.level >= SUPPLY_LEVEL &&
@@ -144,20 +214,31 @@
       return true;
     }
 
+    canVisitBase() {
+      return ['home', 'gameover', 'victory'].includes(this.state);
+    }
+
+    canUnlockShip(id) {
+      return this.canVisitBase() && Object.hasOwn(SHIPS, id) &&
+        !this.profile.unlocked.includes(id) && this.profile.gems >= SHIPS[id].price;
+    }
+
+    unlockShip(id) {
+      if (!this.canUnlockShip(id)) return false;
+      this.profile.gems -= SHIPS[id].price;
+      this.profile.unlocked.push(id);
+      this.save();
+      return true;
+    }
+
     equip(id) {
-      const ship = SHIPS[id];
-      if (!ship || !['home', 'gameover', 'victory'].includes(this.state)) return false;
-      if (!this.profile.unlocked.includes(id)) {
-        if (this.profile.gems < ship.price) return false;
-        this.profile.gems -= ship.price;
-        this.profile.unlocked.push(id);
-      }
+      if (!this.canVisitBase() || !this.profile.unlocked.includes(id)) return false;
       this.profile.ship = id;
       this.save();
       return true;
     }
 
-    spawn(type) {
+    spawn(type, extra = false) {
       const run = this.run;
       const spec = ENEMIES[type];
       const boss = type === 'boss';
@@ -170,22 +251,24 @@
         speed: run.diff.speed * spec.speed, fireIn: 1 + this.random() * run.diff.fire,
         fireDelay: run.diff.fire, age: 0, bornWave: run.wave, flash: 0, volley: 0
       });
-      run.spawned++;
+      if (extra) run.total++;
+      else run.spawned++;
     }
 
     movePlayer(dt) {
       const player = this.run.player;
-      const speed = this.run.ship.speed;
+      const speed = this.run.ship.speed * (this.hasUpgrade('Wings')?.speed ?? 1);
+      const vertical = this.hasUpgrade('Engine')?.vertical;
       let x = 0;
       let y = 0;
       for (const key of this.keys) {
         if (!MOVE[key]) continue;
         x += MOVE[key][0];
-        y += MOVE[key][1];
+        if (vertical) y += MOVE[key][1];
       }
       if (this.pointer && !x && !y) {
         x = this.pointer.x - player.x;
-        y = this.pointer.y - player.y;
+        y = vertical ? this.pointer.y - player.y : 0;
         const distance = Math.hypot(x, y);
         const step = distance > 0 ? Math.min(1, speed * dt / distance) : 0;
         player.x += x * step;
@@ -205,6 +288,7 @@
       const run = this.run;
       this.movePlayer(dt);
       if (this.state === 'intermission') {
+        this.updatePlayerShots(dt);
         this.collectDrops(dt);
         run.breakTime -= dt;
         if (run.breakTime <= 0) this.beginWave(run.wave + 1);
@@ -225,7 +309,8 @@
       const { player, ship } = run;
       player.fireIn -= dt;
       if (player.fireIn <= 0) {
-        const damage = (ship.damage + Math.floor((run.wave - 1) / 7)) * (run.boosts.doubleDamage ? 2 : 1);
+        const damage = (ship.damage + Math.floor((run.wave - 1) / 7) +
+          (this.hasUpgrade('Weapon')?.damage ?? 0)) * (run.boosts.doubleDamage ? 2 : 1);
         run.shots.push({ x: player.x, y: player.y - 20, vx: 0, vy: -720, size: 5, damage });
         player.fireIn += ship.delay * (run.boosts.rapidFire ? 0.52 : 1);
         this.notify('fire');
@@ -289,7 +374,7 @@
       }
     }
 
-    updateProjectiles(dt) {
+    updatePlayerShots(dt) {
       const run = this.run;
       run.shots = run.shots.filter(shot => {
         shot.y += shot.vy * dt;
@@ -301,6 +386,11 @@
         if (enemy.hp <= 0) this.removeEnemy(hit, true);
         return false;
       });
+    }
+
+    updateProjectiles(dt) {
+      this.updatePlayerShots(dt);
+      const run = this.run;
       run.hostile = run.hostile.filter(shot => {
         shot.x += shot.vx * dt;
         shot.y += shot.vy * dt;
@@ -314,7 +404,7 @@
 
     hurt(damage) {
       const { player, boosts } = this.run;
-      if (player.invulnerable > 0 || boosts.shield) return;
+      if ((this.testing && this.run.godMode) || player.invulnerable > 0 || boosts.shield) return;
       player.hp = Math.max(0, player.hp - damage);
       player.invulnerable = 0.78;
       this.notify('hit');
@@ -342,17 +432,31 @@
       if (boss || this.random() < 0.14) {
         const types = Object.keys(BOOSTS);
         const type = boss ? 'shield' : types[Math.floor(this.random() * types.length)];
-        run.drops.push({ type, x: enemy.x, y: clamp(enemy.y, 100, HEIGHT - 18), age: 0, size: 16 });
+        this.dropItem(type, enemy.x - 17, enemy.y);
       }
+      let roll = this.random();
+      for (const [type, upgrade] of Object.entries(UPGRADES)) {
+        roll -= upgrade.chance;
+        if (roll >= 0) continue;
+        if (!run.inventory.upgrades.has(type) && !run.drops.some(drop => drop.type === type)) {
+          this.dropItem(type, enemy.x + 17, enemy.y);
+        }
+        break;
+      }
+    }
+
+    dropItem(type, x, y) {
+      this.run.drops.push({ type, x: clamp(x, 22, WIDTH - 22), y: clamp(y, 100, FLIGHT_LANE),
+        age: 0, size: 16 });
     }
 
     collectDrops(dt) {
       const run = this.run;
       run.drops = run.drops.filter(drop => {
         drop.age += dt;
-        drop.y = Math.min(HEIGHT - 20, drop.y + 55 * dt);
+        drop.y = Math.min(FLIGHT_LANE, drop.y + 70 * dt);
         if (touches(drop, run.player)) {
-          this.applyBoost(drop.type);
+          this.grantItem(drop.type);
           return false;
         }
         return drop.age < 12;
