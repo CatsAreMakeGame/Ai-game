@@ -94,7 +94,7 @@
       return;
     }
     animation = track.animate([{ transform: centered(track.children[3]) }, { transform: end }],
-      { duration: 2450, easing: 'cubic-bezier(.12,.73,.15,1)' });
+      { duration: 4600, easing: 'cubic-bezier(.23,.66,.24,1)' });
     animation.addEventListener('finish', showReward, { once: true });
   }
 
@@ -225,7 +225,7 @@
       }
       for (const [slot, [type, name]] of Object.entries(SLOTS)) {
         const mounted = crafts[slot];
-        const locked = slot === 'special' || (type === 'Engine' && +slot.slice(-1) > SHIPS[ship].engines);
+        const locked = type === 'Engine' && +slot.slice(-1) > SHIPS[ship].engines;
         const mount = button(name, () => {
           if (state.part) place(slot, state.part);
           else if (mounted) {
@@ -235,7 +235,7 @@
           }
         }, { disabled: locked });
         mount.className = 'mount mount-' + slot;
-        mount.append(element('small', locked ? (slot === 'special' ? 'Reserved' : 'Unavailable') :
+        mount.append(element('small', locked ? 'Unavailable' :
           mounted ? ITEMS[mounted].name : 'Empty'));
         if (!locked) {
           mount.addEventListener('dragover', event => { if (UPGRADES[state.part]?.slot === type) event.preventDefault(); });

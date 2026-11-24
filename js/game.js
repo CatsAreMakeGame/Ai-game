@@ -26,6 +26,10 @@
 
     get credits() { return this.profile.credits; }
     get waveLimit() { return this.testing ? MAX_WAVE : LAST_WAVE; }
+    get waveLabel() {
+      const wave = this.run.wave;
+      return wave.toLocaleString() + ' / ' + (wave === MAX_WAVE ? MAX_WAVE : LAST_WAVE).toLocaleString();
+    }
 
     save() {
       if (this.testing) return;
@@ -69,6 +73,7 @@
     releaseInput() {
       this.keys.clear();
       this.pointer = null;
+      this.laserInput('off');
     }
 
     start() {
@@ -77,7 +82,9 @@
       this.run = {
         wave: 0, level: 1, xp: 0, score: 0, boosts: {}, ship,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
-        enemies: [], shots: [], hostile: [], drops: []
+        enemies: [], shots: [], hostile: [], drops: [],
+        missiles: [], missileIn: 0, targetMode: 'nearest', energy: 0,
+        laser: { held: false, toggled: false, tick: 0, aim: null }
       };
       this.beginWave(1);
     }
@@ -100,7 +107,9 @@
       run.spawnIn = carryShots ? 0.25 : 0.55;
       if (!carryShots) {
         run.shots = [];
+        run.missiles = [];
         run.hostile = [];
+        this.laserInput('off');
       }
       this.state = 'playing';
       this.notify('wave', diff.boss ? (BOSSES[run.pending[Math.min(4, number / 10 - 1)]].name + ' incoming') : 'Wave ' + number.toLocaleString());
@@ -127,6 +136,7 @@
       this.repair(8, false);
       const repaired = run.player.hp - before;
       this.notify('reward', '+' + credits + ' credits' + (repaired ? ' · +' + repaired + ' hull' : ''));
+      this.laserInput('off');
       run.breakTime = run.wave === this.waveLimit ? 7 : 4.8;
       run.hostile = [];
       this.state = 'intermission';
@@ -136,6 +146,7 @@
     finish(state) {
       const run = this.run;
       run.shots = [];
+      run.missiles = [];
       run.hostile = [];
       this.profile.bestScore = Math.max(this.profile.bestScore, run.score);
       this.profile.bestWave = Math.max(this.profile.bestWave, run.wave);
@@ -166,7 +177,7 @@
     applyBoost(type) {
       if (BOOSTS[type].repair) this.repair(BOOSTS[type].repair);
       else {
-        this.run.boosts[type] = BOOSTS[type].duration;
+        (this.run.boosts[type] ??= []).push(BOOSTS[type].duration);
         this.notify('upgrade', BOOSTS[type].name + ' online');
       }
     }
@@ -177,28 +188,48 @@
       return true;
     }
 
+    tickBoosts(dt) {
+      for (const [type, timers] of Object.entries(this.run.boosts)) {
+        if (type === 'shield' || type === 'fortress') {
+          if (type === 'shield' && this.run.boosts.fortress?.length) continue;
+          timers[0] -= dt;
+          if (timers[0] <= 0) timers.shift();
+        } else {
+          this.run.boosts[type] = timers.map(time => time - dt).filter(time => time > 0);
+        }
+        if (!this.run.boosts[type].length) delete this.run.boosts[type];
+      }
+    }
+
+    boostCount(type) {
+      return this.run.boosts[type]?.length ?? 0;
+    }
+
     shotDamage() {
       const run = this.run;
       if (this.testing && run.testDamage != null) return run.testDamage;
       const waveBonus = Math.floor((Math.min(run.wave, 50) - 1) / 7);
-      return (run.ship.damage + waveBonus + this.upgradeEffects().damage) * (run.boosts.doubleDamage ? 2 : 1);
+      return Math.min(Number.MAX_SAFE_INTEGER,
+        (run.ship.damage + waveBonus + this.upgradeEffects().damage) * 2 ** this.boostCount('doubleDamage'));
     }
 
     upgradeEffects() {
       const mounts = this.profile.loadouts[this.profile.ship] ?? {};
-      const effects = { speed: 1, damage: 0, vertical: false };
+      const effects = { speed: 1, damage: 0, vertical: false, missile: null, laser: false };
       for (const id of Object.values(mounts)) {
         const upgrade = UPGRADES[id];
         effects.speed += upgrade.speed ?? 0;
         effects.damage += upgrade.damage ?? 0;
         effects.vertical ||= Boolean(upgrade.vertical);
+        effects.missile ||= upgrade.missile ?? null;
+        effects.laser ||= Boolean(upgrade.laser);
       }
       return effects;
     }
 
     mountUpgrade(ship, slot, type) {
       if (!this.profile.unlocked.includes(ship) || !Object.hasOwn(SLOTS, slot)) return false;
-      if (slot === 'special' || (slot.startsWith('engine') && +slot.slice(-1) > SHIPS[ship].engines)) return false;
+      if (slot.startsWith('engine') && +slot.slice(-1) > SHIPS[ship].engines) return false;
       const mounts = this.profile.loadouts[ship] ??= {};
       if (type) {
         if (UPGRADES[type]?.slot !== SLOTS[slot][0] || !this.profile.upgrades[type]) return false;
@@ -323,8 +354,10 @@
 
     movePlayer(dt) {
       const player = this.run.player;
+      player.invulnerable -= dt;
+      if (this.laserActive()) return;
       const effects = this.upgradeEffects();
-      const speed = this.run.ship.speed * effects.speed * (this.run.boosts.overdrive ? 1.4 : 1);
+      const speed = this.run.ship.speed * effects.speed * (1 + .4 * this.boostCount('overdrive'));
       const vertical = effects.vertical;
       let x = 0;
       let y = 0;
@@ -347,7 +380,6 @@
       }
       player.x = clamp(player.x, 25, WIDTH - 25);
       player.y = clamp(player.y, 108, HEIGHT - 24);
-      player.invulnerable -= dt;
     }
 
     update(dt) {
@@ -356,6 +388,7 @@
       this.movePlayer(dt);
       if (this.state === 'intermission') {
         this.updatePlayerShots(dt);
+        this.updateMissiles(dt);
         this.collectDrops(dt);
         run.breakTime -= dt;
         if (run.breakTime <= 0) {
@@ -365,10 +398,7 @@
         return;
       }
 
-      for (const type of Object.keys(run.boosts)) {
-        run.boosts[type] -= dt;
-        if (run.boosts[type] <= 0) delete run.boosts[type];
-      }
+      this.tickBoosts(dt);
       run.spawnIn = Math.max(0, run.spawnIn - dt);
       if (run.pending.length && run.spawnIn === 0 &&
         (!BOSSES[run.pending[0]] || run.enemies.filter(enemy => BOSSES[enemy.type]).length < 5)) {
@@ -380,15 +410,19 @@
 
       const { player, ship } = run;
       player.fireIn -= dt;
-      if (player.fireIn <= 0) {
+      if (player.fireIn <= 0 && !this.laserActive()) {
         const damage = this.shotDamage();
         run.shots.push({ x: player.x, y: player.y - 20, vx: 0, vy: -720, size: 5, damage });
-        player.fireIn += ship.delay * (run.boosts.rapidFire ? .52 : run.boosts.overdrive ? .68 : 1);
+        player.fireIn = Math.max(.055,
+          ship.delay * .52 ** this.boostCount('rapidFire') * .68 ** this.boostCount('overdrive'));
         this.notify('fire');
       }
 
+      if (!this.laserActive()) this.launchMissile(dt);
       this.moveEnemies(dt);
       this.updateProjectiles(dt);
+      this.updateMissiles(dt);
+      this.updateLaser(dt);
       this.collectDrops(dt);
       if (player.hp <= 0) {
         this.finish('gameover');
@@ -453,16 +487,152 @@
       }
     }
 
+    pickMissileTarget() {
+      const { enemies, player, targetMode } = this.run;
+      const score = {
+        nearest: enemy => -Math.hypot(enemy.x - player.x, enemy.y - player.y),
+        bottom: enemy => enemy.y,
+        strongest: enemy => enemy.hp,
+        weakest: enemy => -enemy.hp
+      }[targetMode];
+      let best = null;
+      let priority = -Infinity;
+      for (const enemy of enemies) {
+        if (enemy.y < 0 || enemy.y > HEIGHT) continue;
+        const rating = score(enemy);
+        if (rating <= priority) continue;
+        priority = rating;
+        best = enemy;
+      }
+      return best;
+    }
+
+    launchMissile(dt) {
+      const run = this.run;
+      const kind = this.upgradeEffects().missile;
+      if (!kind) return;
+      run.missileIn = Math.max(0, run.missileIn - dt);
+      if (run.missileIn > 0) return;
+      const target = this.pickMissileTarget();
+      if (!target) return;
+      const { x, y } = run.player;
+      run.missiles.push({ x, y: y - 14, angle: Math.atan2(target.y - y + 14, target.x - x),
+        range: Math.hypot(target.x - x, target.y - y + 14), kind, target,
+        size: 6, life: 3.5, damage: this.shotDamage() * (kind === 'homing' ? 3 : 2) });
+      run.missileIn = kind === 'homing' ? 1.35 : 1.65;
+      this.notify('missile');
+    }
+
+    updateMissiles(dt) {
+      const run = this.run;
+      run.missiles = run.missiles.filter(missile => {
+        const guided = missile.kind === 'homing';
+        if (guided) {
+          if (!run.enemies.includes(missile.target)) missile.target = this.pickMissileTarget();
+          if (missile.target) {
+            const desired = Math.atan2(missile.target.y - missile.y, missile.target.x - missile.x);
+            const delta = Math.atan2(Math.sin(desired - missile.angle), Math.cos(desired - missile.angle));
+            missile.angle += clamp(delta, -5.5 * dt, 5.5 * dt);
+          }
+        }
+        const step = guided ? 395 * dt : Math.min(510 * dt, missile.range);
+        missile.x += Math.cos(missile.angle) * step;
+        missile.y += Math.sin(missile.angle) * step;
+        missile.range -= step;
+        missile.life -= dt;
+        const hit = run.enemies.findIndex(enemy => touches(missile, enemy));
+        if (guided && hit >= 0) {
+          this.hitEnemy(hit, missile.damage);
+          this.notify('blast', { x: missile.x, y: missile.y, radius: 22 });
+          return false;
+        }
+        if (!guided && (hit >= 0 || missile.range <= 0)) {
+          const radius = 72;
+          for (let index = run.enemies.length - 1; index >= 0; index--) {
+            const enemy = run.enemies[index];
+            if (Math.hypot(enemy.x - missile.x, enemy.y - missile.y) <= radius + enemy.size) {
+              this.hitEnemy(index, missile.damage);
+            }
+          }
+          this.notify('blast', { x: missile.x, y: missile.y, radius });
+          return false;
+        }
+        return missile.life > 0 && missile.x >= -35 && missile.x <= WIDTH + 35 && missile.y >= -35 && missile.y <= HEIGHT + 35;
+      });
+    }
+
+    laserInput(mode) {
+      const laser = this.run?.laser;
+      if (!laser) return;
+      if (mode === 'off') {
+        laser.held = laser.toggled = false;
+        laser.tick = 0;
+        return;
+      }
+      if (mode === 'release') laser.held = false;
+      else if (this.state === 'playing' && this.run.energy >= 3 && this.upgradeEffects().laser) {
+        if (mode === 'hold') {
+          laser.held = true;
+          laser.toggled = false;
+        } else {
+          laser.toggled = !laser.toggled;
+          laser.held = false;
+        }
+      }
+      if (!this.laserActive()) laser.tick = 0;
+    }
+
+    laserActive() {
+      const run = this.run;
+      return this.state === 'playing' && run.energy >= 3 && this.upgradeEffects().laser &&
+        (run.laser.held || run.laser.toggled);
+    }
+
+    laserRay() {
+      const { player, laser } = this.run;
+      const x = player.x;
+      const y = player.y - 13;
+      const dx = (laser.aim?.x ?? x) - x;
+      const dy = (laser.aim?.y ?? 0) - y;
+      const distance = Math.hypot(dx, dy);
+      const ux = distance >= 1 ? dx / distance : 0;
+      const uy = distance >= 1 ? dy / distance : -1;
+      const reach = Math.hypot(WIDTH, HEIGHT);
+      return { x, y, ux, uy, reach };
+    }
+
+    updateLaser(dt) {
+      if (!this.laserActive()) return;
+      const run = this.run;
+      run.laser.tick += dt;
+      if (run.laser.tick + 1e-9 < .3) return;
+      run.laser.tick -= .3;
+      run.energy -= 3;
+      const { x, y, ux, uy, reach } = this.laserRay();
+      const damage = this.shotDamage() * 2;
+      for (let index = run.enemies.length - 1; index >= 0; index--) {
+        const enemy = run.enemies[index];
+        const progress = (enemy.x - x) * ux + (enemy.y - y) * uy;
+        const offset = Math.abs((enemy.x - x) * uy - (enemy.y - y) * ux);
+        if (progress >= 0 && progress <= reach && offset <= enemy.size + 19) this.hitEnemy(index, damage);
+      }
+      if (run.energy < 3) this.laserInput('off');
+    }
+
+    hitEnemy(index, damage) {
+      const enemy = this.run.enemies[index];
+      enemy.hp -= damage;
+      enemy.flash = .09;
+      if (enemy.hp <= 0) this.removeEnemy(index, true);
+    }
+
     updatePlayerShots(dt) {
       const run = this.run;
       run.shots = run.shots.filter(shot => {
         shot.y += shot.vy * dt;
         const hit = run.enemies.findIndex(enemy => touches(shot, enemy));
         if (hit < 0) return shot.y > -24;
-        const enemy = run.enemies[hit];
-        enemy.hp -= shot.damage;
-        enemy.flash = 0.09;
-        if (enemy.hp <= 0) this.removeEnemy(hit, true);
+        this.hitEnemy(hit, shot.damage);
         return false;
       });
     }
@@ -500,6 +670,7 @@
       const boss = BOSSES[enemy.type];
       const score = ENEMIES[enemy.type].score;
       run.score += score;
+      run.energy = Math.min(100, run.energy + (boss ? 22 : 5));
       this.notify('destroy', enemy);
       this.dropItem('credit', enemy.x, enemy.y, boss ? 95 + boss.tier * 25 : Math.max(4, Math.ceil(score / 3)));
       if (boss) this.dropItem('gem', enemy.x + 12, enemy.y, 1);
@@ -510,7 +681,7 @@
       }
       let roll = this.random();
       for (const [type, upgrade] of Object.entries(UPGRADES)) {
-        roll -= upgrade.chance;
+        roll -= upgrade.chance ?? 0;
         if (roll >= 0) continue;
         this.dropItem(type, enemy.x + 21, enemy.y);
         break;

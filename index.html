@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A browser-based alien shooter with 50 escalating waves, Mothership bosses, pilot upgrades and unlockable ships.">
   <title>Alien Shooter</title>
-  <link rel="stylesheet" href="css/style.css?v=crate-roll">
-  <script defer src="js/data.js?v=crate-roll"></script>
-  <script defer src="js/game.js?v=crate-roll"></script>
-  <script defer src="js/flight-view.js?v=crate-roll"></script>
-  <script defer src="js/admin.js?v=crate-roll"></script>
-  <script defer src="js/armory.js?v=crate-roll"></script>
-  <script defer src="js/main.js?v=crate-roll"></script>
+  <link rel="stylesheet" href="css/style.css?v=lightning-beacon">
+  <script defer src="js/data.js?v=lightning-beacon"></script>
+  <script defer src="js/game.js?v=lightning-beacon"></script>
+  <script defer src="js/flight-view.js?v=lightning-beacon"></script>
+  <script defer src="js/admin.js?v=lightning-beacon"></script>
+  <script defer src="js/armory.js?v=lightning-beacon"></script>
+  <script defer src="js/main.js?v=lightning-beacon"></script>
 </head>
 <body>
   <main class="console">
@@ -28,6 +28,7 @@
         <div><span class="label">WAVE</span><strong id="wave"></strong></div>
         <div><span class="label">HULL <span id="hull-value"></span></span><progress id="hull" aria-label="Hull" max="100"></progress></div>
         <div><span class="label">PILOT <span id="level"></span></span><progress id="xp" aria-label="Pilot experience" max="100"></progress></div>
+        <div id="energy-hud" class="energy"><span class="label">ENERGY <span id="energy-value">0%</span></span><progress id="energy" aria-label="Laser energy" max="100"></progress></div>
         <div><span class="label">SCORE</span><strong id="score"></strong></div>
         <div class="wallet"><span title="Credits"><img src="icons/currency/credit_gold.png" alt="Credits"> <b id="credits"></b></span><span title="Star Gems"><img src="icons/currency/star_gem.png" alt="Star Gems"> <b id="gems"></b></span></div>
       </div>
@@ -61,6 +62,11 @@
       <button id="skip">Skip wave</button>
       <button id="auto" aria-pressed="false">Auto skip</button>
       <button id="supplies"><img id="supply-icon" alt=""><span id="supply-label">Supplies · Lv 5</span></button>
+      <label id="target-control" class="target-control" hidden>Target <select id="target-mode" aria-label="Missile targeting">
+        <option value="nearest">Closest to ship</option><option value="bottom">Closest to bottom</option>
+        <option value="strongest">Strongest</option><option value="weakest">Weakest</option>
+      </select></label>
+      <button id="laser-toggle" type="button" aria-pressed="false" title="Right-click the playfield or hold E" hidden>Laser</button>
       <button id="inventory">Inventory</button>
       <button id="pause">Pause</button>
     </section>

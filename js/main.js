@@ -54,6 +54,7 @@
     const now = performance.now();
     if (game.profile.sound) audio.play(type);
     if (type === 'destroy') view.burst(value);
+    if (type === 'blast') view.blast(value);
     if (type === 'loot') {
       const { type: id, amount } = value;
       const strip = $('loot-strip');
@@ -115,7 +116,17 @@
       setText($('boss-name'), AG.BOSSES[boss.type].name);
       $('boss-health').value = 100 * boss.hp / boss.maxHp;
     }
-    setText($('wave'), run.wave.toLocaleString() + ' / ' + game.waveLimit.toLocaleString());
+    setText($('wave'), game.waveLabel);
+    const effects = game.upgradeEffects();
+    $('energy').value = run.energy;
+    setText($('energy-value'), run.energy + '%');
+    $('energy-hud').classList.toggle('energy-full', run.energy === 100);
+    $('target-control').hidden = !effects.missile;
+    $('target-mode').disabled = Boolean(panelKind);
+    if ($('target-mode').value !== run.targetMode) $('target-mode').value = run.targetMode;
+    $('laser-toggle').hidden = !effects.laser;
+    $('laser-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy < 3;
+    $('laser-toggle').setAttribute('aria-pressed', String(game.laserActive()));
     setText($('hull-value'), run.player.hp + '/' + run.ship.hull);
     setText($('level'), 'LV ' + run.level);
     setText($('score'), run.score.toLocaleString());
@@ -126,8 +137,11 @@
     const percent = Math.round(100 * run.resolved / run.total);
     $('completion').value = percent;
     setText($('completion-value'), percent + '%');
-    setText($('boosts'), Object.entries(run.boosts).map(([key, seconds]) =>
-      AG.BOOSTS[key].name + ' ' + Math.ceil(seconds) + 's').join(' · '));
+    setText($('boosts'), Object.entries(run.boosts).map(([key, timers]) => {
+      const seconds = key === 'shield' || key === 'fortress' ?
+        timers.reduce((sum, time) => sum + time, 0) : Math.max(...timers);
+      return AG.BOOSTS[key].name + (timers.length > 1 ? ' ×' + timers.length : '') + ' ' + Math.ceil(seconds) + 's';
+    }).join(' · '));
     $('skip').disabled = !game.canSkip() || Boolean(panelKind);
     $('auto').disabled = run.diff.boss || Boolean(panelKind);
     $('auto').setAttribute('aria-pressed', String(game.profile.auto));
@@ -345,7 +359,7 @@
     } else {
       const paused = panelKind === 'pause';
       setText(title, paused ? 'Flight paused' : game.state === 'victory' ? 'Sector secured' : 'Ship lost');
-      setText(note, 'Wave ' + game.run.wave.toLocaleString() + ' / ' + game.waveLimit.toLocaleString() + '  ·  Score ' + game.run.score.toLocaleString());
+      setText(note, 'Wave ' + game.waveLabel + '  ·  Score ' + game.run.score.toLocaleString());
       note.hidden = false;
       const actions = element('div', '', 'home-actions');
       if (paused) actions.append(button('Resume', dismiss, { primary: true }), button('Admin', openAdmin));
@@ -397,6 +411,15 @@
     if (game.state === 'intermission' && game.run.level >= AG.SUPPLY_LEVEL) open('supplies');
   });
   $('pause').addEventListener('click', pause);
+  $('target-mode').addEventListener('change', () => {
+    const choice = $('target-mode').value;
+    if (game.run && Object.hasOwn(AG.TARGET_MODES, choice)) game.run.targetMode = choice;
+    canvas.focus({ preventScroll: true });
+  });
+  $('laser-toggle').addEventListener('click', () => {
+    if (!panelKind) game.laserInput('toggle');
+    canvas.focus({ preventScroll: true });
+  });
 
   function syncAudio() {
     $('sound').setAttribute('aria-pressed', String(game.profile.sound));
@@ -409,19 +432,31 @@
     syncAudio();
   });
 
-  function trackPointer(event) {
+  function trackAim(event) {
+    if (!game.run || panelKind) return;
     const box = canvas.getBoundingClientRect();
-    game.pointer = { x: (event.clientX - box.left) / box.width * AG.WIDTH,
+    const point = { x: (event.clientX - box.left) / box.width * AG.WIDTH,
       y: (event.clientY - box.top) / box.height * AG.HEIGHT };
+    game.run.laser.aim = point;
+    return point;
   }
+  canvas.addEventListener('contextmenu', event => {
+    if (!panelKind && game.state === 'playing' && game.upgradeEffects().laser) event.preventDefault();
+  });
   canvas.addEventListener('pointerdown', event => {
     if (event.button !== 0 || pointerId !== null || panelKind || !['playing', 'intermission'].includes(game.state)) return;
     pointerId = event.pointerId;
     canvas.setPointerCapture(pointerId);
-    trackPointer(event);
+    game.pointer = trackAim(event);
+  });
+  canvas.addEventListener('pointerdown', event => {
+    if (event.button !== 2 || panelKind) return;
+    trackAim(event);
+    game.laserInput('toggle');
   });
   canvas.addEventListener('pointermove', event => {
-    if (event.pointerId === pointerId) trackPointer(event);
+    const aim = trackAim(event);
+    if (aim && event.pointerId === pointerId) game.pointer = aim;
   });
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
     canvas.addEventListener(type, event => {
@@ -436,7 +471,10 @@
     if (event.ctrlKey || event.metaKey || event.altKey || document.querySelector('.crate-reveal[open]')) return;
     const key = event.key.toLowerCase();
     if (['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName) && key !== 'escape') return;
-    if (key === 'i' && !event.repeat && (!panelKind || panelKind === 'inventory')) {
+    if (key === 'e' && !panelKind && game.state === 'playing' && game.upgradeEffects().laser) {
+      event.preventDefault();
+      if (!event.repeat) game.laserInput('hold');
+    } else if (key === 'i' && !event.repeat && (!panelKind || panelKind === 'inventory')) {
       openInventory();
     } else if (key === 'escape' || key === 'p') {
       event.preventDefault();
@@ -455,7 +493,11 @@
       game.keys.add(key);
     }
   });
-  window.addEventListener('keyup', event => game.keys.delete(event.key.toLowerCase()));
+  window.addEventListener('keyup', event => {
+    const key = event.key.toLowerCase();
+    game.keys.delete(key);
+    if (key === 'e') game.laserInput('release');
+  });
   window.addEventListener('blur', () => {
     game.releaseInput();
     pointerId = null;

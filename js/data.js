@@ -11,7 +11,7 @@ window.AG = (() => {
     locked: 'icons/ui/shaded_lock.png',
     supplies: 'icons/ui/in_round_shop.png'
   };
-  const RARITIES = { common: '#b4c6c8', rare: '#70c9ff', epic: '#c597ff', legendary: '#ffce70', mythical: '#ff7ba7' };
+  const RARITIES = { common: '#b4c6c8', rare: '#70c9ff', epic: '#c597ff', legendary: '#ffce70', mythical: '#ff7ba7', godly: '#8872ff' };
   // Hull, speed, shot interval, damage, engine mounts, silhouette, accent, rarity, price.
   const shipRows = {
     scout: ['Scout', 100, 445, .28, 1, 1, 'dart', '#d5fa74', 'common', 0],
@@ -78,7 +78,13 @@ window.AG = (() => {
     carbon: { name: 'Carbon Wing', slot: 'Wings', rarity: 'epic', chance: .009, color: '#c597ff', glyph: '◀', speed: .32, description: 'Adds 32% movement speed.' },
     rail: { name: 'Rail Lance', slot: 'Weapon', rarity: 'epic', chance: .008, color: '#c597ff', glyph: '↑', damage: 2, description: 'Adds 2 damage to every shot.' },
     fusion: { name: 'Fusion Drive', slot: 'Engine', rarity: 'epic', chance: .007, color: '#c597ff', glyph: '☼', speed: .26, description: 'Adds 26% movement speed.' },
-    nova: { name: 'Nova Emitter', slot: 'Weapon', rarity: 'mythical', chance: .002, color: '#ff7ba7', glyph: '✹', damage: 4, description: 'Adds 4 damage to every shot.' }
+    nova: { name: 'Nova Emitter', slot: 'Weapon', rarity: 'mythical', chance: .002, color: '#ff7ba7', glyph: '✹', damage: 4, description: 'Adds 4 damage to every shot.' },
+    rocket: { name: 'Blast Missile', slot: 'Weapon', rarity: 'rare', chance: .015, glyph: '◆', missile: 'blast',
+      description: 'Launches toward a target’s current position. Its blast can hit several enemies.' },
+    seeker: { name: 'Heat-Seeking Missile', slot: 'Weapon', rarity: 'legendary', chance: .004, glyph: '➶', missile: 'homing',
+      description: 'Steers after its target and can retarget if the original enemy is destroyed.' },
+    beacon: { name: 'Lightning Beacon', slot: 'Special', rarity: 'godly', glyph: '⚡', laser: true,
+      description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold E. Each pulse costs 3% and deals double shot damage.' }
   };
   const CRATES = {
     shipCrate: { name: 'Spaceship Crate', rarity: 'epic', glyph: '▣', price: 3, outcomes: [
@@ -86,9 +92,10 @@ window.AG = (() => {
       { rarity: 'mythical', weight: 5, items: ['singularity'] }
     ] },
     upgradeCrate: { name: 'Upgrade Crate', rarity: 'rare', glyph: '▧', price: 2, outcomes: [
-      { rarity: 'rare', weight: 56, items: ['booster', 'wings', 'cannon'] },
+      { rarity: 'rare', weight: 56, items: ['booster', 'wings', 'cannon', 'rocket'] },
       { rarity: 'epic', weight: 30, items: ['rail', 'fusion', 'carbon'] },
-      { rarity: 'legendary', weight: 12, items: ['vector'] }, { rarity: 'mythical', weight: 2, items: ['nova'] }
+      { rarity: 'legendary', weight: 12, items: ['vector', 'seeker'] }, { rarity: 'mythical', weight: 1.5, items: ['nova'] },
+      { rarity: 'godly', weight: .5, items: ['beacon'] }
     ] }
   };
   const CURRENCIES = {
@@ -99,8 +106,9 @@ window.AG = (() => {
   const SLOTS = {
     leftWing: ['Wings', 'Left wing'], rightWing: ['Wings', 'Right wing'],
     engine1: ['Engine', 'Engine 1'], engine2: ['Engine', 'Engine 2'], engine3: ['Engine', 'Engine 3'],
-    nose: ['Weapon', 'Nose'], special: ['Special', 'Special']
+    nose: ['Weapon', 'Nose'], special: ['Special', 'Special ability']
   };
+  const TARGET_MODES = { nearest: 'Closest to ship', bottom: 'Closest to bottom', strongest: 'Strongest', weakest: 'Weakest' };
   const SUPPLIES = {
     heal: { name: 'Hull repair', description: 'Restores up to 25 hull.', price: 150 },
     rapidFire: { name: 'Rapid Fire+', description: 'Fires faster for 9 seconds of flight.', price: 350 }
@@ -155,6 +163,6 @@ window.AG = (() => {
     };
   }
 
-  return { WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

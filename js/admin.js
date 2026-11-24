@@ -135,7 +135,7 @@
     items.append(feedback);
 
     const wave = group('Wave controls');
-    const label = element('label', 'Wave number (1–2,147,483,647)');
+    const label = element('label', 'Wave number');
     const number = element('input');
     number.type = 'number';
     number.min = '1';
@@ -208,6 +208,31 @@
         damageStatus.textContent = 'Automatic damage restored.';
       }));
       damage.append(damageStatus);
+
+      const energy = group('Laser energy');
+      const energyLabel = element('label', 'Energy percent');
+      const energyInput = element('input');
+      energyInput.type = 'number';
+      energyInput.min = '0';
+      energyInput.max = '100';
+      energyInput.step = '1';
+      energyInput.value = String(run.energy);
+      energyLabel.append(energyInput);
+      energy.append(energyLabel);
+      actions(energy, button('Set energy', () => {
+        const value = energyInput.valueAsNumber;
+        if (!Number.isInteger(value) || value < 0 || value > 100) {
+          status.textContent = 'Enter a whole energy percentage from 0 to 100.';
+          energyInput.focus();
+          return;
+        }
+        run.energy = value;
+        status.textContent = 'Laser energy set to ' + value + '%.';
+      }), button('Charge to 100%', () => {
+        run.energy = 100;
+        energyInput.value = '100';
+        status.textContent = 'Laser fully charged.';
+      }));
 
       const combat = group('Enemy testing');
       const enemy = select(combat, 'Enemy type', Object.keys(AG.ENEMIES)

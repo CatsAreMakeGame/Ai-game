@@ -195,6 +195,78 @@
       }
     }
 
+    blast({ x, y, radius }) {
+      for (let i = 0; i < 22; i++) {
+        const angle = i * Math.PI * 2 / 22;
+        const speed = radius * (1.2 + (i % 4) * .32);
+        this.effects.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+          life: .33 + (i % 3) * .12, color: i % 3 ? '#ffb376' : '#fff3cc' });
+      }
+    }
+
+    missile(shot) {
+      const ctx = this.ctx;
+      const guided = shot.kind === 'homing';
+      const color = guided ? '#72dcff' : '#ffc581';
+      ctx.save();
+      ctx.translate(shot.x, shot.y);
+      ctx.rotate(shot.angle);
+      const flicker = 17 + Math.sin(this.time * 52) * 4;
+      polygon(ctx, [[-4,-4],[-flicker,0],[-4,4]], color);
+      polygon(ctx, [[9,0],[2,-4],[-6,-3],[-6,3],[2,4]], '#f6fbff');
+      ctx.restore();
+    }
+
+    beacon(game) {
+      const ctx = this.ctx;
+      const { x, y, ux, uy, reach } = game.laserRay();
+      const length = Math.min(reach,
+        ux > 0 ? (WIDTH + 24 - x) / ux : ux < 0 ? (-24 - x) / ux : Infinity,
+        uy > 0 ? (HEIGHT + 24 - y) / uy : uy < 0 ? (-24 - y) / uy : Infinity);
+      const t = this.time;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.atan2(uy, ux));
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+
+      function strand(color, width, amplitude, phase) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        for (let distance = 16; distance < length; distance += 16) {
+          const noise = Math.sin(distance * .19 + phase + t * 31) * .58 +
+            Math.sin(distance * .065 - phase - t * 19) * .42;
+          ctx.lineTo(distance, noise * amplitude);
+        }
+        ctx.lineTo(length, 0);
+        ctx.stroke();
+      }
+
+      strand('#216aff38', 66, 5, 0);
+      strand('#508dff58', 44, 4, 0);
+      strand('#72c6ffe0', 21, 3, 0);
+      strand('#e8faff', 7, 2, 0);
+      strand('#338fff88', 2, 23, 3);
+      strand('#78daffb5', 2, 18, 6);
+      for (let i = 0; i < 24; i++) {
+        const progress = (i * 37 + t * (130 + (i % 4) * 65)) % Math.max(1, length);
+        const side = i % 2 ? -1 : 1;
+        const width = side * (13 + (i * 3 % 24) + Math.sin(t * 15 + i) * 8);
+        ctx.strokeStyle = i % 3 ? '#5eb8ffad' : '#e6faff';
+        ctx.lineWidth = i % 3 ? 1 : 2;
+        ctx.beginPath();
+        ctx.moveTo(progress - 6, width * .68);
+        ctx.lineTo(progress, width);
+        ctx.lineTo(progress + 8, width * .87);
+        ctx.stroke();
+      }
+      disc(ctx, 0, 0, 13 + Math.sin(t * 33) * 3, '#8fdcff');
+      disc(ctx, 0, 0, 5, '#effcff');
+      ctx.restore();
+    }
+
     draw(game, dt) {
       const ctx = this.ctx;
       this.time += dt;
@@ -240,6 +312,8 @@
         }
         ctx.restore();
       }
+      for (const shot of run.missiles) this.missile(shot);
+      if (game.laserActive()) this.beacon(game);
       const { player } = run;
       if (run.boosts.shield || run.boosts.fortress) {
         ctx.strokeStyle = '#8be8fb';
@@ -276,7 +350,8 @@
       const context = this.context;
       const tones = {
         fire: [410, 190, 0.085, 0.035], hit: [106, 50, 0.23, 0.095],
-        destroy: [165, 46, 0.17, 0.06], upgrade: [370, 650, 0.21, 0.085]
+        destroy: [165, 46, 0.17, 0.06], upgrade: [370, 650, 0.21, 0.085],
+        missile: [255, 115, .15, .055], blast: [110, 42, .22, .07]
       };
       if (context?.state !== 'running' || !tones[type]) return;
       const [start, end, duration, volume] = tones[type];
