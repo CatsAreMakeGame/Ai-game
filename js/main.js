@@ -143,9 +143,7 @@
       return AG.BOOSTS[key].name + (timers.length > 1 ? ' ×' + timers.length : '') + ' ' + Math.ceil(seconds) + 's';
     }).join(' · '));
     $('skip').disabled = !game.canSkip() || Boolean(panelKind);
-    $('auto').disabled = run.diff.boss || Boolean(panelKind);
-    $('auto').setAttribute('aria-pressed', String(game.profile.auto));
-    $('auto').title = run.diff.boss ? 'Boss waves must be cleared' : 'Advance at 60% spawned';
+    syncAutoSkip();
     const levelLocked = run.level < AG.SUPPLY_LEVEL;
     const icon = levelLocked ? AG.ICONS.locked : AG.ICONS.supplies;
     if ($('supply-icon').getAttribute('src') !== icon) $('supply-icon').src = icon;
@@ -403,9 +401,19 @@
   $('help').addEventListener('click', () => { tutorialIndex = 0; open('tutorial'); });
   $('close').addEventListener('click', dismiss);
   $('skip').addEventListener('click', () => game.skip());
+  function syncAutoSkip() {
+    const toggle = $('auto');
+    const enabled = game.profile.auto;
+    toggle.setAttribute('aria-pressed', String(enabled));
+    setText($('auto-state'), enabled ? 'On' : 'Off');
+    toggle.title = game.run?.diff.boss
+      ? 'Boss waves cannot be skipped. This setting applies to later waves.'
+      : 'Automatically advance after 60% of the wave has spawned.';
+  }
   $('auto').addEventListener('click', () => {
     game.profile.auto = !game.profile.auto;
     game.save();
+    syncAutoSkip();
   });
   $('supplies').addEventListener('click', () => {
     if (game.state === 'intermission' && game.run.level >= AG.SUPPLY_LEVEL) open('supplies');

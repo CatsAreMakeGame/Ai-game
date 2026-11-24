@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A browser-based alien shooter with 50 escalating waves, Mothership bosses, pilot upgrades and unlockable ships.">
   <title>Alien Shooter</title>
-  <link rel="stylesheet" href="css/style.css?v=batch-crates">
-  <script defer src="js/data.js?v=batch-crates"></script>
-  <script defer src="js/game.js?v=batch-crates"></script>
-  <script defer src="js/flight-view.js?v=batch-crates"></script>
-  <script defer src="js/admin.js?v=batch-crates"></script>
-  <script defer src="js/armory.js?v=batch-crates"></script>
-  <script defer src="js/main.js?v=batch-crates"></script>
+  <link rel="stylesheet" href="css/style.css?v=auto-skip-fix">
+  <script defer src="js/data.js?v=auto-skip-fix"></script>
+  <script defer src="js/game.js?v=auto-skip-fix"></script>
+  <script defer src="js/flight-view.js?v=auto-skip-fix"></script>
+  <script defer src="js/admin.js?v=auto-skip-fix"></script>
+  <script defer src="js/armory.js?v=auto-skip-fix"></script>
+  <script defer src="js/main.js?v=auto-skip-fix"></script>
 </head>
 <body>
   <main class="console">
@@ -60,7 +60,7 @@
     <section id="controls" class="controls" aria-label="Flight controls" hidden>
       <div class="completion"><span class="label">WAVE COMPLETION <b id="completion-value"></b></span><progress id="completion" aria-label="Wave completion" max="100"></progress></div>
       <button id="skip">Skip wave</button>
-      <button id="auto" aria-pressed="false">Auto skip</button>
+      <button id="auto" type="button" aria-label="Auto Skip" aria-pressed="false">Auto Skip · <span id="auto-state">Off</span></button>
       <button id="supplies"><img id="supply-icon" alt=""><span id="supply-label">Supplies · Lv 5</span></button>
       <label id="target-control" class="target-control" hidden>Target <select id="target-mode" aria-label="Missile targeting">
         <option value="nearest">Closest to ship</option><option value="bottom">Closest to bottom</option>
