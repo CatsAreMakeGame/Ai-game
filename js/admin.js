@@ -184,6 +184,31 @@
         status.textContent = game.credits + ' Credits available.';
       }));
 
+      const damage = group('Shot damage');
+      const damageLabel = element('label', 'Damage per shot');
+      const damageInput = element('input');
+      damageInput.type = 'number';
+      damageInput.min = '0';
+      damageInput.step = '1';
+      damageInput.value = String(game.shotDamage());
+      damageLabel.append(damageInput);
+      const damageStatus = element('p', run.testDamage == null ? 'Automatic damage' : 'Testing override active', 'admin-status');
+      damageStatus.setAttribute('role', 'status');
+      damage.append(damageLabel);
+      actions(damage, button('Set damage', () => {
+        if (!game.setTestDamage(damageInput.valueAsNumber)) {
+          damageStatus.textContent = 'Enter a whole number of zero or more.';
+          damageInput.focus();
+          return;
+        }
+        damageStatus.textContent = 'Each shot now deals ' + game.shotDamage().toLocaleString() + ' damage.';
+      }), button('Reset damage', () => {
+        game.setTestDamage(null);
+        damageInput.value = String(game.shotDamage());
+        damageStatus.textContent = 'Automatic damage restored.';
+      }));
+      damage.append(damageStatus);
+
       const combat = group('Enemy testing');
       const enemy = select(combat, 'Enemy type', Object.keys(AG.ENEMIES)
         .map(id => [id, AG.BOSSES[id]?.name ?? (id[0].toUpperCase() + id.slice(1))]));

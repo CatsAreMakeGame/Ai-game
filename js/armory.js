@@ -35,6 +35,69 @@
       weight + '% ' + rarity + ' (' + items.map(id => ITEMS[id].name).join(', ') + ')').join(' · ');
   }
 
+  function revealCrate(crateId, result, element, button) {
+    const crate = CRATES[crateId];
+    const item = ITEMS[result.rolled];
+    const dialog = element('dialog', '', 'crate-reveal');
+    const title = element('h2', crate.name);
+    title.id = 'crate-reveal-title';
+    dialog.setAttribute('aria-labelledby', title.id);
+    dialog.style.setProperty('--reward', RARITIES[item.rarity ?? 'common']);
+    const viewport = element('div', '', 'reel-window');
+    viewport.setAttribute('aria-hidden', 'true');
+    const track = element('div', '', 'reel-track');
+    const marker = element('div', '', 'reel-marker');
+    const pool = crate.outcomes.flatMap(entry => entry.items);
+    const stopAt = 16;
+    let winner;
+    for (let index = 0; index < stopAt + 4; index++) {
+      const winning = index === stopAt;
+      const id = winning ? result.rolled : pool[(index + 1) % pool.length];
+      const spec = ITEMS[id];
+      const tile = element('div', '', 'reel-tile');
+      tile.style.setProperty('--rarity', RARITIES[spec.rarity ?? 'common']);
+      tile.append(graphic(id), element('span', spec.name));
+      track.append(tile);
+      if (winning) winner = tile;
+    }
+    viewport.append(track, marker);
+    const message = element('p', 'Opening crate…', 'reel-result');
+    message.setAttribute('role', 'status');
+    const centered = tile => 'translateX(' + (viewport.clientWidth / 2 - tile.offsetLeft - tile.offsetWidth / 2) + 'px)';
+    let animation;
+    let revealed = false;
+    function showReward() {
+      if (revealed || !dialog.open) return;
+      revealed = true;
+      animation?.cancel();
+      track.style.transform = centered(winner);
+      winner.classList.add('reel-winner');
+      dialog.classList.add('reel-revealed');
+      message.textContent = result.text;
+      next.textContent = 'Done';
+    }
+    const next = button('Skip animation', () => {
+      if (revealed) dialog.close();
+      else showReward();
+    }, { primary: true });
+    dialog.append(title, viewport, message, next);
+    document.body.append(dialog);
+    dialog.addEventListener('close', () => {
+      animation?.cancel();
+      dialog.remove();
+    }, { once: true });
+    dialog.showModal();
+    const end = centered(winner);
+    track.style.transform = end;
+    if (globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches || !track.animate) {
+      showReward();
+      return;
+    }
+    animation = track.animate([{ transform: centered(track.children[3]) }, { transform: end }],
+      { duration: 2450, easing: 'cubic-bezier(.12,.73,.15,1)' });
+    animation.addEventListener('finish', showReward, { once: true });
+  }
+
   function renderArmory({ kind, state, game, body, button, element, open, dismiss, refresh }) {
     const profile = game.profile;
     const base = game.canVisitBase();
@@ -87,8 +150,9 @@
         for (const [id, crate] of Object.entries(CRATES)) {
           card(id, crateOdds(crate), button(crate.price + ' Star Gems', () => {
             const result = game.buyCrate(id, state.autoOpen);
-            if (result) state.result = result.text ?? 'Crate added to inventory.';
+            if (result) state.result = result.rolled ? '' : 'Crate added to inventory.';
             refresh();
+            if (result?.rolled) revealCrate(id, result, element, button);
           }, { disabled: !base || profile.gems < crate.price }));
         }
         body.append(element('p', 'Duplicate ships convert to 250 Credits. Upgrade copies can fill multiple mounts.', 'panel-note'));
@@ -132,8 +196,9 @@
           if (!profile.crates[id]) continue;
           card(id, crateOdds(CRATES[id]), button('Open', () => {
             const result = game.openCrate(id);
-            if (result) state.result = result.text;
+            if (result) state.result = '';
             refresh();
+            if (result) revealCrate(id, result, element, button);
           }), profile.crates[id]);
         }
       }
@@ -195,7 +260,11 @@
         parts.append(choose);
       }
       if (!parts.children.length) parts.append(element('p', 'Collect upgrades in flight or open an Upgrade Crate.', 'panel-note'));
-      body.append(element('p', SHIPS[ship].name + ' · Drag a part onto a matching mount, or select it and tap a mount. Select a fitted mount to remove the part.', 'panel-note'));
+      const effects = game.upgradeEffects();
+      const bonuses = 'Speed +' + Math.round((effects.speed - 1) * 100) + '% · Damage +' + effects.damage +
+        ' per shot · ' + (effects.vertical ? 'All-direction steering' : 'Horizontal steering');
+      body.append(element('p', SHIPS[ship].name + ' · ' + bonuses, 'outfit-summary'),
+        element('p', 'Drag a part onto a matching mount, or select it and tap a mount. Select a fitted mount to remove the part.', 'panel-note'));
       layout.append(diagram, parts);
       body.append(layout);
       footer(button('Inventory', () => open('inventory')));

@@ -171,6 +171,19 @@
       }
     }
 
+    setTestDamage(amount) {
+      if (!this.testing || !this.run || (amount !== null && (!Number.isSafeInteger(amount) || amount < 0))) return false;
+      this.run.testDamage = amount;
+      return true;
+    }
+
+    shotDamage() {
+      const run = this.run;
+      if (this.testing && run.testDamage != null) return run.testDamage;
+      const waveBonus = Math.floor((Math.min(run.wave, 50) - 1) / 7);
+      return (run.ship.damage + waveBonus + this.upgradeEffects().damage) * (run.boosts.doubleDamage ? 2 : 1);
+    }
+
     upgradeEffects() {
       const mounts = this.profile.loadouts[this.profile.ship] ?? {};
       const effects = { speed: 1, damage: 0, vertical: false };
@@ -249,9 +262,9 @@
       this.profile.crates[type]--;
       if (!this.grantItem(id)) {
         this.grantItem('credit', 250);
-        return { type: 'credit', text: 'Duplicate ' + SHIPS[id].name + ' converted to 250 Credits.' };
+        return { type: 'credit', rolled: id, text: 'Duplicate ' + SHIPS[id].name + ' converted to 250 Credits.' };
       }
-      return { type: id, text: AG.ITEMS[id].name + ' · ' + outcome.rarity };
+      return { type: id, rolled: id, text: AG.ITEMS[id].name + ' · ' + outcome.rarity };
     }
 
     canBuy(type) {
@@ -368,7 +381,7 @@
       const { player, ship } = run;
       player.fireIn -= dt;
       if (player.fireIn <= 0) {
-        const damage = (ship.damage + Math.floor((Math.min(run.wave, 50) - 1) / 7) + this.upgradeEffects().damage) * (run.boosts.doubleDamage ? 2 : 1);
+        const damage = this.shotDamage();
         run.shots.push({ x: player.x, y: player.y - 20, vx: 0, vy: -720, size: 5, damage });
         player.fireIn += ship.delay * (run.boosts.rapidFire ? .52 : run.boosts.overdrive ? .68 : 1);
         this.notify('fire');

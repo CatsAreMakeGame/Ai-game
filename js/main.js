@@ -433,7 +433,7 @@
 
   const moveKeys = new Set(['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'w', 'a', 's', 'd']);
   window.addEventListener('keydown', event => {
-    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.ctrlKey || event.metaKey || event.altKey || document.querySelector('.crate-reveal[open]')) return;
     const key = event.key.toLowerCase();
     if (['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName) && key !== 'escape') return;
     if (key === 'i' && !event.repeat && (!panelKind || panelKind === 'inventory')) {
