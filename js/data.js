@@ -24,13 +24,18 @@ window.AG = (() => {
     aurora: ['Aurora', 117, 550, .20, 2, 3, 'arrow', '#83fff3', 'legendary', 3300],
     comet: ['Comet', 100, 605, .21, 1, 2, 'needle', '#6edaff', 'rare', null],
     eclipse: ['Eclipse', 138, 525, .22, 3, 2, 'fang', '#e0a1ff', 'epic', null],
-    singularity: ['Singularity', 165, 560, .19, 4, 3, 'star', '#ff81bf', 'mythical', null]
+    singularity: ['Singularity', 165, 560, .19, 4, 3, 'star', '#ff81bf', 'mythical', null],
+    supernova: ['Supernova', 205, 630, .17, 5, 3, 'supernova', '#b99aff', 'godly', null]
   };
   const SHIPS = Object.fromEntries(Object.entries(shipRows).map(([id, row]) => {
     const [name, hull, speed, delay, damage, engines, frame, color, rarity, price] = row;
     return [id, { name, hull, speed, delay, damage, engines, frame, color, rarity, price,
       description: hull + ' hull · ' + speed + ' speed · ' + damage + ' damage · ' + engines + ' engine mounts' }];
   }));
+  Object.assign(SHIPS.supernova, {
+    gemPrice: 100,
+    ability: { name: 'Nova Aegis', interval: 24, reduction: .65 }
+  });
   const BOSSES = {
     boss: { name: 'Mothership', hp: 95, size: 49, color: '#ff7894', score: 600, tier: 0, shots: 5, spread: .18, cadence: 2.2 },
     prism: { name: 'Prism Carrier', hp: 145, size: 44, color: '#bf8cff', score: 850, tier: 1, shots: 3, spread: .15, cadence: 1.8 },

@@ -110,7 +110,12 @@
     const boss = active && run.enemies.find(enemy => AG.BOSSES[enemy.type] && enemy.y > 65);
     $('boss').hidden = !boss;
     $('boosts').hidden = !active || !Object.keys(run.boosts).length;
+    $('ship-ability').hidden = !active || !run.ship.ability;
     if (!active) return;
+    if (run.ship.ability) {
+      const state = run.aegisCooldown > 0 ? Math.ceil(run.aegisCooldown) + 's' : 'Ready';
+      setText($('ship-ability'), run.ship.ability.name + ' · ' + state);
+    }
     if (now >= rewardUntil && now < creditUntil) setText(alert, '+' + creditBatch + ' credits');
     if (boss) {
       setText($('boss-name'), AG.BOSSES[boss.type].name);

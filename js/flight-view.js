@@ -30,6 +30,7 @@
     arrow: [0,-34, 16,-11, 33,14, 14,9, 12,24, 0,17,-12,24,-14,9,-33,14,-16,-11],
     needle: [0,-35, 7,-9, 28,14, 25,23, 8,13, 0,24,-8,13,-25,23,-28,14,-7,-9],
     fang: [0,-22, 13,-10, 33,-20, 27,18, 10,22, 0,12,-10,22,-27,18,-33,-20,-13,-10],
+    supernova: [0,-36,9,-25,13,-13,29,-22,34,-4,26,2,32,16,17,22,10,16,0,25,-10,16,-17,22,-32,16,-26,2,-34,-4,-29,-22,-13,-13,-9,-25],
     star: [0,-34, 13,-11, 33,-6, 21,8, 22,25, 0,16,-22,25,-21,8,-33,-6,-13,-11]
   };
   function paintShip(ctx, spec, flame = 26) {
@@ -43,6 +44,13 @@
     polygon(ctx, points.map(([x,y]) => [x * .83, y * .87 - 1]), spec.color);
     polygon(ctx, [[0,-24],[8,-2],[7,15],[0,20],[-7,15],[-8,-2]], '#e2f2f6');
     polygon(ctx, [[0,-16],[5,-4],[0,3],[-5,-4]], '#14283c');
+    if (spec.ability) {
+      disc(ctx, 0, 4, 8, '#593cba');
+      disc(ctx, 0, 4, 5, '#f8ddff');
+      for (const side of [-1, 1]) {
+        polygon(ctx, [[side * 10,-7],[side * 24,-14],[side * 28,-7],[side * 19,1]], '#514097');
+      }
+    }
   }
   function shipGraphic(id) {
     const canvas = document.createElement('canvas');
@@ -321,6 +329,16 @@
         ctx.beginPath();
         ctx.arc(player.x, player.y, 29, 0, Math.PI * 2);
         ctx.stroke();
+      }
+      if (run.aegisFlash > 0) {
+        ctx.save();
+        ctx.globalAlpha = run.aegisFlash / .46;
+        ctx.strokeStyle = '#ccb2ff';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, 32 + (1 - run.aegisFlash / .46) * 20, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
       }
       if (player.hp > 0 && (player.invulnerable <= 0 || Math.floor(player.invulnerable * 12) % 2 === 0)) {
         this.ship(player.x, player.y, run.ship.color, 0.84, game.profile.ship);

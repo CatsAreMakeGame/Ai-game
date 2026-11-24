@@ -80,7 +80,7 @@
       const ship = SHIPS[this.profile.ship];
       this.releaseInput();
       this.run = {
-        wave: 0, level: 1, xp: 0, score: 0, boosts: {}, ship,
+        wave: 0, level: 1, xp: 0, score: 0, boosts: {}, ship, aegisCooldown: 0, aegisFlash: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
         missiles: [], missileIn: 0, targetMode: 'nearest', energy: 0,
@@ -276,21 +276,23 @@
       return true;
     }
 
-    buyCrate(type, autoOpen = false) {
-      const crate = CRATES[type];
-      if (!this.canVisitBase() || !crate || this.profile.gems < crate.price) return false;
-      this.profile.gems -= crate.price;
-      this.grantItem(type);
-      return autoOpen ? this.openCrate(type) : true;
+    cratePurchaseLimit(type) {
+      if (!Object.hasOwn(CRATES, type) || !this.canVisitBase()) return 0;
+      return Math.min(Math.floor(this.profile.gems / CRATES[type].price),
+        Number.MAX_SAFE_INTEGER - (this.profile.crates[type] ?? 0));
+    }
+
+    buyCrates(type, count, autoOpen = false) {
+      if (!Number.isSafeInteger(count) || count < 1 || count > this.cratePurchaseLimit(type)) return false;
+      this.profile.gems -= CRATES[type].price * count;
+      this.grantItem(type, count);
+      const opened = Math.min(count, this.crateBatchLimit());
+      const batch = autoOpen ? this.openCrates(type, opened) : false;
+      return { batch, stored: batch ? count - batch.count : count };
     }
 
     crateBatchLimit() {
       return this.testing ? 10000 : 10;
-    }
-
-    openCrate(type) {
-      const batch = this.openCrates(type, 1);
-      return batch ? batch.featured : false;
     }
 
     openCrates(type, count) {
@@ -375,6 +377,17 @@
       return this.grantItem(id);
     }
 
+    canUnlockFlagship(id) {
+      const price = Object.hasOwn(SHIPS, id) && SHIPS[id].gemPrice;
+      return Boolean(this.canVisitBase() && price && !this.profile.unlocked.includes(id) && this.profile.gems >= price);
+    }
+
+    unlockFlagship(id) {
+      if (!this.canUnlockFlagship(id)) return false;
+      this.profile.gems -= SHIPS[id].gemPrice;
+      return this.grantItem(id);
+    }
+
     equip(id) {
       if (!this.canVisitBase() || !this.profile.unlocked.includes(id)) return false;
       this.profile.ship = id;
@@ -432,6 +445,8 @@
     update(dt) {
       if (!['playing', 'intermission'].includes(this.state)) return;
       const run = this.run;
+      run.aegisCooldown = Math.max(0, run.aegisCooldown - dt);
+      run.aegisFlash = Math.max(0, run.aegisFlash - dt);
       this.movePlayer(dt);
       if (this.state === 'intermission') {
         this.updatePlayerShots(dt);
@@ -701,6 +716,13 @@
     hurt(damage) {
       const { player, boosts } = this.run;
       if ((this.testing && this.run.godMode) || player.invulnerable > 0 || boosts.shield || boosts.fortress) return;
+      const ability = this.run.ship.ability;
+      if (ability && damage > 0 && this.run.aegisCooldown === 0) {
+        damage = Math.max(1, Math.round(damage * (1 - ability.reduction)));
+        this.run.aegisCooldown = ability.interval;
+        this.run.aegisFlash = .46;
+        this.notify('upgrade', ability.name + ' absorbed the hit');
+      }
       player.hp = Math.max(0, player.hp - damage);
       player.invulnerable = 0.78;
       this.notify('hit');

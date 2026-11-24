@@ -99,6 +99,7 @@
     } else if (count > 10) {
       dialog.append(element('p', 'Rarest reward shown. All ' + count.toLocaleString() + ' results are awarded.', 'reel-batch-note'));
     }
+    if (batch.stored) dialog.append(element('p', batch.stored.toLocaleString() + ' saved in Inventory.', 'reel-batch-note'));
     document.body.append(dialog);
     dialog.addEventListener('close', () => {
       animation?.cancel();
@@ -141,7 +142,7 @@
 
     if (kind === 'shop') {
       const options = element('div', '', 'inventory-tabs');
-      for (const [id, name] of [['ships', 'Credit ships'], ['crates', 'Star Gem crates']]) {
+      for (const [id, name] of [['ships', 'Credit ships'], ['crates', 'Star Gem crates'], ['flagship', 'Flagship']]) {
         const tab = button(name, () => { state.shopTab = id; refresh(); });
         tab.setAttribute('aria-pressed', String(state.shopTab === id));
         options.append(tab);
@@ -157,21 +158,68 @@
             refresh();
           }, { disabled: !game.canUnlockShip(id) }));
         }
+      } else if (state.shopTab === 'flagship') {
+        const ship = SHIPS.supernova;
+        const ability = ship.ability;
+        const featured = element('article', '', 'flagship');
+        const visual = element('div', '', 'flagship-visual');
+        visual.append(graphic('supernova'));
+        const details = element('div', '', 'flagship-details');
+        const owned = profile.unlocked.includes('supernova');
+        const stats = element('dl', '', 'flagship-stats');
+        for (const [label, value] of [['Hull', ship.hull], ['Speed', ship.speed], ['Shot damage', ship.damage],
+          ['Shot interval', ship.delay + 's'], ['Engine mounts', ship.engines]]) {
+          const stat = element('div');
+          stat.append(element('dt', label), element('dd', String(value)));
+          stats.append(stat);
+        }
+        details.append(element('span', 'Godly', 'flagship-rarity'), element('h3', ship.name), stats,
+          element('h4', ability.name), element('p', 'Reduces damage from the next hit by ' +
+            Math.round(ability.reduction * 100) + '%. Recharges in ' + ability.interval + ' seconds.'),
+          button(owned ? 'Owned' : 'Buy for ' + ship.gemPrice + ' Star Gems', () => {
+            if (game.unlockFlagship('supernova')) state.result = 'Supernova unlocked. Equip it in the Hangar.';
+            refresh();
+          }, { primary: true, disabled: !game.canUnlockFlagship('supernova') }));
+        featured.append(visual, details);
+        body.append(featured);
       } else {
         const label = element('label', '', 'crate-switch');
         const toggle = element('input');
         toggle.type = 'checkbox';
         toggle.checked = state.autoOpen;
         toggle.addEventListener('change', () => { state.autoOpen = toggle.checked; });
-        label.append(toggle, element('span', 'Open crates immediately on purchase'));
+        label.append(toggle, element('span', 'Open up to ' + game.crateBatchLimit().toLocaleString() + ' crates immediately. Store any extras.'));
         body.append(label);
         for (const [id, crate] of Object.entries(CRATES)) {
-          card(id, crateOdds(crate), button(crate.price + ' Star Gems', () => {
-            const result = game.buyCrate(id, state.autoOpen);
-            if (result) state.result = result.rolled ? '' : 'Crate added to inventory.';
+          const limit = game.cratePurchaseLimit(id);
+          const controls = element('div', '', 'crate-batch-controls');
+          const quantity = element('input');
+          quantity.type = 'number';
+          quantity.min = '1';
+          quantity.max = String(limit);
+          quantity.step = '1';
+          quantity.value = '1';
+          quantity.disabled = limit < 1;
+          quantity.setAttribute('aria-label', crate.name + ' purchase quantity');
+          const buy = button('Buy', () => {
+            const result = game.buyCrates(id, quantity.valueAsNumber, state.autoOpen);
+            if (!result) return;
+            state.result = result.stored ? result.stored.toLocaleString() + ' crates saved in Inventory.' : '';
             refresh();
-            if (result?.rolled) revealCrate(id, { count: 1, featured: result, sideItems: [] }, element, button);
-          }, { disabled: !base || profile.gems < crate.price }));
+            if (result.batch) revealCrate(id, { ...result.batch, stored: result.stored }, element, button);
+          }, { disabled: limit < 1 });
+          function updateTotal() {
+            const count = quantity.valueAsNumber;
+            const valid = Number.isSafeInteger(count) && count >= 1 && count <= limit;
+            buy.disabled = !valid;
+            if (limit < 1) buy.textContent = 'Need ' + crate.price + ' Star Gems';
+            else if (valid) buy.textContent = 'Buy · ' + (count * crate.price).toLocaleString() + ' Star Gems';
+            else buy.textContent = 'Choose 1–' + limit.toLocaleString();
+          }
+          quantity.addEventListener('input', updateTotal);
+          updateTotal();
+          controls.append(quantity, buy);
+          card(id, crate.price + ' Star Gems each · ' + crateOdds(crate), controls);
         }
         body.append(element('p', 'Duplicate ships convert to 250 Credits. Upgrade copies can fill multiple mounts.', 'panel-note'));
       }
@@ -193,7 +241,9 @@
         for (const id of sortItems(SHIPS, ship => ship.hull + ship.speed + 50 * ship.damage)) {
           if (!profile.unlocked.includes(id)) continue;
           const equipped = profile.ship === id;
-          card(id, SHIPS[id].description, button(equipped ? 'Equipped' : 'Equip', () => {
+          const ship = SHIPS[id];
+          const info = ship.description + (ship.ability ? ' · ' + ship.ability.name : '');
+          card(id, info, button(equipped ? 'Equipped' : 'Equip', () => {
             game.equip(id); refresh();
           }, { disabled: equipped || !base }));
         }

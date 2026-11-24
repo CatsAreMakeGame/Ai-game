@@ -236,3 +236,25 @@ progress::-webkit-progress-value { background: var(--lime); border-radius: 20px;
   .reel-rewards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .item-card > .crate-batch-controls { grid-column: 2; justify-self: start; }
 }
+
+.ship-ability { position: absolute; right: 12px; top: 70px; color: #ddbeff; font: 700 .72rem ui-monospace, monospace; text-shadow: 0 1px 4px #071317; pointer-events: none; }
+.flagship {
+  display: grid; grid-template-columns: minmax(165px, .85fr) minmax(0, 1.15fr); gap: 16px; align-items: center;
+  margin-bottom: 14px; padding: 14px; border: 1px solid #8262b6; border-radius: 12px;
+  background: radial-gradient(ellipse at 20% 45%, #3b2a62, #14202b 64%);
+}
+.flagship-visual { display: grid; place-items: center; }
+.flagship-visual .ship-graphic { width: min(100%, 195px); height: auto; filter: drop-shadow(0 0 18px #a967ff85); }
+.flagship-details h3 { margin: 3px 0 8px; font: 800 clamp(1.5rem, 4vw, 2.6rem) system-ui, sans-serif; }
+.flagship-details h4 { margin: 12px 0 4px; color: #dec5ff; }
+.flagship-details p { margin: 0 0 10px; color: var(--muted); font-size: .8rem; }
+.flagship-rarity { text-transform: uppercase; font: 800 .68rem ui-monospace, monospace; letter-spacing: .08em; color: #d6b2ff; }
+.flagship-stats { margin: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px 12px; }
+.flagship-stats div { display: flex; gap: 6px; align-items: baseline; }
+.flagship-stats dt { color: var(--muted); font-size: .73rem; }
+.flagship-stats dd { margin: 0; font-weight: 750; }
+@media (max-width: 540px) {
+  .flagship { grid-template-columns: minmax(0,1fr); gap: 4px; }
+  .flagship-visual .ship-graphic { width: 128px; }
+  .ship-ability { top: 58px; }
+}
