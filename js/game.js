@@ -604,7 +604,7 @@
         missile.life -= dt;
         const hit = run.enemies.findIndex(enemy => touches(missile, enemy));
         if (guided && hit >= 0) {
-          this.hitEnemy(hit, missile.damage);
+          this.hitEnemy(hit, missile.damage, 'missile');
           this.notify('blast', { x: missile.x, y: missile.y, radius: 22 });
           return false;
         }
@@ -613,7 +613,7 @@
           for (let index = run.enemies.length - 1; index >= 0; index--) {
             const enemy = run.enemies[index];
             if (Math.hypot(enemy.x - missile.x, enemy.y - missile.y) <= radius + enemy.size) {
-              this.hitEnemy(index, missile.damage);
+              this.hitEnemy(index, missile.damage, 'missile');
             }
           }
           this.notify('blast', { x: missile.x, y: missile.y, radius });
@@ -676,15 +676,16 @@
         const enemy = run.enemies[index];
         const progress = (enemy.x - x) * ux + (enemy.y - y) * uy;
         const offset = Math.abs((enemy.x - x) * uy - (enemy.y - y) * ux);
-        if (progress >= 0 && progress <= reach && offset <= enemy.size + 19) this.hitEnemy(index, damage);
+        if (progress >= 0 && progress <= reach && offset <= enemy.size + 19) this.hitEnemy(index, damage, 'laser');
       }
       if (run.energy < 3) this.laserInput('off');
     }
 
-    hitEnemy(index, damage) {
+    hitEnemy(index, damage, source = 'shot') {
       const enemy = this.run.enemies[index];
       enemy.hp -= damage;
       enemy.flash = .09;
+      this.notify('enemy-damage', { x: enemy.x, y: enemy.y, size: enemy.size, amount: damage, source });
       if (enemy.hp <= 0) this.removeEnemy(index, true);
     }
 

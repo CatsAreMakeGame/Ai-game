@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A browser-based alien shooter with 50 escalating waves, Mothership bosses, pilot upgrades and unlockable ships.">
   <title>Alien Shooter</title>
-  <link rel="stylesheet" href="css/style.css?v=supernova">
-  <script defer src="js/data.js?v=supernova"></script>
-  <script defer src="js/game.js?v=supernova"></script>
-  <script defer src="js/flight-view.js?v=supernova"></script>
-  <script defer src="js/admin.js?v=supernova"></script>
-  <script defer src="js/armory.js?v=supernova"></script>
-  <script defer src="js/main.js?v=supernova"></script>
+  <link rel="stylesheet" href="css/style.css?v=damage-numbers">
+  <script defer src="js/data.js?v=damage-numbers"></script>
+  <script defer src="js/game.js?v=damage-numbers"></script>
+  <script defer src="js/flight-view.js?v=damage-numbers"></script>
+  <script defer src="js/admin.js?v=damage-numbers"></script>
+  <script defer src="js/armory.js?v=damage-numbers"></script>
+  <script defer src="js/main.js?v=damage-numbers"></script>
 </head>
 <body>
   <main class="console">
@@ -32,7 +32,11 @@
         <div><span class="label">SCORE</span><strong id="score"></strong></div>
         <div class="wallet"><span title="Credits"><img src="icons/currency/credit_gold.png" alt="Credits"> <b id="credits"></b></span><span title="Star Gems"><img src="icons/currency/star_gem.png" alt="Star Gems"> <b id="gems"></b></span></div>
       </div>
-      <div id="boss" class="boss" hidden><span class="label" id="boss-name">MOTHERSHIP</span><progress id="boss-health" aria-label="Mothership hull" max="100"></progress></div>
+      <div id="boss" class="boss" hidden>
+        <span class="label" id="boss-name"></span>
+        <span class="boss-hp" id="boss-hp"></span>
+        <progress id="boss-health" aria-label="Boss health"></progress>
+      </div>
       <div id="boosts" class="boosts" hidden></div>
       <div id="ship-ability" class="ship-ability" hidden></div>
       <div id="loot-strip" class="loot-strip" aria-live="polite"></div>

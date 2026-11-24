@@ -68,6 +68,8 @@
     constructor(canvas) {
       this.ctx = canvas.getContext('2d');
       this.effects = [];
+      this.damageNumbers = [];
+      this.damageOffset = 0;
       this.time = 0;
       this.images = {};
       this.stars = Array.from({ length: 125 }, (_, index) => ({
@@ -190,7 +192,53 @@
         ctx.fillRect(enemy.x - 32, enemy.y + size + 4, 64, 4);
         ctx.fillStyle = ENEMIES[type].color;
         ctx.fillRect(enemy.x - 32, enemy.y + size + 4, 64 * enemy.hp / enemy.maxHp, 4);
+        ctx.save();
+        ctx.font = 'bold 12px ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#10131e';
+        ctx.fillStyle = '#fff4f4';
+        const label = enemy.hp + '/' + enemy.maxHp + ' HP';
+        ctx.strokeText(label, enemy.x, enemy.y + size + 10);
+        ctx.fillText(label, enemy.x, enemy.y + size + 10);
+        ctx.restore();
       }
+    }
+
+    addDamageNumber({ x, y, size, amount, source }) {
+      const laser = source === 'laser';
+      const offset = (this.damageOffset++ % 5 - 2) * 5;
+      this.damageNumbers.push({
+        x: x + offset, y: Math.max(103, y - size - 3),
+        label: amount.toLocaleString(), size: laser ? 23 : 17,
+        color: laser ? '#ff5267' : source === 'missile' ? '#ffc185' : '#fff0cf',
+        life: laser ? .78 : .64, age: 0
+      });
+    }
+
+    drawDamageNumbers(dt) {
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.strokeStyle = '#111320';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 4;
+      this.damageNumbers = this.damageNumbers.filter(number => {
+        number.age += dt;
+        if (number.age >= number.life) return false;
+        ctx.font = 'bold ' + number.size + 'px ui-monospace, monospace';
+        const margin = Math.min(64, ctx.measureText(number.label).width / 2) + 5;
+        const x = AG.clamp(number.x, margin, WIDTH - margin);
+        const y = number.y - 61 * number.age;
+        ctx.globalAlpha = Math.min(1, (number.life - number.age) / .2);
+        ctx.fillStyle = number.color;
+        ctx.strokeText(number.label, x, y, 128);
+        ctx.fillText(number.label, x, y, 128);
+        return true;
+      });
+      ctx.restore();
     }
 
     burst(enemy) {
@@ -352,6 +400,7 @@
         ctx.globalAlpha = 1;
         return particle.life > 0;
       });
+      this.drawDamageNumbers(dt);
     }
   }
 

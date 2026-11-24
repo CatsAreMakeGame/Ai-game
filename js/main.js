@@ -55,6 +55,7 @@
     if (game.profile.sound) audio.play(type);
     if (type === 'destroy') view.burst(value);
     if (type === 'blast') view.blast(value);
+    if (type === 'enemy-damage') view.addDamageNumber(value);
     if (type === 'loot') {
       const { type: id, amount } = value;
       const strip = $('loot-strip');
@@ -119,7 +120,10 @@
     if (now >= rewardUntil && now < creditUntil) setText(alert, '+' + creditBatch + ' credits');
     if (boss) {
       setText($('boss-name'), AG.BOSSES[boss.type].name);
-      $('boss-health').value = 100 * boss.hp / boss.maxHp;
+      setText($('boss-hp'), boss.hp.toLocaleString() + ' / ' + boss.maxHp.toLocaleString() + ' HP');
+      const health = $('boss-health');
+      health.max = boss.maxHp;
+      health.value = boss.hp;
     }
     setText($('wave'), game.waveLabel);
     const effects = game.upgradeEffects();
@@ -211,6 +215,7 @@
     panelKind = '';
     panel.hidden = overlay.hidden = true;
     view.effects.length = 0;
+    view.damageNumbers.length = 0;
     rewardUntil = creditUntil = announcementUntil = 0;
     canvas.tabIndex = -1;
     canvas.focus({ preventScroll: true });
@@ -306,6 +311,7 @@
     syncAudio();
     adminReturn = null;
     view.effects.length = 0;
+    view.damageNumbers.length = 0;
     rewardUntil = creditUntil = announcementUntil = waveUntil = 0;
     restorePanel(normalReturn);
     normalReturn = null;

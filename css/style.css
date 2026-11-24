@@ -258,3 +258,5 @@ progress::-webkit-progress-value { background: var(--lime); border-radius: 20px;
   .flagship-visual .ship-graphic { width: 128px; }
   .ship-ability { top: 58px; }
 }
+
+.boss-hp { color: #ffe3ec; font: 700 .7rem ui-monospace, monospace; margin-left: 6px; white-space: nowrap; }
