@@ -4,7 +4,7 @@
   const AG = window.AG;
   const UNLOCK_CODE = 'ADMIN99';
 
-  function renderAdmin({ body, game, button, element, dismiss, showHome, resumeFlight, syncAudio, refresh }) {
+  function renderAdmin({ body, game, button, element, dismiss, resumeFlight, enterTesting, exitTesting }) {
     if (!game.testing) {
       const form = element('form', '', 'admin-group');
       const label = element('label', 'Access code');
@@ -28,8 +28,7 @@
           input.focus();
           return;
         }
-        game.enterTesting();
-        refresh();
+        enterTesting();
       });
       body.append(form);
       return;
@@ -38,7 +37,8 @@
     const intro = element('p', 'Changes in testing mode stay out of your saved game.', 'panel-note');
     const status = element('p', '', 'admin-status');
     status.setAttribute('role', 'status');
-    const flight = ['playing', 'intermission'].includes(game.state);
+    const phase = game.state === 'paused' ? game.resumeState : game.state;
+    const flight = ['playing', 'intermission'].includes(phase);
     const run = flight ? game.run : null;
 
     function group(name) {
@@ -103,7 +103,7 @@
         run.resolved = run.total;
         game.finishWave();
         dismiss();
-      }, { disabled: game.state !== 'playing' }), button('Test game over', () => {
+      }, { disabled: phase !== 'playing' }), button('Test game over', () => {
         game.finish('gameover');
         dismiss();
       }));
@@ -143,7 +143,7 @@
       actions(combat, button('Spawn enemy', () => {
         game.spawn(enemy.value, true);
         status.textContent = 'Enemy spawned.';
-      }, { disabled: game.state !== 'playing' }));
+      }, { disabled: phase !== 'playing' }));
     }
 
     const profile = group('Shop testing');
@@ -153,11 +153,7 @@
     }));
     const leave = element('div', '', 'admin-actions');
     leave.append(button(flight ? 'Back to flight' : 'Back', dismiss, { primary: true }),
-      button('Exit testing', () => {
-        game.leaveTesting();
-        syncAudio();
-        showHome();
-      }));
+      button('Exit testing', exitTesting));
     body.append(status, leave);
   }
 

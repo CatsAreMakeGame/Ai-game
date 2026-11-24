@@ -19,7 +19,8 @@
   let returnFocus = $('launch');
   let tutorialIndex = 0;
   let inventoryTab = 'boosts';
-  let lastState = '';
+  let adminReturn = null;
+  let normalReturn = null;
   let announcementUntil = 0;
   let rewardUntil = 0;
   let waveUntil = 0;
@@ -76,9 +77,7 @@
     const run = game.run;
     const active = ['playing', 'intermission', 'paused'].includes(game.state);
     hud.hidden = controls.hidden = !active;
-    $('admin').hidden = active && !game.testing;
     setText($('admin'), game.testing ? 'Admin · Testing' : 'Admin');
-    $('admin').disabled = Boolean(panelKind && panelKind !== 'result');
     alert.hidden = !active || Boolean(panelKind) || now >= Math.max(rewardUntil, creditUntil);
     banner.hidden = !active || Boolean(panelKind) || now >= waveUntil;
     const boss = active && run.enemies.find(enemy => enemy.type === 'boss' && enemy.y > 65);
@@ -162,6 +161,7 @@
 
   function resumeFlight() {
     if (game.profile.sound) audio.unlock();
+    adminReturn = null;
     panelKind = '';
     panel.hidden = overlay.hidden = true;
     view.effects.length = 0;
@@ -190,17 +190,66 @@
       showHome();
       return;
     }
-    if (['hangar', 'shop', 'admin'].includes(kind) && ['gameover', 'victory'].includes(game.state)) {
+    if (kind === 'admin') {
+      const previous = adminReturn;
+      adminReturn = null;
+      restorePanel(previous);
+      return;
+    }
+    if (['hangar', 'shop'].includes(kind) && ['gameover', 'victory'].includes(game.state)) {
       open('result', false);
       return;
     }
+    closePanel();
+  }
+
+  function closePanel() {
     panelKind = '';
     panel.hidden = true;
     overlay.hidden = game.state !== 'home';
     $('home').hidden = game.state !== 'home';
     if (game.state === 'home') refreshRecord();
-    const target = returnFocus && !returnFocus.disabled && returnFocus !== document.body ? returnFocus : canvas;
+    const target = returnFocus?.isConnected && !returnFocus.disabled && returnFocus !== document.body ? returnFocus : canvas;
     target.focus({ preventScroll: true });
+  }
+
+  function restorePanel(previous) {
+    if (previous) returnFocus = previous.focus;
+    if (previous?.kind && previous.state === game.state) {
+      open(previous.kind, false);
+    } else if (['gameover', 'victory'].includes(game.state)) {
+      open('result', false);
+    } else {
+      closePanel();
+    }
+  }
+
+  function openAdmin() {
+    if (panelKind === 'admin') {
+      dismiss();
+      return;
+    }
+    adminReturn = { kind: panelKind, state: game.state, focus: panelKind ? returnFocus : document.activeElement };
+    open('admin', false);
+    body.querySelector('input')?.focus({ preventScroll: true });
+  }
+
+  function enterTesting() {
+    normalReturn = adminReturn;
+    adminReturn = null;
+    game.enterTesting();
+    syncAudio();
+    drawPanel(true);
+  }
+
+  function exitTesting() {
+    game.leaveTesting();
+    syncAudio();
+    adminReturn = null;
+    view.effects.length = 0;
+    rewardUntil = creditUntil = announcementUntil = waveUntil = 0;
+    restorePanel(normalReturn);
+    normalReturn = null;
   }
 
   function drawPanel(restoreFocus = false) {
@@ -234,8 +283,7 @@
       drawInventory(title);
     } else if (panelKind === 'admin') {
       setText(title, 'Admin testing');
-      AG.renderAdmin({ body, game, button, element, dismiss, showHome, resumeFlight, syncAudio,
-        refresh: () => drawPanel(true) });
+      AG.renderAdmin({ body, game, button, element, dismiss, resumeFlight, enterTesting, exitTesting });
     } else if (panelKind === 'supplies') {
       setText(title, 'Flight supplies');
       setText(note, 'Credits available  ·  ' + game.run.credits);
@@ -255,7 +303,7 @@
       setText(note, 'Wave ' + game.run.wave + ' / ' + AG.LAST_WAVE + '  ·  Score ' + game.run.score.toLocaleString());
       note.hidden = false;
       const actions = element('div', '', 'home-actions');
-      if (paused) actions.append(button('Resume', dismiss, { primary: true }));
+      if (paused) actions.append(button('Resume', dismiss, { primary: true }), button('Admin', openAdmin));
       else actions.append(button('Launch again', start, { primary: true }),
         button('Hangar', () => open('hangar')), button('Shop', () => open('shop')));
       actions.append(button('Main menu', showHome));
@@ -349,9 +397,7 @@
   $('launch').addEventListener('click', start);
   $('hangar-open').addEventListener('click', () => open('hangar'));
   $('shop-open').addEventListener('click', () => open('shop'));
-  $('admin').addEventListener('click', () => {
-    if ((!panelKind || panelKind === 'result') && (game.testing || game.canVisitBase())) open('admin', !panelKind);
-  });
+  $('admin').addEventListener('click', openAdmin);
   function openInventory() {
     if (panelKind === 'inventory') dismiss();
     else if (!panelKind && ['playing', 'intermission'].includes(game.state)) open('inventory');
@@ -444,8 +490,7 @@
       if (!panelKind) game.update(tick);
       accumulated -= tick;
     }
-    if (lastState !== game.state && !panelKind && ['gameover', 'victory'].includes(game.state)) open('result');
-    lastState = game.state;
+    if (!panelKind && ['gameover', 'victory'].includes(game.state)) open('result');
     view.draw(game, panelKind && game.run ? 0 : dt);
     renderHUD(now);
     requestAnimationFrame(frame);

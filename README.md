@@ -16,7 +16,7 @@ Open `index.html` in a browser. The game runs directly from disk with no install
 
 ## Local testing
 
-Open **Admin** from the main menu and enter `ADMIN99`. Testing runs can jump to any wave, spawn enemies and pickups, grant inventory items or currency, adjust the pilot and test results. Exit testing to return to your saved profile. The code is a client-side shortcut for this offline game.
+Open **Admin** at the top of the game or from the pause menu and enter `ADMIN99`. Testing runs can jump to any wave, spawn enemies and pickups, grant inventory items or currency, adjust the pilot and test results. Exit testing to return to the screen or run you were on. The code is a client-side shortcut for this offline game.
 
 ## Source
 

@@ -20,7 +20,7 @@
       this.state = 'home';
       this.run = null;
       this.testing = false;
-      this.liveProfile = null;
+      this.liveSession = null;
     }
 
     save() {
@@ -29,8 +29,10 @@
     }
 
     enterTesting() {
-      if (this.testing || !this.canVisitBase()) return;
-      this.liveProfile = this.profile;
+      if (this.testing) return;
+      this.liveSession = {
+        profile: this.profile, run: this.run, state: this.state, resumeState: this.resumeState
+      };
       this.profile = { ...this.profile, unlocked: [...this.profile.unlocked], bestScore: 0, bestWave: 0 };
       this.testing = true;
       this.run = null;
@@ -39,11 +41,13 @@
 
     leaveTesting() {
       if (!this.testing) return;
-      this.profile = this.liveProfile;
-      this.liveProfile = null;
+      const { profile, run, state, resumeState } = this.liveSession;
+      this.profile = profile;
+      this.run = run;
+      this.state = state;
+      this.resumeState = resumeState;
+      this.liveSession = null;
       this.testing = false;
-      this.run = null;
-      this.state = 'home';
       this.releaseInput();
     }
 

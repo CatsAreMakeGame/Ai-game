@@ -409,3 +409,9 @@ Audio is opt-in, and pointer steering works with touch.
   at pilot level 5.
 - The Admin panel opens local testing with code `ADMIN99`. It uses a temporary
   profile so testing cannot overwrite normal progress.
+
+### Menu access fix
+
+Admin is accessible during the tutorial and during flight. Closing the code
+prompt returns to the previous panel or flight. Unlocking testing suspends the
+normal run and exiting testing restores it, including any open panel.
