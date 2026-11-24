@@ -284,18 +284,65 @@
       return autoOpen ? this.openCrate(type) : true;
     }
 
+    crateBatchLimit() {
+      return this.testing ? 10000 : 10;
+    }
+
     openCrate(type) {
-      if (!this.profile.crates[type] || !CRATES[type]) return false;
+      const batch = this.openCrates(type, 1);
+      return batch ? batch.featured : false;
+    }
+
+    openCrates(type, count) {
       const crate = CRATES[type];
-      let roll = this.random() * 100;
-      const outcome = crate.outcomes.find(entry => (roll -= entry.weight) < 0) ?? crate.outcomes.at(-1);
-      const id = outcome.items[Math.floor(this.random() * outcome.items.length)];
-      this.profile.crates[type]--;
-      if (!this.grantItem(id)) {
-        this.grantItem('credit', 250);
-        return { type: 'credit', rolled: id, text: 'Duplicate ' + SHIPS[id].name + ' converted to 250 Credits.' };
+      const profile = this.profile;
+      if (!Object.hasOwn(CRATES, type) || !Number.isSafeInteger(count) || count < 1 ||
+        count > this.crateBatchLimit() || count > (profile.crates[type] ?? 0)) return false;
+
+      const unlocked = new Set(profile.unlocked);
+      const rewards = new Map();
+      const sideItems = [];
+      const ranks = Object.keys(AG.RARITIES);
+      let featured;
+      let bestRank = -1;
+      for (let index = 0; index < count; index++) {
+        let roll = this.random() * 100;
+        const outcome = crate.outcomes.find(entry => (roll -= entry.weight) < 0) ?? crate.outcomes.at(-1);
+        const id = outcome.items[Math.floor(this.random() * outcome.items.length)];
+        const duplicate = SHIPS[id] && unlocked.has(id);
+        const result = duplicate
+          ? { type: 'credit', rolled: id, amount: 250, text: 'Duplicate ' + SHIPS[id].name + ' converted to 250 Credits.' }
+          : { type: id, rolled: id, amount: 1, text: AG.ITEMS[id].name + ' · ' + outcome.rarity };
+
+        if (SHIPS[id]) unlocked.add(id);
+        rewards.set(result.type, (rewards.get(result.type) ?? 0) + result.amount);
+        if (count <= 10) {
+          if (index < count - 1) sideItems.push(result);
+          else featured = result;
+        } else {
+          const rank = ranks.indexOf(AG.ITEMS[result.type].rarity ?? 'common');
+          if (rank > bestRank) {
+            featured = { ...result, rolled: result.type };
+            bestRank = rank;
+          }
+        }
       }
-      return { type: id, rolled: id, text: AG.ITEMS[id].name + ' · ' + outcome.rarity };
+
+      const credits = profile.credits + (rewards.get('credit') ?? 0);
+      if (!Number.isSafeInteger(credits)) return false;
+      for (const [id, amount] of rewards) {
+        if (UPGRADES[id] && !Number.isSafeInteger((profile.upgrades[id] ?? 0) + amount)) return false;
+      }
+
+      profile.crates[type] -= count;
+      profile.unlocked = [...unlocked];
+      profile.credits = credits;
+      for (const [id, amount] of rewards) {
+        if (UPGRADES[id]) profile.upgrades[id] = (profile.upgrades[id] ?? 0) + amount;
+      }
+      this.save();
+      for (const [id, amount] of rewards) this.notify('loot', { type: id, amount });
+      return { count, featured, sideItems };
     }
 
     canBuy(type) {

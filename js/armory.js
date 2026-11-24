@@ -35,11 +35,12 @@
       weight + '% ' + rarity + ' (' + items.map(id => ITEMS[id].name).join(', ') + ')').join(' · ');
   }
 
-  function revealCrate(crateId, result, element, button) {
+  function revealCrate(crateId, batch, element, button) {
+    const { count, featured: result, sideItems } = batch;
     const crate = CRATES[crateId];
     const item = ITEMS[result.rolled];
     const dialog = element('dialog', '', 'crate-reveal');
-    const title = element('h2', crate.name);
+    const title = element('h2', crate.name + (count > 1 ? ' ×' + count.toLocaleString() : ''));
     title.id = 'crate-reveal-title';
     dialog.setAttribute('aria-labelledby', title.id);
     dialog.style.setProperty('--reward', RARITIES[item.rarity ?? 'common']);
@@ -81,6 +82,23 @@
       else showReward();
     }, { primary: true });
     dialog.append(title, viewport, message, next);
+    if (sideItems.length) {
+      const summary = element('section', '', 'reel-other');
+      summary.append(element('h3', 'Other rewards'));
+      const items = element('ul', '', 'reel-rewards');
+      for (const reward of sideItems) {
+        const spec = ITEMS[reward.type];
+        const tile = element('li', '', 'reel-reward-tile');
+        tile.style.setProperty('--rarity', RARITIES[spec.rarity ?? 'common']);
+        tile.title = reward.text;
+        tile.append(graphic(reward.type), element('span', (reward.amount > 1 ? reward.amount + ' ' : '') + spec.name));
+        items.append(tile);
+      }
+      summary.append(items);
+      dialog.append(summary);
+    } else if (count > 10) {
+      dialog.append(element('p', 'Rarest reward shown. All ' + count.toLocaleString() + ' results are awarded.', 'reel-batch-note'));
+    }
     document.body.append(dialog);
     dialog.addEventListener('close', () => {
       animation?.cancel();
@@ -152,7 +170,7 @@
             const result = game.buyCrate(id, state.autoOpen);
             if (result) state.result = result.rolled ? '' : 'Crate added to inventory.';
             refresh();
-            if (result?.rolled) revealCrate(id, result, element, button);
+            if (result?.rolled) revealCrate(id, { count: 1, featured: result, sideItems: [] }, element, button);
           }, { disabled: !base || profile.gems < crate.price }));
         }
         body.append(element('p', 'Duplicate ships convert to 250 Credits. Upgrade copies can fill multiple mounts.', 'panel-note'));
@@ -194,12 +212,35 @@
       } else {
         for (const id of sortItems(CRATES, crate => crate.price)) {
           if (!profile.crates[id]) continue;
-          card(id, crateOdds(CRATES[id]), button('Open', () => {
-            const result = game.openCrate(id);
-            if (result) state.result = '';
+          const count = profile.crates[id];
+          const limit = Math.min(count, game.crateBatchLimit());
+          function openBatch(quantity) {
+            const batch = game.openCrates(id, quantity);
+            if (!batch) {
+              state.result = 'Enter a whole number from 1 to ' + limit.toLocaleString() + ' within your inventory limits.';
+              refresh();
+              return;
+            }
+            state.result = '';
             refresh();
-            if (result) revealCrate(id, result, element, button);
-          }), profile.crates[id]);
+            revealCrate(id, batch, element, button);
+          }
+
+          const controls = element('div', '', 'crate-batch-controls');
+          if (game.testing) {
+            const quantity = element('input');
+            quantity.type = 'number';
+            quantity.min = '1';
+            quantity.max = String(limit);
+            quantity.step = '1';
+            quantity.value = '1';
+            quantity.setAttribute('aria-label', CRATES[id].name + ' quantity');
+            controls.append(quantity, button('Open', () => openBatch(quantity.valueAsNumber), { primary: true }));
+          } else {
+            controls.append(button('Open 1', () => openBatch(1)));
+            if (limit > 1) controls.append(button('Open ' + limit, () => openBatch(limit), { primary: true }));
+          }
+          card(id, crateOdds(CRATES[id]), controls, count);
         }
       }
       if (!cards.children.length) cards.append(element('p', 'No ' + tab + ' collected yet.', 'panel-note'));
