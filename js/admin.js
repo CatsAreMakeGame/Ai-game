@@ -4,7 +4,7 @@
   const AG = window.AG;
   const UNLOCK_CODE = 'ADMIN99';
 
-  function renderAdmin({ body, game, button, element, dismiss, resumeFlight, enterTesting, exitTesting, refresh, shop }) {
+  function renderAdmin({ body, game, button, element, dismiss, resumeFlight, enterTesting, exitTesting, refresh, shop, inventory }) {
     if (!game.testing) {
       const form = element('form', '', 'admin-group');
       const label = element('label', 'Access code');
@@ -77,6 +77,63 @@
     }
 
     body.append(intro);
+    const items = group('Give yourself an item');
+    const categories = [
+      ['Ship', AG.SHIPS], ['Upgrade', AG.UPGRADES], ['Boost', AG.BOOSTS], ['Crate', AG.CRATES],
+      ['Currency', { credit: AG.ITEMS.credit, gem: AG.ITEMS.gem }]
+    ];
+    const choices = categories.flatMap(([category, catalog]) => Object.entries(catalog)
+      .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+      .map(([id, spec]) => [id, category + ' · ' + spec.name]));
+    const item = select(items, 'Item', choices);
+    const amountLabel = element('label', 'Quantity');
+    const amount = element('input');
+    amount.type = 'number';
+    amount.min = '1';
+    amount.step = '1';
+    amount.value = '1';
+    amountLabel.append(amount);
+    items.append(amountLabel);
+    const feedback = element('p', '', 'admin-status');
+    feedback.setAttribute('role', 'status');
+    function updateQuantity() {
+      amount.disabled = Object.hasOwn(AG.SHIPS, item.value);
+      if (amount.disabled) amount.value = '1';
+      feedback.textContent = '';
+    }
+    item.addEventListener('change', updateQuantity);
+    updateQuantity();
+
+    function quantity() {
+      const count = amount.disabled ? 1 : amount.valueAsNumber;
+      const id = item.value;
+      const profile = game.profile;
+      const owned = id === 'credit' ? profile.credits : id === 'gem' ? profile.gems :
+        (profile.upgrades[id] ?? profile.boosts[id] ?? profile.crates[id] ?? 0);
+      if (Number.isSafeInteger(count) && count >= 1 && Number.isSafeInteger(owned + count)) return count;
+      feedback.textContent = 'Enter a positive whole quantity that keeps your total within the safe number range.';
+      amount.focus();
+      return null;
+    }
+
+    const itemActions = [button('Grant item', () => {
+      const count = quantity();
+      if (count === null) return;
+      const id = item.value;
+      const name = AG.ITEMS[id].name;
+      feedback.textContent = game.grantItem(id, count)
+        ? name + (amount.disabled ? ' unlocked.' : ' ×' + count.toLocaleString() + ' added.')
+        : name + ' is already owned.';
+    }, { primary: true }), button('Open Inventory', inventory)];
+    if (run) itemActions.push(button('Spawn item pickup', () => {
+      const count = quantity();
+      if (count === null) return;
+      game.dropItem(item.value, run.player.x, run.player.y - 100, count);
+      feedback.textContent = AG.ITEMS[item.value].name + ' dropped in the flight lane.';
+    }));
+    actions(items, ...itemActions);
+    items.append(feedback);
+
     const wave = group('Wave controls');
     const label = element('label', 'Wave number (1–2,147,483,647)');
     const number = element('input');
@@ -127,15 +184,6 @@
         status.textContent = game.credits + ' Credits available.';
       }));
 
-      const items = group('Inventory and drops');
-      const catalog = AG.ITEMS;
-      const item = select(items, 'Item', Object.entries(catalog).map(([id, spec]) => [id, spec.name]));
-      actions(items, button('Grant item', () => {
-        status.textContent = catalog[item.value].name + (game.grantItem(item.value) ? ' added.' : ' already owned.');
-      }), button('Spawn item pickup', () => {
-        game.dropItem(item.value, run.player.x, run.player.y - 100);
-        status.textContent = catalog[item.value].name + ' dropped in the flight lane.';
-      }));
       const combat = group('Enemy testing');
       const enemy = select(combat, 'Enemy type', Object.keys(AG.ENEMIES)
         .map(id => [id, AG.BOSSES[id]?.name ?? (id[0].toUpperCase() + id.slice(1))]));

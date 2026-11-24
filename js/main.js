@@ -327,7 +327,8 @@
     } else if (panelKind === 'admin') {
       setText(title, 'Admin testing');
       AG.renderAdmin({ body, game, button, element, dismiss, resumeFlight, enterTesting, exitTesting,
-        refresh: () => drawPanel(true), shop: () => open('shop', false) });
+        refresh: () => drawPanel(true), shop: () => open('shop', false),
+        inventory: () => open('inventory', false) });
     } else if (panelKind === 'supplies') {
       setText(title, 'Flight supplies');
       setText(note, 'Credits available  ·  ' + game.credits);
