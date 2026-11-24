@@ -377,3 +377,19 @@ icons/ui/.gitkeep, in_round_shop.png, shaded_lock.png
 - Boss waves disable the Auto Skip toggle visually but leave the flag set; the
   guard in `Game.update` prevents actual skipping. Revisit if a cleaner UX is
   wanted.
+
+---
+
+## 7. Full remake
+
+The current game is the rebuilt Alien Shooter in `index.html`, with the original
+50-wave structure, every-tenth-wave Mothership fights, automatic shooting,
+keyboard and held-pointer steering, carryover enemies on skip, and a pilot
+level-5 supply shop between waves. The home screen, HUD, tutorial and menus
+were redesigned. The implementation now uses four scripts documented in the
+README. The optional icon pack still works alongside procedural sprites.
+
+The Hangar now lets players spend a boss-earned Star Gem on the Falcon and
+equip it. Credits, hull, XP and boosts belong to the current run. Gems,
+unlocks, equipped ship, best results and preferences are stored in the browser.
+Audio is opt-in, and pointer steering works with touch.

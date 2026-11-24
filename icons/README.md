@@ -10,7 +10,7 @@ zero code changes.
 | Path | Used for |
 | --- | --- |
 | `spaceships/scout.png` | The playable Scout ship |
-| `spaceships/falcon.png` | A future second ship (shop preview) |
+| `spaceships/falcon.png` | Unlockable Falcon ship |
 | `enemies/grunt.png` | Basic invader |
 | `enemies/diver.png` | Fast weaving enemy |
 | `enemies/shooter.png` | Enemy that fires |

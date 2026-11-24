@@ -1,99 +1,66 @@
-/* ============================================================
-   data.js — content registries.
-   Adding a ship, enemy type, boost, currency or shop item means adding
-   one entry here. Art is referenced by a flat "category.name" icon key;
-   if the matching file is missing, procedural art is used instead.
-   ============================================================ */
-(function (global) {
+window.AG = (() => {
   'use strict';
-  var AG = (global.AG = global.AG || {});
 
-  /* Optional image assets. Each path is relative to index.html. */
-  AG.ICON_MANIFEST = {
-    'spaceships.scout':    'icons/spaceships/scout.png',
-    'spaceships.falcon':   'icons/spaceships/falcon.png',
-    'enemies.grunt':       'icons/enemies/grunt.png',
-    'enemies.diver':       'icons/enemies/diver.png',
-    'enemies.shooter':     'icons/enemies/shooter.png',
-    'enemies.tank':        'icons/enemies/tank.png',
-    'enemies.boss':        'icons/enemies/boss.png',
-    'currency.credit':     'icons/currency/credit_gold.png',
-    'currency.gem':        'icons/currency/star_gem.png',
-    'boosts.heal':         'icons/boosts/heal.png',
-    'boosts.rapidFire':    'icons/boosts/rapid-fire.png',
-    'boosts.doubleDamage': 'icons/boosts/double-damage.png',
-    'boosts.shield':       'icons/boosts/shield.png',
-    'shop.locked':         'icons/shop/locked.png',
-    'ui.heart':            'icons/ui/heart.png',
-    'ui.shadedLock':       'icons/ui/shaded_lock.png',
-    'ui.inRoundShop':      'icons/ui/in_round_shop.png'
+  const WIDTH = 900;
+  const HEIGHT = 600;
+  const LAST_WAVE = 50;
+  const SUPPLY_LEVEL = 5;
+  const AUTO_SKIP_AT = 0.6;
+  const ICONS = {
+    locked: 'icons/ui/shaded_lock.png',
+    supplies: 'icons/ui/in_round_shop.png'
+  };
+  const SHIPS = {
+    scout: { name: 'Scout', description: 'Balanced hull and handling.', hull: 100, speed: 445, delay: 0.28, damage: 1, color: '#d5fa74', price: 0 },
+    falcon: { name: 'Falcon', description: 'Faster handling and fire with a lighter hull.', hull: 85, speed: 520, delay: 0.23, damage: 1, color: '#7ed6fb', price: 1 }
+  };
+  const ENEMIES = {
+    grunt: { hp: 2, size: 19, unlock: 1, speed: 1, color: '#a4e991', score: 10 },
+    shooter: { hp: 3, size: 21, unlock: 3, speed: 0.72, color: '#c99dff', score: 28 },
+    diver: { hp: 2, size: 17, unlock: 5, speed: 1.55, color: '#ff927c', score: 18 },
+    tank: { hp: 7, size: 27, unlock: 8, speed: 0.52, color: '#fbd575', score: 55 },
+    boss: { hp: 110, size: 62, unlock: 10, speed: 0, color: '#ff7894', score: 600 }
+  };
+  const BOOSTS = {
+    heal: { name: 'Hull repair', file: 'heal', color: '#71efad', glyph: '+', duration: 0 },
+    rapidFire: { name: 'Rapid fire', file: 'rapid-fire', color: '#ffe177', glyph: '»', duration: 9 },
+    doubleDamage: { name: 'Double damage', file: 'double-damage', color: '#ffab83', glyph: '×', duration: 9 },
+    shield: { name: 'Shield', file: 'shield', color: '#87def9', glyph: '◇', duration: 10 }
+  };
+  const SUPPLIES = {
+    heal: { name: 'Hull repair', description: 'Restores up to 25 hull.', price: 150 },
+    rapidFire: { name: 'Rapid Fire+', description: 'Fires faster for 9 seconds of flight.', price: 350 }
   };
 
-  /* Only one ship is playable now. The array shape means more can be added
-     later without touching the game loop — just push another definition and
-     let the shop/menu pick AG.SPACESHIPS[n]. */
-  AG.SPACESHIPS = [
-    {
-      id: 'scout',
-      name: 'Scout',
-      icon: 'spaceships.scout',
-      unlocked: true,
-      description: 'Balanced starter ship. Fast, reliable, no frills.',
-      stats: { speed: 315, maxHealth: 100, fireDelay: 0.28, damage: 1 }
-    }
-  ];
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const xpForLevel = level => Math.round(30 * 1.3 ** (level - 1));
+  function difficultyFor(wave) {
+    const step = wave - 1;
+    return {
+      count: Math.min(66, Math.ceil(6 * 1.05 ** step)),
+      health: Math.min(9, 1.045 ** step),
+      speed: Math.min(175, 48 * 1.027 ** step),
+      spawn: Math.max(0.19, 0.9 * 0.963 ** step),
+      fire: Math.max(0.78, 3.5 * 0.955 ** step),
+      boss: wave % 10 === 0
+    };
+  }
 
-  AG.ENEMY_TYPES = {
-    grunt: {
-      name: 'Grunt', icon: 'enemies.grunt',
-      w: 30, h: 30, health: 1, speedMul: 1.0, score: 10,
-      color: '#8dff6a', shape: 'invader', fires: false
-    },
-    diver: {
-      name: 'Diver', icon: 'enemies.diver',
-      w: 26, h: 26, health: 1, speedMul: 1.9, score: 18,
-      color: '#ff7b6b', shape: 'dart', fires: false, sine: true
-    },
-    shooter: {
-      name: 'Shooter', icon: 'enemies.shooter',
-      w: 32, h: 32, health: 2, speedMul: 0.82, score: 28,
-      color: '#c08bff', shape: 'hex', fires: true
-    },
-    tank: {
-      name: 'Tank', icon: 'enemies.tank',
-      w: 46, h: 40, health: 5, speedMul: 0.55, score: 55,
-      color: '#ffc24d', shape: 'block', fires: true
-    },
-    boss: {
-      name: 'Mothership', icon: 'enemies.boss',
-      w: 104, h: 74, health: 1, speedMul: 0.34, score: 600,
-      color: '#ff4d7e', shape: 'boss', fires: true, boss: true
-    }
-  };
+  function readProfile(storage) {
+    let saved;
+    try { saved = JSON.parse(storage.getItem('alien-shooter.profile.v1')); } catch {}
+    const unlocked = ['scout'];
+    if (Array.isArray(saved?.unlocked) && saved.unlocked.includes('falcon')) unlocked.push('falcon');
+    const readNumber = key => Number.isSafeInteger(saved?.[key]) ? Math.max(0, saved[key]) : 0;
+    return {
+      unlocked, ship: unlocked.includes(saved?.ship) ? saved.ship : 'scout',
+      gems: readNumber('gems'), bestScore: readNumber('bestScore'),
+      bestWave: Math.min(LAST_WAVE, readNumber('bestWave')),
+      tutorialSeen: saved?.tutorialSeen === true,
+      sound: saved?.sound === true, auto: saved?.auto === true
+    };
+  }
 
-  AG.BOOSTS = {
-    heal:         { name: 'Repair',        icon: 'boosts.heal',         color: '#5cffa8', duration: 0,  amount: 25, glyph: '+' },
-    rapidFire:    { name: 'Rapid Fire',    icon: 'boosts.rapidFire',    color: '#ffd75c', duration: 9,  fireDelayMul: 0.55, glyph: '»' },
-    doubleDamage: { name: 'Double Damage', icon: 'boosts.doubleDamage', color: '#ff8a5c', duration: 9,  damageMul: 2, glyph: '×' },
-    shield:       { name: 'Shield',        icon: 'boosts.shield',       color: '#5cd6ff', duration: 10, glyph: '◈' }
-  };
-
-  AG.CURRENCIES = {
-    credit: { name: 'Credits',   icon: 'currency.credit', color: '#ffd75c', glyph: '●' },
-    gem:    { name: 'Star Gems', icon: 'currency.gem',  color: '#6ef0ff', glyph: '◆' }
-  };
-
-  /* Shop entries are data only for now. Buying/equipping is a later feature;
-     renderShop() in ui.js already reads this list and resolves each icon. */
-  AG.SHOP_ITEMS = [
-    { id: 'ship_falcon', name: 'Falcon', category: 'spaceships', icon: 'spaceships.falcon',
-      cost: 1, currency: 'gem', available: false,
-      description: 'A faster, heavily armed second ship.' },
-    { id: 'boost_rapid', name: 'Rapid Fire+', category: 'boosts', icon: 'boosts.rapidFire',
-      cost: 350, currency: 'credit', available: true, inRound: true,
-      description: 'Faster firing for the next 9 seconds.' },
-    { id: 'hull_repair', name: 'Hull Repair', category: 'boosts', icon: 'boosts.heal',
-      cost: 150, currency: 'credit', available: true, inRound: true,
-      description: 'Restore 25 hull, instantly.' }
-  ];
-})(window);
+  return { WIDTH, HEIGHT, LAST_WAVE, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+    BOOSTS, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
+})();

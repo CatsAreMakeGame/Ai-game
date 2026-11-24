@@ -1,587 +1,364 @@
-/* ============================================================
-   game.js — state machine, main loop, collisions and rendering.
-   Systems stay small: waves.js decides what spawns, entities.js decides
-   how things behave, ui.js decides what is shown. This file wires them.
-   ============================================================ */
-(function (global) {
+(() => {
   'use strict';
-  var AG = (global.AG = global.AG || {});
-  var C = AG.CONFIG;
 
-  AG.Game = function (canvas) {
-    this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
-    this.assets = new AG.AssetManager(AG.ICON_MANIFEST);
-    AG.assets = this.assets;
+  const AG = window.AG;
+  const { WIDTH, HEIGHT, LAST_WAVE, SUPPLY_LEVEL, AUTO_SKIP_AT, SHIPS, BOOSTS,
+    ENEMIES, SUPPLIES, clamp, difficultyFor, xpForLevel } = AG;
+  const MOVE = { arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0],
+    arrowup: [0, -1], w: [0, -1], arrowdown: [0, 1], s: [0, 1] };
+  const touches = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2 < (a.size + b.size) ** 2;
 
-    this.ui = new AG.UI(this);
-    this.waves = new AG.WaveManager(this);
+  class Game {
+    constructor(storage, notify = () => {}, random = Math.random) {
+      this.storage = storage;
+      this.notify = notify;
+      this.random = random;
+      this.profile = AG.readProfile(storage);
+      this.keys = new Set();
+      this.pointer = null;
+      this.state = 'home';
+      this.run = null;
+    }
 
-    // Movement is hold-left-click only, horizontal only. Vertical movement is
-    // intentionally earned later — do not restore keyboard/free movement here.
-    this.input = {
-      left: false, right: false, up: false, down: false,
-      holding: false, pointerX: C.canvasWidth / 2, pointerActive: false
-    };
+    save() {
+      try { this.storage.setItem('alien-shooter.profile.v1', JSON.stringify(this.profile)); } catch {}
+    }
 
-    this.state = 'menu';
-    this.prevState = 'menu';
-    this.shopReturnState = 'menu';
-    this.player = null;
-    this.enemies = [];
-    this.bullets = [];
-    this.enemyBullets = [];
-    this.powerups = [];
-    this.particles = [];
-    this.stars = [];
+    releaseInput() {
+      this.keys.clear();
+      this.pointer = null;
+    }
 
-    this.score = 0;
-    this.credits = 0;
-    this.gems = 0;
-    this.level = 1;
-    this.xp = 0;
-    this.kills = 0;
-    this.wave = 0;
-    this.time = 0;
-    this.shake = 0;
-    this.breakTimer = 0;
-    this.lastTime = 0;
-    this.autoSkip = false;
-    this._pendingCoins = 0;
-    this._coinNotifyTimer = 0;
-    this.loop = this.loop.bind(this);
+    start() {
+      const ship = SHIPS[this.profile.ship];
+      this.releaseInput();
+      this.run = {
+        wave: 0, level: 1, xp: 0, score: 0, credits: 0, boosts: {}, ship,
+        player: { x: WIDTH / 2, y: HEIGHT - 58, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
+        enemies: [], shots: [], hostile: [], drops: []
+      };
+      this.beginWave(1);
+    }
 
-    this._makeStars();
-    this._bindInput();
-    this._bindButtons();
-    this.ui.setShopEnabled(true);
-
-    this.bgGradient = this.ctx.createLinearGradient(0, 0, 0, C.canvasHeight);
-    this.bgGradient.addColorStop(0, '#060b1a');
-    this.bgGradient.addColorStop(0.55, '#050816');
-    this.bgGradient.addColorStop(1, '#0a0718');
-  };
-
-  AG.Game.prototype = {
-    /* ---------- lifecycle ---------- */
-    start: function () {
-      var self = this;
-      this.assets.loadAll(
-        function () {},
-        function () {
-          self.lastTime = performance.now();
-          requestAnimationFrame(self.loop);
-        }
-      );
-    },
-
-    newRun: function () {
-      this.score = 0;
-      this.credits = 0;
-      this.gems = 0;
-      this.level = 1;
-      this.xp = 0;
-      this.kills = 0;
-      this.wave = 0;
-      this.shake = 0;
-      this.autoSkip = false;
-      this._pendingCoins = 0;
-      this._coinNotifyTimer = 0;
-      this.enemies = [];
-      this.bullets = [];
-      this.enemyBullets = [];
-      this.powerups = [];
-      this.particles = [];
-      this.player = new AG.Player(AG.SPACESHIPS[0]);
-      this.waves.reset();
-      this.ui.hideOverlay();
-      this.ui.setHudVisible(true);
-      this.ui.setRunControlsVisible(true);
-      this.ui.setAutoSkip(false);
-      this.ui.setShopEnabled(false);
-      this.ui._roundShopUnlocked = null;
+    beginWave(number, carryShots = false) {
+      const run = this.run;
+      const diff = difficultyFor(number);
+      run.wave = number;
+      run.diff = diff;
+      run.pending = [];
+      if (diff.boss) run.pending.push('boss');
+      const pool = Object.keys(ENEMIES).filter(type => type !== 'boss' && ENEMIES[type].unlock <= number);
+      const count = diff.boss ? Math.ceil(diff.count * 0.42) : diff.count;
+      for (let index = 0; index < count; index++) {
+        run.pending.push(pool[Math.floor(this.random() * pool.length)]);
+      }
+      run.total = run.pending.length;
+      run.spawned = 0;
+      run.resolved = 0;
+      run.spawnIn = carryShots ? 0.25 : 0.55;
+      if (!carryShots) {
+        run.shots = [];
+        run.hostile = [];
+      }
       this.state = 'playing';
-      this.startWave(1);
-    },
+      this.notify('wave', diff.boss ? 'Mothership incoming' : 'Wave ' + number);
+    }
 
-    startWave: function (n) {
-      this.wave = n;
-      this.waves.start(n);
-      this.state = 'playing';
-      this.ui.setRunControlsVisible(true);
-      this.ui.setShopEnabled(false);
-      var d = AG.difficultyFor(n);
-      this.ui.showBanner(
-        'WAVE ' + n,
-        d.isBossWave ? 'MOTHERSHIP INBOUND' : (n === 1 ? 'INCOMING' : 'HOSTILES INCOMING'),
-        d.isBossWave
-      );
-      if (d.isBossWave) this.shake = 8;
-    },
+    canSkip() {
+      const run = this.run;
+      return this.state === 'playing' && !run.diff.boss && run.wave < LAST_WAVE && run.pending.length > 0;
+    }
 
-    onWaveCleared: function (wave) {
-      if (wave >= C.maxWaves) {
-        this.victory();
+    skip() {
+      if (!this.canSkip()) return false;
+      this.beginWave(this.run.wave + 1, true);
+      return true;
+    }
+
+    finishWave() {
+      const run = this.run;
+      const credits = 18 + run.wave * 2;
+      run.credits += credits;
+      const before = run.player.hp;
+      this.gainXp(12);
+      this.repair(8, false);
+      const repaired = run.player.hp - before;
+      this.notify('reward', '+' + credits + ' credits' + (repaired ? ' · +' + repaired + ' hull' : ''));
+      if (run.wave === LAST_WAVE) {
+        this.finish('victory');
         return;
       }
-      var bonus = 25 + wave * 5;
-      this.addCredits(bonus);
-      this.addXp(C.leveling.xpPerWave);
-      var healed = 0;
-      if (this.player) {
-        var before = this.player.health;
-        this.player.health = Math.min(this.player.maxHealth, before + C.wave.interWaveHeal);
-        healed = Math.round(this.player.health - before);
-      }
-      if (healed > 0) this.notifyRepair(healed);
-      this.state = 'waveclear';
-      this.breakTimer = C.wave.breakTime;
-      this.ui.showBanner('WAVE ' + wave + ' CLEAR', '+' + bonus + ' CREDITS · HULL REPAIRED', false, 1.5, true);
-    },
+      run.breakTime = 4.8;
+      run.hostile = [];
+      this.state = 'intermission';
+      this.notify('wave', 'Wave ' + run.wave + ' clear');
+    }
 
-    isBossWave: function () {
-      return this.wave % 10 === 0;
-    },
+    finish(state) {
+      const run = this.run;
+      this.profile.bestScore = Math.max(this.profile.bestScore, run.score);
+      this.profile.bestWave = Math.max(this.profile.bestWave, run.wave);
+      this.save();
+      this.releaseInput();
+      this.state = state;
+    }
 
-    addXp: function (amount) {
-      this.xp += amount;
-      var L = C.leveling;
-      while (this.level < L.maxLevel && this.xp >= AG.xpForLevel(this.level)) {
-        this.xp -= AG.xpForLevel(this.level);
-        this.level++;
-        if (this.player) {
-          this.player.health = Math.min(this.player.maxHealth, this.player.health + L.levelUpHeal);
-        }
-        this.ui.notify('LEVEL ' + this.level, {
-          icon: AG.BOOSTS.shield.icon, glyph: '★', color: AG.CURRENCIES.gem.color
-        });
-      }
-    },
-
-    /* Skipping stops future spawns but leaves field enemies alive. Boss fights
-       cannot be skipped by any route (manual or auto). */
-    skipWave: function () {
-      if (this.state !== 'playing' && this.state !== 'waveclear') return false;
-      if (this.isBossWave()) {
-        this.ui.notify('BOSS FIGHT — CANNOT SKIP', {
-          icon: 'ui.shadedLock', glyph: '×', color: '#ff5d7a'
-        });
-        return false;
-      }
-      this.waves.active = false;
-      this.waves.queue = [];
-      this.onWaveCleared(this.wave);
-      return true;
-    },
-
-    toggleAutoSkip: function () {
-      this.autoSkip = !this.autoSkip;
-      this.ui.setAutoSkip(this.autoSkip);
-      this.ui.notify('AUTO SKIP ' + (this.autoSkip ? 'ON' : 'OFF'), {
-        color: AG.CURRENCIES.credit.color
-      });
-    },
-
-    /* ---------- currency + notifications ---------- */
-    addCredits: function (amount) {
-      this.credits += amount;
-      this._pendingCoins += amount;
-    },
-
-    flushCoins: function (dt) {
-      this._coinNotifyTimer -= dt;
-      if (this._pendingCoins > 0 && this._coinNotifyTimer <= 0) {
-        var credit = AG.CURRENCIES.credit;
-        this.ui.notify('+' + this._pendingCoins.toLocaleString() + ' CREDITS', {
-          icon: credit.icon, glyph: credit.glyph, color: credit.color
-        });
-        this._pendingCoins = 0;
-        this._coinNotifyTimer = 1.1;
-      }
-    },
-
-    notifyRepair: function (amount) {
-      var b = AG.BOOSTS.heal;
-      this.ui.notify('HULL REPAIRED +' + Math.round(amount), {
-        icon: b.icon, glyph: b.glyph, color: b.color
-      });
-    },
-
-    notifyUpgrade: function (key) {
-      var b = AG.BOOSTS[key];
-      if (!b) return;
-      this.ui.notify(b.name.toUpperCase() + ' ACQUIRED', {
-        icon: b.icon, glyph: b.glyph, color: b.color
-      });
-    },
-
-    buy: function (id) {
-      var item = null;
-      AG.SHOP_ITEMS.forEach(function (i) { if (i.id === id) item = i; });
-      if (!item || !item.available) return false;
-      var curKey = item.currency || 'credit';
-      var have = curKey === 'gem' ? this.gems : this.credits;
-      if (have < item.cost) return false;
-      if (curKey === 'gem') this.gems -= item.cost;
-      else this.credits -= item.cost;
-
-      if (id === 'hull_repair' && this.player) {
-        var before = this.player.health;
-        this.player.health = Math.min(this.player.maxHealth, before + AG.BOOSTS.heal.amount);
-        this.notifyRepair(this.player.health - before);
-      } else if (id === 'boost_rapid' && this.player) {
-        this.player.applyBoost('rapidFire');
-        this.notifyUpgrade('rapidFire');
-      } else {
-        this.ui.notify(item.name.toUpperCase() + ' UNLOCKED', { color: AG.CURRENCIES.gem.color });
-      }
-      return true;
-    },
-
-    onEnemyKilled: function (enemy) {
-      this.score += enemy.score;
-      this.addCredits(Math.max(1, Math.round(enemy.score / 4)));
-      this.addXp(enemy.type.boss ? C.leveling.xpPerBoss : C.leveling.xpPerKill);
-      if (enemy.type.boss) {
-        this.gems += 1;
-        var gem = AG.CURRENCIES.gem;
-        this.ui.notify('+1 STAR GEM', { icon: gem.icon, glyph: gem.glyph, color: gem.color });
-      }
-      this.kills++;
-      this.shake = Math.max(this.shake, enemy.type.boss ? 12 : 3);
-      this.sparks(enemy.cx, enemy.cy, enemy.type.color, enemy.type.boss ? 46 : 14, enemy.type.boss ? 260 : 150);
-      if (enemy.type.boss) this.shake = 16;
-
-      if (Math.random() < C.drops.chance) {
-        var keys = Object.keys(AG.BOOSTS);
-        this.powerups.push(new AG.PowerUp(enemy.cx - 11, enemy.cy - 11, keys[Math.floor(Math.random() * keys.length)]));
-      }
-    },
-
-    gameOver: function () {
-      if (this.state === 'gameover') return;
-      this.state = 'gameover';
-      this.ui.setHudVisible(false);
-      this.ui.setRunControlsVisible(false);
-      this.ui.setShopEnabled(true);
-      this.ui.showStats('gameover-stats', this);
-      this.ui.showScreen('gameover');
-      this.shake = 18;
-    },
-
-    victory: function () {
-      this.state = 'victory';
-      this.ui.setHudVisible(false);
-      this.ui.setRunControlsVisible(false);
-      this.ui.setShopEnabled(true);
-      this.ui.showStats('victory-stats', this);
-      this.ui.showScreen('victory');
-    },
-
-    toMenu: function () {
-      this.state = 'menu';
-      this.input.holding = false;
-      this.enemies = [];
-      this.bullets = [];
-      this.enemyBullets = [];
-      this.powerups = [];
-      this.particles = [];
-      this.player = null;
-      this.ui.setHudVisible(false);
-      this.ui.setRunControlsVisible(false);
-      this.ui.setShopEnabled(true);
-      this.ui.showScreen('menu');
-    },
-
-    togglePause: function () {
-      if (this.state === 'playing' || this.state === 'waveclear') {
-        this.prevState = this.state;
-        this.state = 'paused';
-        this.input.holding = false;
-        this.ui.showScreen('paused');
-      } else if (this.state === 'paused') {
-        this.state = this.prevState;
-        this.ui.hideOverlay();
-      } else if (this.state === 'shop') {
-        this.leaveShop();
-      } else if (this.state === 'roundShop') {
-        this.ui.closeRoundShop();
-        this.state = this.prevState === 'playing' ? 'playing' : 'waveclear';
-      }
-    },
-
-    leaveShop: function () {
-      var back = this.shopReturnState || 'menu';
-      this.state = back;
-      if (back === 'menu' || back === 'gameover' || back === 'victory') {
-        this.ui.showScreen(back);
-        this.ui.setHudVisible(false);
-        this.ui.setRunControlsVisible(false);
-        this.ui.setShopEnabled(true);
-      } else {
-        this.ui.hideOverlay();
-        this.ui.setHudVisible(true);
-        this.ui.setRunControlsVisible(true);
-        this.ui.setShopEnabled(false);
-      }
-    },
-
-    /* ---------- effects ---------- */
-    sparks: function (x, y, color, count, speed) {
-      for (var i = 0; i < count; i++) {
-        this.particles.push(new AG.Particle(x, y, color, speed, 3, 0.35 + Math.random() * 0.45));
-      }
-    },
-
-    /* ---------- input ---------- */
-    _bindInput: function () {
-      var self = this;
-      var keyMap = {
-        ArrowLeft: 'left', KeyA: 'left',
-        ArrowRight: 'right', KeyD: 'right',
-        ArrowUp: 'up', KeyW: 'up',
-        ArrowDown: 'down', KeyS: 'down'
-      };
-      window.addEventListener('keydown', function (e) {
-        var dir = keyMap[e.code];
-        if (dir) {
-          self.input[dir] = true;
-          e.preventDefault();
-        } else if (e.code === 'Enter') {
-          if (self.state === 'menu' || self.state === 'gameover' || self.state === 'victory') {
-            self.newRun();
-          }
-          e.preventDefault();
-        } else if (e.code === 'KeyP' || e.code === 'Escape') {
-          self.togglePause();
-          e.preventDefault();
-        } else if (e.code === 'KeyR' && (self.state === 'gameover' || self.state === 'victory')) {
-          self.newRun();
-        }
-      });
-      window.addEventListener('keyup', function (e) {
-        var dir = keyMap[e.code];
-        if (dir) self.input[dir] = false;
-      });
-
-      var canvas = this.canvas;
-      var updatePointer = function (e) {
-        var rect = canvas.getBoundingClientRect();
-        var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        self.input.pointerX = (clientX - rect.left) * (C.canvasWidth / rect.width);
-        self.input.pointerActive = true;
-      };
-      canvas.addEventListener('pointermove', updatePointer);
-      canvas.addEventListener('pointerdown', function (e) {
-        if (e.button !== 0) return;
-        updatePointer(e);
-        self.input.holding = true;
-        e.preventDefault();
-      });
-      window.addEventListener('pointerup', function () { self.input.holding = false; });
-      window.addEventListener('pointercancel', function () { self.input.holding = false; });
-      window.addEventListener('blur', function () { self.input.holding = false; });
-      canvas.addEventListener('touchmove', function (e) { updatePointer(e); e.preventDefault(); }, { passive: false });
-    },
-
-    _bindButtons: function () {
-      var self = this;
-      var bind = function (id, fn) {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('click', fn);
-      };
-      bind('btn-start', function () { self.newRun(); });
-      bind('btn-retry', function () { self.newRun(); });
-      bind('btn-play-again', function () { self.newRun(); });
-      bind('btn-resume', function () { self.togglePause(); });
-      bind('btn-quit', function () { self.toMenu(); });
-      bind('btn-shop', function () {
-        if (self.state === 'playing' || self.state === 'waveclear' || self.state === 'paused') return;
-        self.shopReturnState = self.state;
-        self.prevState = self.state;
-        self.state = 'shop';
-        self.input.holding = false;
-        var backScreen = self.shopReturnState === 'gameover' ? 'screen-gameover'
-          : self.shopReturnState === 'victory' ? 'screen-victory' : 'screen-menu';
-        self.ui.openShop(backScreen, self.shopReturnState);
-      });
-      bind('btn-shop-close', function () { self.leaveShop(); });
-      bind('btn-skip-wave', function () { self.skipWave(); });
-      bind('btn-auto-skip', function () { self.toggleAutoSkip(); });
-      bind('btn-round-shop', function () {
-        if (self.level < C.leveling.shopUnlock) return;
-        if (self.state !== 'playing' && self.state !== 'waveclear') return;
-        self.prevState = self.state;
-        self.state = 'roundShop';
-        self.input.holding = false;
-        self.ui.openRoundShop();
-      });
-      bind('btn-round-shop-close', function () {
-        self.state = self.prevState === 'playing' ? 'playing' : 'waveclear';
-        self.ui.closeRoundShop();
-      });
-    },
-
-    _makeStars: function () {
-      for (var i = 0; i < C.starCount; i++) {
-        this.stars.push({
-          x: Math.random() * C.canvasWidth,
-          y: Math.random() * C.canvasHeight,
-          size: Math.random() * 1.8 + 0.4,
-          speed: Math.random() * 42 + 12,
-          alpha: Math.random() * 0.6 + 0.2
-        });
-      }
-    },
-
-    /* ---------- loop ---------- */
-    loop: function (now) {
-      var dt = (now - this.lastTime) / 1000;
-      this.lastTime = now;
-      if (!isFinite(dt) || dt < 0) dt = 0;
-      dt = Math.min(dt, 0.033);
-      this.time += dt;
-      this.update(dt);
-      this.render();
-      requestAnimationFrame(this.loop);
-    },
-
-    update: function (dt) {
-      var i, j;
-      var active = this.state === 'playing' || this.state === 'waveclear';
-      // Shop/Hangar stay locked while a wave is active.
-      this.ui.setRunControlsVisible(active);
-      this.ui.setShopEnabled(!active);
-      this.ui.setSkipEnabled(this.state === 'playing' && !this.isBossWave());
-      this.ui.setAutoSkipEnabled(!this.isBossWave());
-
-      // stars and particles keep moving on menus for a living backdrop
-      for (i = 0; i < this.stars.length; i++) {
-        var s = this.stars[i];
-        s.y += s.speed * dt;
-        if (s.y > C.canvasHeight) { s.y = -2; s.x = Math.random() * C.canvasWidth; }
-      }
-      this.shake = Math.max(0, this.shake - dt * C.screenShakeDecay);
-
-      this.particles = this.particles.filter(function (p) {
-        p.update(dt); return p.active;
-      });
-
-      this.flushCoins(dt);
-      if (!active) return;
-
-      this.player.update(dt, this.input, this);
-      this.waves.update(dt);
-
-      if (this.autoSkip && this.state === 'playing' && !this.isBossWave() &&
-          this.waves.total > 0 &&
-          this.waves.spawned / this.waves.total >= C.wave.autoSkipAt) {
-        this.skipWave();
-      }
-
-      for (i = 0; i < this.enemies.length; i++) this.enemies[i].update(dt, this);
-      for (i = 0; i < this.bullets.length; i++) this.bullets[i].update(dt);
-      for (i = 0; i < this.enemyBullets.length; i++) this.enemyBullets[i].update(dt);
-      for (i = 0; i < this.powerups.length; i++) this.powerups[i].update(dt);
-
-      // player bullets -> enemies
-      for (i = 0; i < this.bullets.length; i++) {
-        var b = this.bullets[i];
-        if (!b.active) continue;
-        for (j = 0; j < this.enemies.length; j++) {
-          var e = this.enemies[j];
-          if (!e.active || !b.hits(e)) continue;
-          b.active = false;
-          var dead = e.damage(b.damage);
-          this.sparks(e.cx, e.cy, e.type.color, dead ? 14 : 4, dead ? 150 : 70);
-          if (dead) this.onEnemyKilled(e);
-          break;
-        }
-      }
-
-      // enemy bullets -> player
-      for (i = 0; i < this.enemyBullets.length; i++) {
-        var eb = this.enemyBullets[i];
-        if (!eb.active || !eb.hits(this.player)) continue;
-        eb.active = false;
-        var blocked = this.player.hasBoost('shield') || this.player.invulnerable > 0;
-        if (this.player.hit(eb.damage)) {
-          this.sparks(this.player.cx, this.player.cy, '#ff5d7a', 16, 150);
-          this.shake = Math.max(this.shake, 7);
-        } else if (blocked) {
-          this.sparks(this.player.cx, this.player.cy, AG.BOOSTS.shield.color, 6, 90);
-        }
-      }
-
-      // enemies ramming the player
-      for (i = 0; i < this.enemies.length; i++) {
-        var r = this.enemies[i];
-        if (!r.active || !r.hits(this.player)) continue;
-        r.active = false;
-        this.sparks(r.cx, r.cy, r.type.color, r.type.boss ? 40 : 16, 170);
-        if (this.player.hit(r.type.boss ? 32 : 18)) this.shake = Math.max(this.shake, 10);
-      }
-
-      // pickups
-      for (i = 0; i < this.powerups.length; i++) {
-        var pu = this.powerups[i];
-        if (!pu.active || !pu.hits(this.player)) continue;
-        pu.active = false;
-        var healed = this.player.applyBoost(pu.boostKey);
-        this.sparks(pu.cx, pu.cy, AG.BOOSTS[pu.boostKey].color, 12, 110);
-        if (pu.boostKey === 'heal' && healed > 0) this.notifyRepair(healed);
-        else this.notifyUpgrade(pu.boostKey);
-      }
-
-      var isActive = function (o) { return o.active; };
-      this.bullets = this.bullets.filter(isActive);
-      this.enemyBullets = this.enemyBullets.filter(isActive);
-      this.enemies = this.enemies.filter(isActive);
-      this.powerups = this.powerups.filter(isActive);
-
-      if (this.state === 'waveclear') {
-        this.breakTimer -= dt;
-        if (this.breakTimer <= 0) this.startWave(this.wave + 1);
-      }
-
-      if (this.player.health <= 0) this.gameOver();
-      this.ui.update(dt);
-    },
-
-    render: function () {
-      var ctx = this.ctx;
-      ctx.clearRect(0, 0, C.canvasWidth, C.canvasHeight);
-      ctx.fillStyle = this.bgGradient;
-      ctx.fillRect(0, 0, C.canvasWidth, C.canvasHeight);
-
-      for (var i = 0; i < this.stars.length; i++) {
-        var s = this.stars[i];
-        ctx.globalAlpha = s.alpha;
-        ctx.fillStyle = '#cfe8ff';
-        ctx.fillRect(s.x, s.y, s.size, s.size);
-      }
-      ctx.globalAlpha = 1;
-
-      ctx.save();
-      if (this.shake > 0.1) {
-        ctx.translate((Math.random() - 0.5) * this.shake * 2, (Math.random() - 0.5) * this.shake * 2);
-      }
-
-      for (i = 0; i < this.powerups.length; i++) this.powerups[i].draw(ctx);
-      for (i = 0; i < this.enemies.length; i++) this.enemies[i].draw(ctx);
-      for (i = 0; i < this.bullets.length; i++) this.bullets[i].draw(ctx);
-      for (i = 0; i < this.enemyBullets.length; i++) this.enemyBullets[i].draw(ctx);
-      if (this.player) this.player.draw(ctx);
-      for (i = 0; i < this.particles.length; i++) this.particles[i].draw(ctx);
-      ctx.restore();
-
-      if (this.state === 'playing' || this.state === 'waveclear') {
-        var p = this.waves.completion;
-        ctx.fillStyle = 'rgba(110,240,255,.12)';
-        ctx.fillRect(0, C.canvasHeight - 3, C.canvasWidth, 3);
-        ctx.fillStyle = 'rgba(110,240,255,.75)';
-        ctx.fillRect(0, C.canvasHeight - 3, C.canvasWidth * p, 3);
+    gainXp(amount) {
+      const run = this.run;
+      run.xp += amount;
+      while (run.level < 50 && run.xp >= xpForLevel(run.level)) {
+        run.xp -= xpForLevel(run.level);
+        run.level++;
+        this.repair(10, false);
+        this.notify('upgrade', run.level === SUPPLY_LEVEL ? 'Level 5 · Supplies unlocked' : 'Pilot level ' + run.level);
       }
     }
-  };
-})(window);
+
+    repair(amount, announce = true) {
+      const { player, ship } = this.run;
+      if (player.hp <= 0) return;
+      const repaired = Math.min(amount, ship.hull - player.hp);
+      player.hp += repaired;
+      if (announce) this.notify('reward', repaired ? '+' + repaired + ' hull' : 'Hull already full');
+    }
+
+    applyBoost(type) {
+      if (type === 'heal') {
+        this.repair(25);
+      } else {
+        this.run.boosts[type] = BOOSTS[type].duration;
+        this.notify('upgrade', BOOSTS[type].name + ' online');
+      }
+    }
+
+    canBuy(type) {
+      const run = this.run;
+      return Boolean(SUPPLIES[type] && this.state === 'intermission' && run.level >= SUPPLY_LEVEL &&
+        run.credits >= SUPPLIES[type].price && (type !== 'heal' || run.player.hp < run.ship.hull));
+    }
+
+    buy(type) {
+      if (!this.canBuy(type)) return false;
+      this.run.credits -= SUPPLIES[type].price;
+      this.applyBoost(type);
+      return true;
+    }
+
+    equip(id) {
+      const ship = SHIPS[id];
+      if (!ship || !['home', 'gameover', 'victory'].includes(this.state)) return false;
+      if (!this.profile.unlocked.includes(id)) {
+        if (this.profile.gems < ship.price) return false;
+        this.profile.gems -= ship.price;
+        this.profile.unlocked.push(id);
+      }
+      this.profile.ship = id;
+      this.save();
+      return true;
+    }
+
+    spawn(type) {
+      const run = this.run;
+      const spec = ENEMIES[type];
+      const boss = type === 'boss';
+      const margin = spec.size + 24;
+      const lane = run.spawned % 10;
+      const x = boss ? WIDTH / 2 : clamp(90 + lane * 80 + (this.random() - 0.5) * 100, margin, WIDTH - margin);
+      const hp = boss ? Math.round(spec.hp * (1 + (run.wave - 10) * 0.085)) : Math.ceil(spec.hp * run.diff.health);
+      run.enemies.push({
+        type, x, origin: x, y: -spec.size, size: spec.size, hp, maxHp: hp,
+        speed: run.diff.speed * spec.speed, fireIn: 1 + this.random() * run.diff.fire,
+        fireDelay: run.diff.fire, age: 0, bornWave: run.wave, flash: 0, volley: 0
+      });
+      run.spawned++;
+    }
+
+    movePlayer(dt) {
+      const player = this.run.player;
+      const speed = this.run.ship.speed;
+      let x = 0;
+      let y = 0;
+      for (const key of this.keys) {
+        if (!MOVE[key]) continue;
+        x += MOVE[key][0];
+        y += MOVE[key][1];
+      }
+      if (this.pointer && !x && !y) {
+        x = this.pointer.x - player.x;
+        y = this.pointer.y - player.y;
+        const distance = Math.hypot(x, y);
+        const step = distance > 0 ? Math.min(1, speed * dt / distance) : 0;
+        player.x += x * step;
+        player.y += y * step;
+      } else {
+        const length = Math.max(1, Math.hypot(x, y));
+        player.x += x / length * speed * dt;
+        player.y += y / length * speed * dt;
+      }
+      player.x = clamp(player.x, 25, WIDTH - 25);
+      player.y = clamp(player.y, 108, HEIGHT - 24);
+      player.invulnerable -= dt;
+    }
+
+    update(dt) {
+      if (!['playing', 'intermission'].includes(this.state)) return;
+      const run = this.run;
+      this.movePlayer(dt);
+      if (this.state === 'intermission') {
+        this.collectDrops(dt);
+        run.breakTime -= dt;
+        if (run.breakTime <= 0) this.beginWave(run.wave + 1);
+        return;
+      }
+
+      for (const type of Object.keys(run.boosts)) {
+        run.boosts[type] -= dt;
+        if (run.boosts[type] <= 0) delete run.boosts[type];
+      }
+      run.spawnIn -= dt;
+      if (run.pending.length && run.spawnIn <= 0) {
+        this.spawn(run.pending.shift());
+        run.spawnIn += run.diff.spawn;
+      }
+      if (this.profile.auto && this.canSkip() && run.spawned / run.total >= AUTO_SKIP_AT) this.skip();
+
+      const { player, ship } = run;
+      player.fireIn -= dt;
+      if (player.fireIn <= 0) {
+        const damage = (ship.damage + Math.floor((run.wave - 1) / 7)) * (run.boosts.doubleDamage ? 2 : 1);
+        run.shots.push({ x: player.x, y: player.y - 20, vx: 0, vy: -720, size: 5, damage });
+        player.fireIn += ship.delay * (run.boosts.rapidFire ? 0.52 : 1);
+        this.notify('fire');
+      }
+
+      this.moveEnemies(dt);
+      this.updateProjectiles(dt);
+      this.collectDrops(dt);
+      if (player.hp <= 0) {
+        this.finish('gameover');
+      } else if (!run.pending.length && !run.enemies.length) {
+        this.finishWave();
+      }
+    }
+
+    moveEnemies(dt) {
+      const run = this.run;
+      const { player } = run;
+      for (let index = run.enemies.length - 1; index >= 0; index--) {
+        const enemy = run.enemies[index];
+        enemy.age += dt;
+        enemy.flash -= dt;
+        const boss = enemy.type === 'boss';
+        if (boss) {
+          enemy.y = Math.min(enemy.y + 70 * dt, 150);
+          enemy.x = WIDTH / 2 + Math.sin(enemy.age * 0.78) * 275;
+        } else {
+          enemy.y += enemy.speed * dt;
+          const diver = enemy.type === 'diver';
+          enemy.x = clamp(enemy.origin + Math.sin(enemy.age * (diver ? 4.2 : 1.5)) * (diver ? 73 : 17), enemy.size, WIDTH - enemy.size);
+        }
+
+        if (enemy.y > HEIGHT + enemy.size) {
+          this.removeEnemy(index, false, true);
+          continue;
+        }
+        if (touches(enemy, player)) {
+          this.hurt(boss ? 24 : 16);
+          if (!boss) this.removeEnemy(index, false);
+          continue;
+        }
+        if (enemy.y < 75 || !['boss', 'shooter', 'tank'].includes(enemy.type)) continue;
+        enemy.fireIn -= dt;
+        if (enemy.fireIn <= 0) {
+          const phase = enemy.hp / enemy.maxHp < 0.45;
+          this.fireAtPlayer(enemy, boss ? (phase ? 7 : 5) : 1);
+          enemy.fireIn = boss ? (phase ? 1.13 : 1.8) : enemy.fireDelay;
+        }
+      }
+    }
+
+    fireAtPlayer(enemy, count) {
+      const { player, hostile } = this.run;
+      const aim = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+      const spread = enemy.volley++ % 2 === 0 ? 0.17 : 0.28;
+      const speed = enemy.type === 'boss' ? 250 : 205;
+      for (let index = 0; index < count; index++) {
+        const angle = aim + (index - (count - 1) / 2) * spread;
+        hostile.push({ x: enemy.x, y: enemy.y + 4, size: 6, vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed, damage: enemy.type === 'boss' ? 14 : 9 });
+      }
+    }
+
+    updateProjectiles(dt) {
+      const run = this.run;
+      run.shots = run.shots.filter(shot => {
+        shot.y += shot.vy * dt;
+        const hit = run.enemies.findIndex(enemy => touches(shot, enemy));
+        if (hit < 0) return shot.y > -24;
+        const enemy = run.enemies[hit];
+        enemy.hp -= shot.damage;
+        enemy.flash = 0.09;
+        if (enemy.hp <= 0) this.removeEnemy(hit, true);
+        return false;
+      });
+      run.hostile = run.hostile.filter(shot => {
+        shot.x += shot.vx * dt;
+        shot.y += shot.vy * dt;
+        if (touches(shot, run.player)) {
+          this.hurt(shot.damage);
+          return false;
+        }
+        return shot.x > -20 && shot.x < WIDTH + 20 && shot.y > -20 && shot.y < HEIGHT + 20;
+      });
+    }
+
+    hurt(damage) {
+      const { player, boosts } = this.run;
+      if (player.invulnerable > 0 || boosts.shield) return;
+      player.hp = Math.max(0, player.hp - damage);
+      player.invulnerable = 0.78;
+      this.notify('hit');
+    }
+
+    removeEnemy(index, killed, escaped = false) {
+      const run = this.run;
+      const [enemy] = run.enemies.splice(index, 1);
+      if (enemy.bornWave === run.wave) run.resolved++;
+      if (!killed) {
+        if (escaped) this.hurt(5);
+        return;
+      }
+      const boss = enemy.type === 'boss';
+      const credits = boss ? 95 : Math.max(3, Math.ceil(ENEMIES[enemy.type].score / 4));
+      run.score += ENEMIES[enemy.type].score;
+      run.credits += credits;
+      this.notify('destroy', enemy);
+      this.notify('reward', '+' + credits + ' credits' + (boss ? ' · +1 Star Gem' : ''));
+      if (boss) {
+        this.profile.gems++;
+        this.save();
+      }
+      this.gainXp(boss ? 25 : 2);
+      if (boss || this.random() < 0.14) {
+        const types = Object.keys(BOOSTS);
+        const type = boss ? 'shield' : types[Math.floor(this.random() * types.length)];
+        run.drops.push({ type, x: enemy.x, y: clamp(enemy.y, 100, HEIGHT - 18), age: 0, size: 16 });
+      }
+    }
+
+    collectDrops(dt) {
+      const run = this.run;
+      run.drops = run.drops.filter(drop => {
+        drop.age += dt;
+        drop.y = Math.min(HEIGHT - 20, drop.y + 55 * dt);
+        if (touches(drop, run.player)) {
+          this.applyBoost(drop.type);
+          return false;
+        }
+        return drop.age < 12;
+      });
+    }
+  }
+
+  AG.Game = Game;
+})();
