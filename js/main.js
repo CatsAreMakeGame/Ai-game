@@ -19,7 +19,7 @@
   let returnFocus = $('launch');
   let tutorialIndex = 0;
   const armory = { inventoryTab: 'ships', shopTab: 'ships', autoOpen: false, result: '', part: '', ship: '', ingredient: '', grid: Array(9).fill('') };
-  const armoryPanels = ['hangar', 'shop', 'inventory', 'outfit', 'craft'];
+  const armoryPanels = ['hangar', 'shop', 'inventory', 'outfit', 'craft', 'recipes'];
   const panelHistory = [];
   let mindAim = false;
   const loot = new Map();
@@ -299,7 +299,7 @@
     const kind = panelKind;
     mindAim = false;
     if (kind === 'craft') { armory.grid.fill(''); armory.ingredient = ''; }
-    if ((armoryPanels.includes(kind) || kind === 'settings') && panelHistory.length) {
+    if ((armoryPanels.includes(kind) || kind === 'settings' || kind === 'keybinds') && panelHistory.length) {
       const parent = panelHistory.pop();
       resetPanelDraft();
       Object.assign(armory, { inventoryTab: parent.inventoryTab, shopTab: parent.shopTab, part: parent.part, ship: parent.ship });
@@ -417,7 +417,7 @@
           () => tutorialIndex === tutorial.length - 1 ? dismiss() : showSlide(tutorialIndex + 1), { primary: true }));
       body.append(slide, nav);
     } else if (armoryPanels.includes(panelKind)) {
-      const titles = { hangar: 'Hangar', shop: 'Shop', inventory: 'Inventory', outfit: 'Outfitting', craft: 'Crafting' };
+      const titles = { hangar: 'Hangar', shop: 'Shop', inventory: 'Inventory', outfit: 'Outfitting', craft: 'Crafting', recipes: 'Recipes' };
       setText(title, titles[panelKind]);
       AG.renderArmory({ kind: panelKind, state: armory, game, body, button, element, dismiss,
         open: navigate, refresh: () => drawPanel(true), practice: kind => {
@@ -426,10 +426,14 @@
         } });
     } else if (panelKind === 'settings') {
       setText(title, 'Settings');
-      const settings = element('div', '', 'settings-grid');
+      const actions = element('div', '', 'home-actions');
+      actions.append(AG.menuIcon(button('Keybinds', () => navigate('keybinds')), 'keybinds'), button('Back', dismiss));
+      body.append(actions);
+    } else if (panelKind === 'keybinds') {
+      setText(title, 'Keybinds');
       const status = element('p', '', 'panel-note');
       status.setAttribute('role', 'status');
-      for (const [id, name] of [['extend', 'Extend tendril'], ['retract', 'Retract tendril'], ['laser', 'Fitted special']]) {
+      function binding(id, name) {
         const label = element('label', name);
         const input = element('input');
         input.maxLength = 1;
@@ -440,9 +444,19 @@
           status.textContent = saved ? name + ' key saved.' : 'Choose an unused letter. WASD, P and I are reserved.';
         });
         label.append(input);
-        settings.append(label);
+        return label;
       }
-      body.append(settings, status, button('Back', dismiss));
+      for (const [name, bindings] of [
+        ['Alien Spaceship', [['extend', 'Extend tendril'], ['retract', 'Retract tendril']]],
+        ['Equipment', [['laser', 'Lightning Beacon']]]
+      ]) {
+        const section = element('section', '', 'keybind-section');
+        const grid = element('div', '', 'settings-grid');
+        for (const [id, label] of bindings) grid.append(binding(id, label));
+        section.append(element('h3', name), grid);
+        body.append(section);
+      }
+      body.append(status, button('Back', dismiss));
     } else if (panelKind === 'admin') {
       setText(title, 'Admin testing');
       AG.renderAdmin({ body, game, button, element, dismiss, resumeFlight, enterTesting, exitTesting,

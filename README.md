@@ -13,9 +13,9 @@ A browser-based shooter with four flight modes, returning boss fleets, unlockabl
 
 - Easy ends at wave 20, Medium at 30, Hard at 50, and Endless continues after the wave-50 boss. Continue resumes from the last cleared wave in the same browser.
 - The Hangar's Practice range lets you test a stationary boss, a moving target or a cluster. Practice does not award progression.
-- The Alien Event ends at midnight at the start of 1 December 2026 in Melbourne. Afterward, repeatable boss bounties supply Alien Cells, Alien Minds and Crafting Serum for permanent recipes.
-- Craft an Alien Ship with an owned ship in the centre, an Alien Mind below it, and seven Alien Cells in the other slots. Craft an Alien Brain with serum in the centre and eight Alien Cells around it.
-- Alien Ships extend and retract tendrils with **E** and **Q**. The Lightning Beacon uses **F** or right-click. Change the keys in Settings. Apply Alien Mind Serum from Inventory while an Alien Ship is equipped to unlock mind control.
+- The Alien Event ends at midnight at the start of 1 December 2026 in Melbourne. Afterward, repeatable boss bounties supply Alien Cells, Alien Minds and Alien Serum for permanent recipes.
+- Craft an Alien Ship with an owned ship in the centre, an Alien Mind below it, and seven Alien Cells in the other slots. Craft an Alien Mind with Alien Serum in the centre and eight Alien Cells around it.
+- Alien Ships extend and retract tendrils with **E** and **Q**. The Lightning Beacon uses **F** or right-click. Change the keys in Settings. Apply Alien Serum from Inventory while an Alien Ship is equipped to unlock mind control.
 - The Premium Store accepts Star Gems, including a one-way exchange for 250 Credits per gem. Supernova can be purchased again after an hour, at double the previous price.
 
 ## Shop and outfitting

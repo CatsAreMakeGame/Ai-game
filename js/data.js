@@ -163,17 +163,30 @@ window.AG = (() => {
       }
       loadouts[ship] = mounts;
     }
+    const materials = counts('materials', window.AG?.MATERIALS ?? {});
+    const canonicalMaterial = id => id === 'alienBrain' ? 'alienMind' : id === 'craftingSerum' ? 'alienSerum' : id;
+    for (const oldId of ['alienBrain', 'craftingSerum']) {
+      const quantity = saved?.materials?.[oldId];
+      if (!Number.isSafeInteger(quantity) || quantity <= 0) continue;
+      const id = canonicalMaterial(oldId);
+      materials[id] = Math.min(Number.MAX_SAFE_INTEGER, (materials[id] ?? 0) + quantity);
+    }
+    const checkpoint = saved?.checkpoint ?? null;
+    if (Array.isArray(checkpoint?.drops)) {
+      checkpoint.drops = checkpoint.drops.map(drop => ({ ...drop, type: canonicalMaterial(drop.type) }));
+    }
+    if (checkpoint?.stats?.rarest) checkpoint.stats.rarest = canonicalMaterial(checkpoint.stats.rarest);
     const readNumber = key => Number.isSafeInteger(saved?.[key]) ? Math.max(0, saved[key]) : 0;
     return {
       unlocked, ship: unlocked.includes(saved?.ship) ? saved.ship : unlocked[0], alienShips,
-      materials: counts('materials', window.AG?.MATERIALS ?? {}),
+      materials,
       copies: counts('copies', catalog), flagshipPurchases: Math.max(0, readNumber('flagshipPurchases') || Number(unlocked.includes('supernova'))),
       flagshipTime: readNumber('flagshipTime'), serumUsed: saved?.serumUsed === true,
       bounties: (Array.isArray(saved?.bounties) ? saved.bounties : []).filter(id => Object.hasOwn(BOSSES, id)),
       favoriteBoosts: Array.from({ length: 2 }, (_, i) => Object.hasOwn(BOOSTS, saved?.favoriteBoosts?.[i]) ? saved.favoriteBoosts[i] : ''),
       bindings: { extend: saved?.bindings?.extend || 'e', retract: saved?.bindings?.retract || 'q', laser: saved?.bindings?.laser || 'f' },
       mode: Object.hasOwn(window.AG?.MODES ?? {}, saved?.mode) ? saved.mode : 'hard',
-      checkpoint: saved?.checkpoint ?? null, modeRecords: saved?.modeRecords ?? {},
+      checkpoint, modeRecords: saved?.modeRecords ?? {},
       credits: readNumber('credits'), gems: readNumber('gems'), upgrades, loadouts,
       boosts: counts('boosts', BOOSTS), crates: counts('crates', CRATES), bestScore: readNumber('bestScore'),
       bestWave: Math.min(LAST_WAVE, readNumber('bestWave')),

@@ -5,21 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A browser-based alien shooter with 50 escalating waves, Mothership bosses, pilot upgrades and unlockable ships.">
   <title>Alien Shooter</title>
-  <link rel="stylesheet" href="css/style.css?v=alien-event">
-  <script defer src="js/data.js?v=alien-event"></script>
-  <script defer src="js/game.js?v=alien-event"></script>
-  <script defer src="js/expansion.js?v=alien-event"></script>
-  <script defer src="js/flight-view.js?v=alien-event"></script>
-  <script defer src="js/admin.js?v=alien-event"></script>
-  <script defer src="js/armory.js?v=alien-event"></script>
-  <script defer src="js/main.js?v=alien-event"></script>
+  <link rel="stylesheet" href="css/style.css?v=crafting-inventory">
+  <script defer src="js/data.js?v=crafting-inventory"></script>
+  <script defer src="js/game.js?v=crafting-inventory"></script>
+  <script defer src="js/expansion.js?v=crafting-inventory"></script>
+  <script defer src="js/flight-view.js?v=crafting-inventory"></script>
+  <script defer src="js/admin.js?v=crafting-inventory"></script>
+  <script defer src="js/armory.js?v=crafting-inventory"></script>
+  <script defer src="js/main.js?v=crafting-inventory"></script>
 </head>
 <body>
   <main class="console">
     <header class="top">
       <a class="brand" href="./index.html" aria-label="Alien Shooter home"><span class="mark" aria-hidden="true">✦</span> ALIEN<span class="brand-end">/SHOOTER</span></a>
       <div class="console-actions">
-        <button id="settings" class="quiet" type="button">Settings</button>
+        <button id="settings" class="quiet" type="button"><img class="menu-icon" src="new-icons/vector-icon-pack/General/Settings/Gear%20256.png" alt="">Settings</button>
         <button id="admin" class="quiet" type="button">Admin</button>
         <button id="sound" class="quiet" type="button" aria-pressed="false">Sound off</button>
       </div>
@@ -54,12 +54,12 @@
             <button id="launch" class="primary">Launch run <span aria-hidden="true">↗</span></button>
           </div>
           <div class="home-actions">
-            <button id="outfit-open">Outfitting</button>
-            <button id="craft-open">Crafting</button>
-            <button id="hangar-open">Hangar</button>
-            <button id="shop-open">Shop</button>
-            <button id="inventory-home">Inventory</button>
-            <button id="help">How to play</button>
+            <button id="outfit-open"><img class="menu-icon" src="new-icons/vector-icon-pack/Tools/Wrench/Wrench%20256.png" alt="">Outfitting</button>
+            <button id="craft-open"><img class="menu-icon" src="new-icons/vector-icon-pack/Tools/Hammer/Hammer%20256.png" alt="">Crafting</button>
+            <button id="hangar-open"><img class="menu-icon" src="new-icons/vector-icon-pack/Transport/Rocket/Rocket%20256.png" alt="">Hangar</button>
+            <button id="shop-open"><img class="menu-icon" src="new-icons/vector-icon-pack/General/Shopping%20Basket/Shopping%20Basket%20Green%20256.png" alt="">Shop</button>
+            <button id="inventory-home"><img class="menu-icon" src="new-icons/vector-icon-pack/Clothing/Backpack/Backpack%20256.png" alt="">Inventory</button>
+            <button id="help"><img class="menu-icon" src="new-icons/vector-icon-pack/UI/Question%20Mark/Question%20Mark%20256.png" alt="">How to play</button>
           </div>
           <p id="record" class="record" hidden></p>
         </section>
@@ -86,7 +86,7 @@
         <button id="mind-toggle" type="button" aria-pressed="false" hidden>Mind control</button>
       </div>
       <div class="flight-actions"><button id="boost-favorite-0" hidden></button><button id="boost-favorite-1" hidden></button></div>
-      <button id="inventory">Inventory</button>
+      <button id="inventory"><img class="menu-icon" src="new-icons/vector-icon-pack/Clothing/Backpack/Backpack%20256.png" alt="">Inventory</button>
       <button id="pause">Pause</button>
     </section>
   </main>

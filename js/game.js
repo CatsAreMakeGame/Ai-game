@@ -876,7 +876,7 @@
         drop.age += dt;
         drop.y = Math.min(FLIGHT_LANE, drop.y + 140 * dt);
         if (touches(drop, run.player)) {
-          if (drop.type !== 'alienSerum' || !this.profile.serumUsed) collected.push(drop);
+          if (drop.type !== 'alienSerum' || !this.profile.serumUsed || !AG.eventActive()) collected.push(drop);
           return false;
         }
         return drop.age < 16;

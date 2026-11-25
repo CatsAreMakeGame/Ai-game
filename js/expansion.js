@@ -7,10 +7,12 @@
   const EXCHANGE_RATE = 250;
   const MATERIALS = {
     alienCell: { name: 'Alien Cell', rarity: 'rare', description: 'An outer ingredient in both Alien recipes.' },
-    alienMind: { name: 'Alien Mind', rarity: 'legendary', description: 'Place below the donor ship to craft an Alien Ship.' },
-    alienBrain: { name: 'Alien Brain', rarity: 'mythical', description: 'Crafted from Alien Cells and serum.' },
-    alienSerum: { name: 'Alien Mind Serum', rarity: 'godly', description: 'Use on an equipped Alien Ship to unlock mind control permanently, or use in the Alien Brain recipe.' },
-    craftingSerum: { name: 'Crafting Serum', rarity: 'legendary', description: 'A post-event bounty reward usable in the Alien Brain recipe.' }
+    alienMind: { name: 'Alien Mind', rarity: 'legendary', description: 'Crafted with Alien Serum and eight Alien Cells. Place below the donor ship to craft an Alien Ship.' },
+    alienSerum: { name: 'Alien Serum', rarity: 'godly', description: 'Use to craft an Alien Mind or apply to an equipped Alien Ship to unlock mind control permanently.' }
+  };
+  const RECIPES = {
+    ship: { name: 'Alien Ship', pattern: ['alienCell', 'alienCell', 'alienCell', 'alienCell', 'donor', 'alienCell', 'alienCell', 'alienMind', 'alienCell'] },
+    mind: { name: 'Alien Mind', pattern: ['alienCell', 'alienCell', 'alienCell', 'alienCell', 'alienSerum', 'alienCell', 'alienCell', 'alienCell', 'alienCell'] }
   };
   const BASE_SHIPS = { ...SHIPS };
   Object.assign(ITEMS, MATERIALS);
@@ -36,10 +38,8 @@
   "seeker": "UI/Crosshair/Crosshair 256.png",
   "beacon": "General/Lightning Bolt/Lightning Bolt 256.png",
   "alienCell": "Nature/DNA/DNA 256.png",
-  "alienMind": "Tools/Potion 2/Potion 2 Pink 256.png",
-  "alienBrain": "Player/Brain/Brain 256.png",
-  "alienSerum": "Tools/Potion 3/Potion 3 Pink 256.png",
-  "craftingSerum": "Tools/Potion 4/Potion 4 Pink 256.png"
+  "alienMind": "Player/Brain/Brain 256.png",
+  "alienSerum": "Tools/Potion 3/Potion 3 Pink 256.png"
 })) {
     ITEMS[id].icon = 'new-icons/vector-icon-pack/' + icon;
     ITEMS[id].glyph ??= '◆';
@@ -120,10 +120,9 @@
       if (!this.canVisitBase() || !Array.isArray(grid) || grid.length !== 9) return '';
       const donor = grid[4];
       const items = this.profile.materials;
-      if (['alienSerum', 'craftingSerum'].includes(donor) && items[donor] > 0 && items.alienCell >= 8 &&
-          grid.every((id, index) => index === 4 || id === 'alienCell')) return 'brain';
-      if (this.shipCount(donor) && grid[7] === 'alienMind' && items.alienMind > 0 && items.alienCell >= 7 &&
-          grid.every((id, index) => index === 4 || index === 7 || id === 'alienCell')) return 'ship';
+      if (items.alienSerum > 0 && items.alienCell >= 8 && RECIPES.mind.pattern.every((id, index) => grid[index] === id)) return 'mind';
+      if (this.shipCount(donor) && items.alienMind > 0 && items.alienCell >= 7 &&
+          RECIPES.ship.pattern.every((id, index) => grid[index] === (id === 'donor' ? donor : id))) return 'ship';
       return '';
     },
 
@@ -141,11 +140,11 @@
       if (!recipe) return '';
       const profile = this.profile;
       const donor = grid[4];
-      if (recipe === 'brain') {
+      if (recipe === 'mind') {
         profile.materials[donor]--;
         profile.materials.alienCell -= 8;
-        this.grantItem('alienBrain');
-        return 'alienBrain';
+        this.grantItem('alienMind');
+        return 'alienMind';
       }
       const id = this.addAlien(SHIPS[donor]);
       profile.materials.alienMind--;
@@ -236,7 +235,7 @@
       } else if (boss) {
         this.dropItem('alienCell', x, y, 2);
         if (enemy.type === mainBoss(run.wave)) this.dropItem('alienMind', x - 20, y);
-        if (enemy.type === 'nexus') this.dropItem('craftingSerum', x + 20, y);
+        if (enemy.type === 'nexus') this.dropItem('alienSerum', x + 20, y);
       }
     },
 
@@ -372,5 +371,5 @@
     }
   });
 
-  Object.assign(AG, { MODES, EVENT_END, EXCHANGE_RATE, MATERIALS, BASE_SHIPS, eventActive, mainBoss, crateRoll, syncShips });
+  Object.assign(AG, { MODES, EVENT_END, EXCHANGE_RATE, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, syncShips });
 })();

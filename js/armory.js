@@ -4,6 +4,32 @@
   const AG = window.AG;
   const { ITEMS, SHIPS, UPGRADES, BOOSTS, CRATES, SLOTS, RARITIES } = AG;
 
+  const MENU_ICONS = {
+    "ships": "Transport/Rocket/Rocket 256.png",
+    "upgrades": "Tools/Wrench/Wrench 256.png",
+    "boosts": "General/Lightning Bolt/Lightning Bolt Yellow 256.png",
+    "items": "Player/Brain/Brain 256.png",
+    "crates": "Items/Crate/Crate 256.png",
+    "flagship": "Currency/Star Gem/Star Gem 256.png",
+    "recipes": "Items/Book/Book 256.png",
+    "keybinds": "Technology/Keyboard Key/Keyboard Key 256.png",
+    "inventory": "Clothing/Backpack/Backpack 256.png",
+    "shop": "General/Shopping Basket/Shopping Basket Green 256.png",
+    "craft": "Tools/Hammer/Hammer 256.png",
+    "settings": "General/Settings/Gear 256.png",
+    "help": "UI/Question Mark/Question Mark 256.png",
+    "admin": "General/Lock/Lock 256.png"
+  };
+
+  function menuIcon(control, id) {
+    const img = document.createElement('img');
+    img.className = 'menu-icon';
+    img.src = 'new-icons/vector-icon-pack/' + MENU_ICONS[id];
+    img.alt = '';
+    control.prepend(img);
+    return control;
+  }
+
   function graphic(id) {
     const item = ITEMS[id];
     if (SHIPS[id]) return AG.shipGraphic(id);
@@ -118,7 +144,7 @@
 
   function renderCraft({ game, state, element, button, body, refresh }) {
     const available = id => SHIPS[id] ? game.shipCount(id) : (game.profile.materials[id] ?? 0);
-    const choices = [...game.profile.unlocked, 'alienCell', 'alienMind', 'alienSerum', 'craftingSerum'].filter(available);
+    const choices = [...game.profile.unlocked, 'alienCell', 'alienMind', 'alienSerum'].filter(available);
     const grid = element('div', '', 'craft-grid');
     const ingredients = element('div', '', 'ingredient-bank');
     function place(index, id) {
@@ -131,7 +157,6 @@
     state.grid.forEach((id, index) => {
       const tile = button('', () => place(index, state.ingredient));
       if (id && ITEMS[id]) tile.append(graphic(id));
-      else tile.textContent = index === 4 ? 'Centre' : index === 7 ? 'Below centre' : '＋';
       tile.setAttribute('aria-label', 'Slot ' + (index + 1) + ' · ' + (ITEMS[id]?.name ?? 'empty'));
       tile.addEventListener('dragover', event => event.preventDefault());
       tile.addEventListener('drop', event => { event.preventDefault(); place(index, event.dataTransfer.getData('text/plain')); });
@@ -150,7 +175,7 @@
     layout.append(grid, ingredients);
     const recipe = game.recipe(state.grid);
     const label = recipe === 'ship' ? 'Consume ' + ITEMS[state.grid[4]].name + ' and craft Alien Ship' :
-      recipe === 'brain' ? 'Craft Alien Brain' : 'Craft';
+      recipe === 'mind' ? 'Craft Alien Mind' : 'Craft';
     const actions = element('div', '', 'home-actions');
     actions.append(button(label, () => {
       const id = game.craft(state.grid);
@@ -160,18 +185,86 @@
     }, { primary: true, disabled: !recipe }), button('Clear grid', () => {
       state.grid.fill(''); state.ingredient = ''; refresh();
     }));
-    body.append(element('p', 'Alien Ship · Ship in the centre, Alien Mind below, seven Alien Cells around them. Alien Brain · Serum in the centre, eight Alien Cells around it.', 'panel-note'),
-      element('p', 'Drag ingredients or select one and tap a slot. Tap a filled slot with no ingredient selected to remove it.', 'panel-note'),
-      layout, actions, element('p', AG.eventActive() ? 'Alien materials drop during the event.' :
-        'Boss bounties drop Alien Cells. Lead bosses also drop Alien Mind. Nexus Overlord drops Crafting Serum.', 'panel-note'));
+    body.append(element('p', 'Drag an ingredient or select it and tap a slot. Tap a filled slot with nothing selected to clear it.', 'panel-note'),
+      layout, actions);
+  }
+
+  function renderRecipes(body, element, selectedShip) {
+    const list = element('div', '', 'recipe-list');
+    for (const [key, recipe] of Object.entries(AG.RECIPES)) {
+      const card = element('article', '', 'recipe-card');
+      const grid = element('div', '', 'craft-grid recipe-grid');
+      for (const id of recipe.pattern) {
+        const item = id === 'donor' ? selectedShip : id;
+        const slot = element('div', '', 'recipe-slot');
+        const name = id === 'donor' ? 'Any owned spaceship' : ITEMS[item].name;
+        slot.setAttribute('role', 'img');
+        slot.setAttribute('aria-label', name);
+        slot.title = name;
+        slot.append(graphic(item));
+        grid.append(slot);
+      }
+      const legend = element('ul', '', 'recipe-legend');
+      const entries = key === 'ship'
+        ? [['alienCell', 'Alien Cells ×7'], [selectedShip, 'Any owned spaceship ×1'], ['alienMind', 'Alien Mind ×1']]
+        : [['alienCell', 'Alien Cells ×8'], ['alienSerum', 'Alien Serum ×1']];
+      for (const [id, label] of entries) {
+        const row = element('li');
+        row.append(graphic(id), element('span', label));
+        legend.append(row);
+      }
+      card.append(element('h3', recipe.name), grid, legend);
+      list.append(card);
+    }
+    body.append(list);
   }
 
   function renderArmory({ kind, state, game, body, button, element, open, dismiss, refresh, practice }) {
     const profile = game.profile;
     const base = game.canVisitBase();
     const cards = element('div', '', 'cards armory-cards');
+    const tiles = element('div', '', 'inventory-tiles');
+    const preview = element('div', '', 'inventory-preview');
+    const details = element('div', '', 'inventory-details');
+    const tileChoices = new Map();
+
+    function selectTile(id) {
+      const choice = tileChoices.get(id);
+      if (!choice) return;
+      const { item, text, action, showPreview } = choice;
+      showPreview();
+      state.selectedItem = id;
+      for (const [key, entry] of tileChoices) entry.tile.setAttribute('aria-pressed', String(key === id));
+      const copy = element('div');
+      const rarity = element('span', item.rarity ?? 'common', 'item-rarity');
+      rarity.style.color = RARITIES[item.rarity ?? 'common'];
+      copy.append(element('strong', item.name), rarity, element('p', text));
+      details.replaceChildren(graphic(id), copy);
+      if (action) details.append(action);
+    }
+
+    function tileCard(id, text, action, count) {
+      const item = ITEMS[id];
+      const rarity = item.rarity ?? 'common';
+      const tile = button('', () => selectTile(id));
+      tile.className = 'inventory-tile';
+      tile.style.setProperty('--rarity', RARITIES[rarity]);
+      tile.title = item.name + '\n' + rarity;
+      tile.setAttribute('aria-label', item.name + ', ' + rarity + ', quantity ' + (count || 1));
+      tile.append(graphic(id), element('b', '×' + (count || 1).toLocaleString(), 'inventory-count'));
+      function showPreview() {
+        const tier = element('span', rarity, 'item-rarity');
+        tier.style.color = RARITIES[rarity];
+        preview.replaceChildren(element('strong', item.name), tier);
+      }
+      tile.addEventListener('pointerenter', showPreview);
+      tile.addEventListener('focus', showPreview);
+      tiles.append(tile);
+      tileChoices.set(id, { item, tile, text, action, showPreview });
+    }
 
     function card(id, text, action, count = 0) {
+      if (kind === 'inventory') { tileCard(id, text, action, count); return; }
       const item = ITEMS[id];
       const row = element('div', '', 'card item-card');
       const copy = element('div');
@@ -194,7 +287,7 @@
     if (kind === 'shop') {
       const options = element('div', '', 'inventory-tabs');
       for (const [id, name] of [['ships', 'Credit ships'], ['crates', 'Star Gem crates'], ['flagship', 'Premium Store']]) {
-        const tab = button(name, () => { state.shopTab = id; refresh(); });
+        const tab = menuIcon(button(name, () => { state.shopTab = id; refresh(); }), id);
         tab.setAttribute('aria-pressed', String(state.shopTab === id));
         options.append(tab);
       }
@@ -319,7 +412,7 @@
       if (inventory) {
         const tabs = element('div', '', 'inventory-tabs');
         for (const [id, label] of [['ships', 'Spaceships'], ['upgrades', 'Upgrades'], ['boosts', 'Boosts'], ['items', 'Items'], ['crates', 'Crates']]) {
-          const control = button(label, () => { state.inventoryTab = id; refresh(); });
+          const control = menuIcon(button(label, () => { state.inventoryTab = id; refresh(); }), id);
           control.setAttribute('aria-pressed', String(tab === id));
           tabs.append(control);
         }
@@ -333,7 +426,7 @@
           const info = ship.description + (ship.ability ? ' · ' + ship.ability.name : '');
           card(id, info, button(equipped ? 'Equipped' : 'Equip', () => {
             game.equip(id); refresh();
-          }, { disabled: equipped || !base }), game.shipCount(id) > 1 ? game.shipCount(id) : 0);
+          }, { disabled: equipped || !base }), inventory || game.shipCount(id) > 1 ? game.shipCount(id) : 0);
         }
       } else if (tab === 'upgrades') {
         for (const id of sortItems(UPGRADES, part => (part.damage ?? part.speed ?? 0))) {
@@ -410,8 +503,27 @@
           card(id, crateOdds(CRATES[id]), controls, count);
         }
       }
-      if (!cards.children.length) cards.append(element('p', 'No ' + tab + ' collected yet.', 'panel-note'));
-      body.append(cards);
+      if (inventory) {
+        const shell = element('div', '', 'inventory-shell');
+        const scroll = element('div', '', 'inventory-scroll');
+        scroll.setAttribute('aria-label', 'Collected ' + tab);
+        if (tileChoices.size) {
+          scroll.append(tiles);
+          shell.append(preview, scroll, details);
+          body.append(shell);
+          const active = tileChoices.has(state.selectedItem) ? state.selectedItem : tileChoices.keys().next().value;
+          selectTile(active);
+          const positions = state.inventoryScroll ??= {};
+          scroll.scrollTop = positions[tab] ?? 0;
+          scroll.addEventListener('scroll', () => { positions[tab] = scroll.scrollTop; });
+        } else {
+          shell.append(element('p', 'No ' + tab + ' collected yet.', 'panel-note'));
+          body.append(shell);
+        }
+      } else {
+        if (!cards.children.length) cards.append(element('p', 'No ships collected yet.', 'panel-note'));
+        body.append(cards);
+      }
       const options = [button('Outfit ship', () => open('outfit'))];
       if (base) options.push(button('Shop', () => open('shop')), button('Crafting', () => open('craft')));
       if (!inventory && base) {
@@ -422,7 +534,11 @@
       footer(...options);
     } else if (kind === 'craft') {
       renderCraft({ game, state, element, button, body, refresh });
-      footer(button('Inventory', () => open('inventory', { inventoryTab: 'items' })));
+      footer(menuIcon(button('Recipes', () => open('recipes')), 'recipes'),
+        menuIcon(button('Inventory', () => open('inventory', { inventoryTab: 'items' })), 'inventory'));
+    } else if (kind === 'recipes') {
+      renderRecipes(body, element, profile.ship);
+      footer();
     } else {
       const ship = base ? (profile.unlocked.includes(state.ship) ? state.ship : profile.ship) : game.run.shipId;
       const crafts = profile.loadouts[ship] ?? {};
@@ -532,5 +648,5 @@
       body.prepend(feedback);
     }
   }
-  Object.assign(AG, { renderArmory, itemGraphic: graphic });
+  Object.assign(AG, { renderArmory, itemGraphic: graphic, menuIcon });
 })();
