@@ -37,6 +37,8 @@
   "rocket": "Transport/Rocket/Rocket 256.png",
   "seeker": "UI/Crosshair/Crosshair 256.png",
   "beacon": "General/Lightning Bolt/Lightning Bolt 256.png",
+  "magnet": "Tools/Magnet/Magnet 256.png",
+  "boostRelay": "Clothing/Backpack/Backpack Blue 256.png",
   "alienCell": "Nature/DNA/DNA 256.png",
   "alienMind": "Player/Brain/Brain 256.png",
   "alienSerum": "Tools/Potion 3/Potion 3 Pink 256.png"
@@ -45,7 +47,7 @@
     ITEMS[id].glyph ??= '◆';
   }
   const clone = value => JSON.parse(JSON.stringify(value));
-  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'mindCooldown', 'stats', 'drops'];
+  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'mindCooldown', 'stats', 'drops', 'boostRelayOn'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
   const mainBoss = wave => wave >= 10 && wave % 10 === 0 ? Object.keys(BOSSES)[Math.min(wave / 10 - 1, 4)] : null;
 
@@ -98,7 +100,7 @@
       if (!this.canContinue()) return false;
       const saved = clone(this.profile.checkpoint);
       this.start(saved.mode, saved.shipId);
-      for (const key of checkpointKeys) this.run[key] = saved[key];
+      for (const key of checkpointKeys) if (Object.hasOwn(saved, key)) this.run[key] = saved[key];
       Object.assign(this.run.player, saved.player);
       this.run.enemies = saved.allies;
       if (!this.upgradeEffects().vertical) this.run.player.y = HEIGHT - 58;

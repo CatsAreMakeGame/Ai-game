@@ -259,6 +259,14 @@
       ctx.restore();
     }
 
+    magnetPickup({ x, y, toX, toY }) {
+      const duration = .14;
+      for (let i = 0; i < 3; i++) {
+        this.effects.push({ x: x + (i - 1) * 5, y, vx: (toX - x) / duration,
+          vy: (toY - y) / duration, life: duration, color: '#b1ffb8', magnet: true });
+      }
+    }
+
     burst(enemy) {
       const count = AG.BOSSES[enemy.type] ? 40 : 10;
       for (let index = 0; index < count; index++) {
@@ -447,7 +455,7 @@
         particle.life -= dt;
         particle.x += particle.vx * dt;
         particle.y += particle.vy * dt;
-        ctx.globalAlpha = Math.max(0, particle.life);
+        ctx.globalAlpha = particle.magnet ? AG.clamp(particle.life / .14, 0, 1) : Math.max(0, particle.life);
         disc(ctx, particle.x, particle.y, 2.7, particle.color);
         ctx.globalAlpha = 1;
         return particle.life > 0;

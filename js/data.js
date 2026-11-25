@@ -89,7 +89,11 @@ window.AG = (() => {
     seeker: { name: 'Heat-Seeking Missile', slot: 'Weapon', rarity: 'legendary', chance: .004, glyph: '➶', missile: 'homing',
       description: 'Steers after its target and can retarget if the original enemy is destroyed.' },
     beacon: { name: 'Lightning Beacon', slot: 'Special', rarity: 'godly', glyph: '⚡', laser: true,
-      description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold E. Each pulse costs 3% and deals double shot damage.' }
+      description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold the Lightning Beacon key. Each pulse costs 3% and deals double shot damage.' },
+    magnet: { name: 'Loot Magnet', slot: 'Collector', rarity: 'legendary', glyph: '∪', magnet: true, chance: .006,
+      description: 'Instantly collects enemy loot anywhere on the field, including Credits, Star Gems and items.' },
+    boostRelay: { name: 'Boost Relay', slot: 'Boost Relay', rarity: 'epic', glyph: '▣', boostRelay: true, chance: .009,
+      description: 'Holds up to five copies each of five boost types. Load it in Inventory → Boosts and toggle automatic use during flight.' }
   };
   const CRATES = {
     shipCrate: { name: 'Spaceship Crate', rarity: 'epic', glyph: '▣', price: 3, outcomes: [
@@ -98,8 +102,8 @@ window.AG = (() => {
     ] },
     upgradeCrate: { name: 'Upgrade Crate', rarity: 'rare', glyph: '▧', price: 2, outcomes: [
       { rarity: 'rare', weight: 56, items: ['booster', 'wings', 'cannon', 'rocket'] },
-      { rarity: 'epic', weight: 30, items: ['rail', 'fusion', 'carbon'] },
-      { rarity: 'legendary', weight: 12, items: ['vector', 'seeker'] }, { rarity: 'mythical', weight: 1.5, items: ['nova'] },
+      { rarity: 'epic', weight: 30, items: ['rail', 'fusion', 'carbon', 'boostRelay'] },
+      { rarity: 'legendary', weight: 12, items: ['vector', 'seeker', 'magnet'] }, { rarity: 'mythical', weight: 1.5, items: ['nova'] },
       { rarity: 'godly', weight: .5, items: ['beacon'] }
     ] }
   };
@@ -111,7 +115,7 @@ window.AG = (() => {
   const SLOTS = {
     leftWing: ['Wings', 'Left wing'], rightWing: ['Wings', 'Right wing'],
     engine1: ['Engine', 'Engine 1'], engine2: ['Engine', 'Engine 2'], engine3: ['Engine', 'Engine 3'],
-    nose: ['Weapon', 'Nose'], special: ['Special', 'Special ability']
+    nose: ['Weapon', 'Nose'], special: ['Special', 'Special ability'], collector: ['Collector', 'Collector'], relay: ['Boost Relay', 'Boost Relay']
   };
   const TARGET_MODES = { nearest: 'Closest to ship', bottom: 'Closest to bottom', strongest: 'Strongest', weakest: 'Weakest' };
   const SUPPLIES = {
@@ -176,6 +180,13 @@ window.AG = (() => {
       checkpoint.drops = checkpoint.drops.map(drop => ({ ...drop, type: canonicalMaterial(drop.type) }));
     }
     if (checkpoint?.stats?.rarest) checkpoint.stats.rarest = canonicalMaterial(checkpoint.stats.rarest);
+    const reserve = Object.fromEntries(Object.entries(counts('boostReserve', BOOSTS)).slice(0, 5)
+      .map(([id, count]) => [id, Math.min(count, 5)]));
+    const bindings = { extend: saved?.bindings?.extend || 'e', retract: saved?.bindings?.retract || 'q', laser: saved?.bindings?.laser || 'f' };
+    const usedKeys = Object.values(bindings);
+    const relayKey = saved?.bindings?.relay;
+    bindings.relay = /^[a-z]$/.test(relayKey ?? '') && !'wasdpi'.includes(relayKey) && !usedKeys.includes(relayKey)
+      ? relayKey : [...'bgrtchjklmnuovxyz'].find(key => !usedKeys.includes(key));
     const readNumber = key => Number.isSafeInteger(saved?.[key]) ? Math.max(0, saved[key]) : 0;
     return {
       unlocked, ship: unlocked.includes(saved?.ship) ? saved.ship : unlocked[0], alienShips,
@@ -184,7 +195,7 @@ window.AG = (() => {
       flagshipTime: readNumber('flagshipTime'), serumUsed: saved?.serumUsed === true,
       bounties: (Array.isArray(saved?.bounties) ? saved.bounties : []).filter(id => Object.hasOwn(BOSSES, id)),
       favoriteBoosts: Array.from({ length: 2 }, (_, i) => Object.hasOwn(BOOSTS, saved?.favoriteBoosts?.[i]) ? saved.favoriteBoosts[i] : ''),
-      bindings: { extend: saved?.bindings?.extend || 'e', retract: saved?.bindings?.retract || 'q', laser: saved?.bindings?.laser || 'f' },
+      bindings, boostReserve: reserve,
       mode: Object.hasOwn(window.AG?.MODES ?? {}, saved?.mode) ? saved.mode : 'hard',
       checkpoint, modeRecords: saved?.modeRecords ?? {},
       credits: readNumber('credits'), gems: readNumber('gems'), upgrades, loadouts,

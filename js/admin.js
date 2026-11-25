@@ -96,20 +96,11 @@
     items.append(amountLabel);
     const feedback = element('p', '', 'admin-status');
     feedback.setAttribute('role', 'status');
-    function updateQuantity() {
-      amount.disabled = Object.hasOwn(AG.SHIPS, item.value);
-      if (amount.disabled) amount.value = '1';
-      feedback.textContent = '';
-    }
-    item.addEventListener('change', updateQuantity);
-    updateQuantity();
+    item.addEventListener('change', () => { feedback.textContent = ''; });
 
     function quantity() {
-      const count = amount.disabled ? 1 : amount.valueAsNumber;
-      const id = item.value;
-      const profile = game.profile;
-      const owned = id === 'credit' ? profile.credits : id === 'gem' ? profile.gems :
-        (profile.upgrades[id] ?? profile.boosts[id] ?? profile.crates[id] ?? profile.materials[id] ?? 0);
+      const count = amount.valueAsNumber;
+      const owned = game.itemCount(item.value);
       if (Number.isSafeInteger(count) && count >= 1 && Number.isSafeInteger(owned + count)) return count;
       feedback.textContent = 'Enter a positive whole quantity that keeps your total within the safe number range.';
       amount.focus();
@@ -122,8 +113,8 @@
       const id = item.value;
       const name = AG.ITEMS[id].name;
       feedback.textContent = game.grantItem(id, count)
-        ? name + (amount.disabled ? ' unlocked.' : ' ×' + count.toLocaleString() + ' added.')
-        : name + ' is already owned.';
+        ? name + ' ×' + count.toLocaleString() + ' added.'
+        : 'Could not grant ' + name + '.';
     }, { primary: true }), button('Open Inventory', inventory)];
     if (run) itemActions.push(button('Spawn item pickup', () => {
       const count = quantity();
@@ -136,6 +127,25 @@
     items.append(feedback);
 
     const wave = group('Wave controls');
+    const speedLabel = element('label', 'Game speed multiplier');
+    const speed = element('input');
+    speed.type = 'number';
+    speed.min = '.25';
+    speed.max = '10';
+    speed.step = 'any';
+    speed.value = String(game.simulationSpeed);
+    speedLabel.append(speed);
+    const speedStatus = element('p', 'Current speed · ' + game.simulationSpeed + '×', 'panel-note');
+    speedStatus.setAttribute('role', 'status');
+    wave.append(speedLabel, speedStatus);
+    actions(wave, button('Apply speed', () => {
+      speedStatus.textContent = game.setTestSpeed(speed.valueAsNumber)
+        ? 'Current speed · ' + game.simulationSpeed + '×' : 'Enter a multiplier from 0.25× to 10×.';
+    }), button('Reset to 1×', () => {
+      game.setTestSpeed(1);
+      speed.value = '1';
+      speedStatus.textContent = 'Current speed · 1×';
+    }));
     const label = element('label', 'Wave number');
     const number = element('input');
     number.type = 'number';

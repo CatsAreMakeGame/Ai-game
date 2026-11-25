@@ -23,6 +23,15 @@
       this.testing = false;
       this.liveSession = null;
       this.testProfile = null;
+      this.testSpeed = 1;
+    }
+
+    get simulationSpeed() { return this.testing ? this.testSpeed : 1; }
+
+    setTestSpeed(speed) {
+      if (!this.testing || !Number.isFinite(speed) || speed < .25 || speed > 10) return false;
+      this.testSpeed = speed;
+      return true;
     }
 
     get credits() { return this.profile.credits; }
@@ -71,6 +80,7 @@
       this.profile = AG.readProfile(null);
       AG.syncShips(this.profile);
       this.testProfile = this.profile;
+      this.testSpeed = 1;
       this.run = null;
       this.state = 'home';
       this.releaseInput();
@@ -87,7 +97,7 @@
       const ship = SHIPS[shipId];
       this.releaseInput();
       this.run = {
-        wave: 0, level: 1, xp: 0, score: 0, boosts: {}, ship, shipId, mode, mindCooldown: 0, alienTick: 0, tendrils: [],
+        wave: 0, level: 1, xp: 0, score: 0, boosts: {}, boostRelayOn: false, ship, shipId, mode, mindCooldown: 0, alienTick: 0, tendrils: [],
         stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisFlash: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
@@ -231,7 +241,7 @@
     }
 
     upgradeEffects(ship = this.run?.shipId ?? this.profile.ship, mounts = this.profile.loadouts[ship] ?? {}) {
-      const effects = { speed: 1, damage: 0, vertical: false, vectors: 0, missile: null, laser: false };
+      const effects = { speed: 1, damage: 0, vertical: false, vectors: 0, missile: null, laser: false, magnet: false, boostRelay: false };
       for (const id of Object.values(mounts)) {
         const upgrade = UPGRADES[id];
         effects.speed += upgrade.speed ?? 0;
@@ -240,6 +250,8 @@
         effects.vectors += Number(Boolean(upgrade.vertical));
         effects.missile ||= upgrade.missile ?? null;
         effects.laser ||= Boolean(upgrade.laser);
+        effects.magnet ||= Boolean(upgrade.magnet);
+        effects.boostRelay ||= Boolean(upgrade.boostRelay);
       }
       return effects;
     }
@@ -263,29 +275,78 @@
       return true;
     }
 
-    grantItem(type, amount = 1) {
-      if (!Object.hasOwn(AG.ITEMS, type) || !Number.isSafeInteger(amount) || amount < 1 || this.run?.practice) return false;
+    itemStock(type) {
       const profile = this.profile;
-      if (type === 'credit') {
-        if (!Number.isSafeInteger(profile.credits + amount)) return false;
-        profile.credits += amount;
-      } else if (type === 'gem') {
-        if (!Number.isSafeInteger(profile.gems + amount)) return false;
-        profile.gems += amount;
-      }
+      if (UPGRADES[type]) return profile.upgrades;
+      if (BOOSTS[type]) return profile.boosts;
+      if (AG.MATERIALS[type]) return profile.materials;
+      return profile.crates;
+    }
+
+    itemCount(type) {
+      if (type === 'credit') return this.profile.credits;
+      if (type === 'gem') return this.profile.gems;
+      if (SHIPS[type]) return this.shipCount(type);
+      return this.itemStock(type)[type] ?? 0;
+    }
+
+    addItem(type, amount) {
+      const total = this.itemCount(type) + amount;
+      const profile = this.profile;
+      if (type === 'credit') profile.credits = total;
+      else if (type === 'gem') profile.gems = total;
       else if (SHIPS[type]) {
-        if (profile.unlocked.includes(type)) return false;
-        profile.unlocked.push(type);
-        profile.copies[type] = 1;
-      } else {
-        const stock = UPGRADES[type] ? profile.upgrades : BOOSTS[type] ? profile.boosts : AG.MATERIALS[type] ? profile.materials : profile.crates;
-        const count = (stock[type] ?? 0) + amount;
-        if (!Number.isSafeInteger(count)) return false;
-        stock[type] = count;
-      }
+        if (!profile.unlocked.includes(type)) profile.unlocked.push(type);
+        profile.copies[type] = total;
+      } else this.itemStock(type)[type] = total;
+    }
+
+    grantItem(type, amount = 1) {
+      if (!Object.hasOwn(AG.ITEMS, type) || !Number.isSafeInteger(amount) || amount < 1 ||
+          !Number.isSafeInteger(this.itemCount(type) + amount) || this.run?.practice) return false;
+      this.addItem(type, amount);
       this.save();
       this.notify('loot', { type, amount });
       return true;
+    }
+
+    adjustBoostReserve(type, amount) {
+      if (!Object.hasOwn(BOOSTS, type) || ![-1, 1].includes(amount) || this.run?.practice) return false;
+      const { boostReserve, boosts } = this.profile;
+      const stored = boostReserve[type] ?? 0;
+      const available = boosts[type] ?? 0;
+      if (amount > 0 && (!available || stored >= 5 || (!stored && Object.keys(boostReserve).length >= 5))) return false;
+      if (amount < 0 && (!stored || !Number.isSafeInteger(available + 1))) return false;
+      if (stored + amount === 0) delete boostReserve[type];
+      else boostReserve[type] = stored + amount;
+      boosts[type] = available - amount;
+      this.save();
+      return true;
+    }
+
+    toggleBoostRelay() {
+      if (!this.run || this.run.practice || !['playing', 'intermission'].includes(this.state) ||
+          !this.upgradeEffects().boostRelay) return false;
+      this.run.boostRelayOn = !this.run.boostRelayOn;
+      return true;
+    }
+
+    updateBoostRelay() {
+      const run = this.run;
+      if (!run.boostRelayOn || run.practice || !this.upgradeEffects().boostRelay ||
+          !run.enemies.some(enemy => !enemy.allied && enemy.y > 0)) return;
+      let changed = false;
+      for (const [type, count] of Object.entries(this.profile.boostReserve)) {
+        const boost = BOOSTS[type];
+        const shield = type === 'shield' || type === 'fortress';
+        if (boost.repair ? run.ship.hull - run.player.hp < Math.min(boost.repair, run.ship.hull / 2) :
+            this.boostCount(type) || (shield && (this.boostCount('shield') || this.boostCount('fortress')))) continue;
+        if (count === 1) delete this.profile.boostReserve[type];
+        else this.profile.boostReserve[type]--;
+        this.applyBoost(type);
+        changed = true;
+      }
+      if (changed) this.save();
     }
 
     canUseBoost(type) {
@@ -323,51 +384,25 @@
     openCrates(type, count) {
       const crate = CRATES[type];
       const profile = this.profile;
-      if (!Object.hasOwn(CRATES, type) || !Number.isSafeInteger(count) || count < 1 ||
-        count > this.crateBatchLimit() || count > (profile.crates[type] ?? 0)) return false;
+      if (!Object.hasOwn(CRATES, type) || !Number.isSafeInteger(count) || count < 1 || this.run?.practice ||
+          count > this.crateBatchLimit() || count > (profile.crates[type] ?? 0)) return false;
 
-      const unlocked = new Set(profile.unlocked);
-      const rewards = new Map();
-      const sideItems = [];
-      const ranks = Object.keys(AG.RARITIES);
-      let featured;
-      let bestRank = -1;
+      const totals = new Map();
       for (let index = 0; index < count; index++) {
-        const { id, rarity } = AG.crateRoll(crate, this.random);
-        const duplicate = SHIPS[id] && unlocked.has(id);
-        const result = duplicate
-          ? { type: 'credit', rolled: id, amount: 250, text: 'Duplicate ' + SHIPS[id].name + ' converted to 250 Credits.' }
-          : { type: id, rolled: id, amount: 1, text: AG.ITEMS[id].name + ' · ' + rarity };
-
-        if (SHIPS[id]) unlocked.add(id);
-        rewards.set(result.type, (rewards.get(result.type) ?? 0) + result.amount);
-        if (count <= 10) {
-          if (index < count - 1) sideItems.push(result);
-          else featured = result;
-        } else {
-          const rank = ranks.indexOf(AG.ITEMS[result.type].rarity ?? 'common');
-          if (rank > bestRank) {
-            featured = { ...result, rolled: result.type };
-            bestRank = rank;
-          }
-        }
+        const { id } = AG.crateRoll(crate, this.random);
+        if (!Object.hasOwn(AG.ITEMS, id)) return false;
+        totals.set(id, (totals.get(id) ?? 0) + 1);
       }
-
-      const credits = profile.credits + (rewards.get('credit') ?? 0);
-      if (!Number.isSafeInteger(credits)) return false;
-      for (const [id, amount] of rewards) {
-        if (UPGRADES[id] && !Number.isSafeInteger((profile.upgrades[id] ?? 0) + amount)) return false;
-      }
+      const rarityOrder = Object.keys(AG.RARITIES);
+      const rank = id => rarityOrder.indexOf(AG.ITEMS[id].rarity ?? 'common');
+      const rewards = [...totals].sort(([a], [b]) => rank(b) - rank(a))
+        .map(([type, amount]) => ({ type, amount }));
+      if (rewards.some(({ type, amount }) => !Number.isSafeInteger(this.itemCount(type) + amount))) return false;
 
       profile.crates[type] -= count;
-      profile.unlocked = [...unlocked];
-      profile.credits = credits;
-      for (const [id, amount] of rewards) {
-        if (UPGRADES[id]) profile.upgrades[id] = (profile.upgrades[id] ?? 0) + amount;
-      }
+      for (const { type, amount } of rewards) this.addItem(type, amount);
       this.save();
-      for (const [id, amount] of rewards) this.notify('loot', { type: id, amount });
-      return { count, featured, sideItems };
+      return { count, featured: rewards[0], rewards };
     }
 
     canBuy(type) {
@@ -500,6 +535,7 @@
       }
 
       this.tickBoosts(dt);
+      this.updateBoostRelay();
       run.spawnIn = Math.max(0, run.spawnIn - dt);
       if (run.pending.length && run.spawnIn === 0 &&
         (!BOSSES[run.pending[0]] || run.enemies.filter(enemy => BOSSES[enemy.type]).length < 5)) {
@@ -872,16 +908,20 @@
     collectDrops(dt) {
       const run = this.run;
       const collected = [];
+      const magnet = this.upgradeEffects().magnet;
       run.drops = run.drops.filter(drop => {
         drop.age += dt;
         drop.y = Math.min(FLIGHT_LANE, drop.y + 140 * dt);
-        if (touches(drop, run.player)) {
+        if (magnet || touches(drop, run.player)) {
           if (drop.type !== 'alienSerum' || !this.profile.serumUsed || !AG.eventActive()) collected.push(drop);
           return false;
         }
         return drop.age < 16;
       });
       for (const drop of collected) {
+        if (magnet && !touches(drop, run.player)) this.notify('magnet-pickup', {
+          x: drop.x, y: drop.y, toX: run.player.x, toY: run.player.y
+        });
         if (drop.type === 'gem') run.stats.gems += drop.amount;
         const ranks = Object.keys(AG.RARITIES);
         const rank = id => ranks.indexOf(AG.ITEMS[id]?.rarity ?? 'common');

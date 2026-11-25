@@ -61,10 +61,10 @@
       weight + '% ' + rarity + ' (' + items.map(id => ITEMS[id].name).join(', ') + ')').join(' · ');
   }
 
-  function revealCrate(crateId, batch, element, button) {
-    const { count, featured: result, sideItems } = batch;
+  function revealCrate(crateId, batch, element, button, game) {
+    const { count, featured: result, rewards } = batch;
     const crate = CRATES[crateId];
-    const item = ITEMS[result.rolled];
+    const item = ITEMS[result.type];
     const dialog = element('dialog', '', 'crate-reveal');
     const title = element('h2', crate.name + (count > 1 ? ' ×' + count.toLocaleString() : ''));
     title.id = 'crate-reveal-title';
@@ -78,13 +78,16 @@
     let winner;
     for (let index = 0; index < stopAt + 4; index++) {
       const winning = index === stopAt;
-      const id = winning ? result.rolled : AG.crateRoll(crate).id;
+      const id = winning ? result.type : AG.crateRoll(crate).id;
       const spec = ITEMS[id];
       const tile = element('div', '', 'reel-tile');
       tile.style.setProperty('--rarity', RARITIES[spec.rarity ?? 'common']);
       tile.append(graphic(id), element('span', spec.name));
       track.append(tile);
-      if (winning) winner = tile;
+      if (winning) {
+        winner = tile;
+        tile.append(element('b', '×' + result.amount.toLocaleString(), 'reel-quantity'));
+      }
     }
     viewport.append(track, marker);
     const message = element('p', 'Opening crate…', 'reel-result');
@@ -99,7 +102,8 @@
       track.style.transform = centered(winner);
       winner.classList.add('reel-winner');
       dialog.classList.add('reel-revealed');
-      message.textContent = result.text;
+      message.textContent = item.name + ' ×' + result.amount.toLocaleString() + ' · ' + (item.rarity ?? 'common');
+      summary.hidden = false;
       next.textContent = 'Done';
     }
     const next = button('Skip animation', () => {
@@ -107,28 +111,25 @@
       else showReward();
     }, { primary: true });
     dialog.append(title, viewport, message, next);
-    if (sideItems.length) {
-      const summary = element('section', '', 'reel-other');
-      summary.append(element('h3', 'Other rewards'));
-      const items = element('ul', '', 'reel-rewards');
-      for (const reward of sideItems) {
-        const spec = ITEMS[reward.type];
-        const tile = element('li', '', 'reel-reward-tile');
-        tile.style.setProperty('--rarity', RARITIES[spec.rarity ?? 'common']);
-        tile.title = reward.text;
-        tile.append(graphic(reward.type), element('span', (reward.amount > 1 ? reward.amount + ' ' : '') + spec.name));
-        items.append(tile);
-      }
-      summary.append(items);
-      dialog.append(summary);
-    } else if (count > 10) {
-      dialog.append(element('p', 'Rarest reward shown. All ' + count.toLocaleString() + ' results are awarded.', 'reel-batch-note'));
+    const summary = element('section', '', 'reel-other');
+    summary.hidden = true;
+    summary.append(element('h3', 'All rewards'));
+    const items = element('ul', '', 'reel-rewards');
+    for (const reward of rewards) {
+      const spec = ITEMS[reward.type];
+      const tile = element('li', '', 'reel-reward-tile');
+      tile.style.setProperty('--rarity', RARITIES[spec.rarity ?? 'common']);
+      tile.append(graphic(reward.type), element('span', spec.name), element('b', '×' + reward.amount.toLocaleString()));
+      items.append(tile);
     }
+    summary.append(items);
+    dialog.append(summary);
     if (batch.stored) dialog.append(element('p', batch.stored.toLocaleString() + ' saved in Inventory.', 'reel-batch-note'));
     document.body.append(dialog);
     dialog.addEventListener('close', () => {
       animation?.cancel();
       dialog.remove();
+      for (const reward of rewards) game.notify('loot', reward);
     }, { once: true });
     dialog.showModal();
     const end = centered(winner);
@@ -387,7 +388,7 @@
             if (!result) return;
             state.result = result.stored ? result.stored.toLocaleString() + ' crates saved in Inventory.' : '';
             refresh();
-            if (result.batch) revealCrate(id, { ...result.batch, stored: result.stored }, element, button);
+            if (result.batch) revealCrate(id, { ...result.batch, stored: result.stored }, element, button, game);
           }, { disabled: limit < 1 });
           function updateTotal() {
             const count = quantity.valueAsNumber;
@@ -402,7 +403,7 @@
           controls.append(quantity, buy);
           card(id, crate.price + ' Star Gems each · ' + crateOdds(crate), controls);
         }
-        body.append(element('p', 'Duplicate ships convert to 250 Credits. Upgrade copies can fill multiple mounts.', 'panel-note'));
+        body.append(element('p', 'Duplicate ships and upgrades add to the copies you own.', 'panel-note'));
       }
       body.append(cards);
       footer(button('Inventory', () => open('inventory')), button('Hangar', () => open('hangar')));
@@ -454,6 +455,26 @@
           settings.append(label);
         }
         body.append(settings);
+        if (profile.upgrades.boostRelay || Object.keys(profile.boostReserve).length) {
+          const reserve = element('section', '', 'reserve-grid');
+          const types = Object.keys(profile.boostReserve).length;
+          reserve.append(element('h3', 'Boost Relay · ' + types + '/5 types'),
+            element('p', 'Load up to five of each. In flight, toggle automatic use with ' + profile.bindings.relay.toUpperCase() + '.', 'panel-note'));
+          for (const [id, boost] of Object.entries(BOOSTS)) {
+            const available = profile.boosts[id] ?? 0;
+            const stored = profile.boostReserve[id] ?? 0;
+            if (!available && !stored) continue;
+            const row = element('div', '', 'reserve-row');
+            const load = button('Load', () => { if (game.adjustBoostReserve(id, 1)) refresh(); },
+              { disabled: !available || stored >= 5 || (!stored && types >= 5) });
+            const unload = button('Unload', () => { if (game.adjustBoostReserve(id, -1)) refresh(); }, { disabled: !stored });
+            load.setAttribute('aria-label', 'Load ' + boost.name);
+            unload.setAttribute('aria-label', 'Unload ' + boost.name);
+            row.append(graphic(id), element('span', boost.name + ' · ' + stored + '/5 loaded'), load, unload);
+            reserve.append(row);
+          }
+          body.append(reserve);
+        }
         for (const id of sortItems(BOOSTS, boost => boost.repair ?? boost.duration)) {
           if (!profile.boosts[id]) continue;
           card(id, BOOSTS[id].description, button('Use', () => {
@@ -483,7 +504,7 @@
             }
             state.result = '';
             refresh();
-            revealCrate(id, batch, element, button);
+            revealCrate(id, batch, element, button, game);
           }
 
           const controls = element('div', '', 'crate-batch-controls');
@@ -565,7 +586,8 @@
         return speed + ' speed · ' + (effects.vertical ? vertical + ' vertical speed' : 'Horizontal steering') +
           ' · ' + Number((spec.damage + effects.damage).toFixed(3)) + ' damage' +
           (effects.missile ? ' · ' + (effects.missile === 'homing' ? 'Heat-Seeking Missile' : 'Blast Missile') : '') +
-          (effects.laser ? ' · Lightning Beacon' : '');
+          (effects.laser ? ' · Lightning Beacon' : '') + (effects.magnet ? ' · Loot Magnet' : '') +
+          (effects.boostRelay ? ' · Boost Relay' : '');
       };
       preview.textContent = describe(current);
       const indicators = [];

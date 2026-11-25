@@ -58,6 +58,7 @@
     if (game.profile.sound) audio.play(type);
     if (type === 'destroy') view.burst(value);
     if (type === 'blast') view.blast(value);
+    if (type === 'magnet-pickup') view.magnetPickup(value);
     if (type === 'enemy-damage') view.addDamageNumber(value);
     if (type === 'loot') {
       const { type: id, amount } = value;
@@ -152,6 +153,12 @@
     $('laser-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy < 3;
     $('laser-toggle').setAttribute('aria-pressed', String(game.laserActive()));
     $('laser-toggle').title = 'Right-click or hold ' + game.profile.bindings.laser.toUpperCase();
+    const relay = $('relay-toggle');
+    relay.hidden = !effects.boostRelay || !!run.practice;
+    relay.disabled = Boolean(panelKind) || !['playing', 'intermission'].includes(game.state);
+    relay.setAttribute('aria-pressed', String(run.boostRelayOn));
+    relay.title = 'Toggle with ' + game.profile.bindings.relay.toUpperCase();
+    setText(relay, 'Auto boosts · ' + (run.boostRelayOn ? 'On' : 'Off'));
     $('alien-actions').hidden = !run.ship.alien;
     $('tendril-extend').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy < 1;
     $('tendril-retract').disabled = Boolean(panelKind) || !run.tendrils.length;
@@ -448,7 +455,7 @@
       }
       for (const [name, bindings] of [
         ['Alien Spaceship', [['extend', 'Extend tendril'], ['retract', 'Retract tendril']]],
-        ['Equipment', [['laser', 'Lightning Beacon']]]
+        ['Equipment', [['laser', 'Lightning Beacon'], ['relay', 'Toggle Boost Relay']]]
       ]) {
         const section = element('section', '', 'keybind-section');
         const grid = element('div', '', 'settings-grid');
@@ -631,7 +638,9 @@
     const key = event.key.toLowerCase();
     if (['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName) && key !== 'escape') return;
     const bindings = game.profile.bindings;
-    if (key === bindings.laser && !panelKind && game.state === 'playing' && game.upgradeEffects().laser) {
+    if (key === bindings.relay && !panelKind && !event.repeat && game.toggleBoostRelay()) {
+      event.preventDefault();
+    } else if (key === bindings.laser && !panelKind && game.state === 'playing' && game.upgradeEffects().laser) {
       event.preventDefault();
       if (!event.repeat) game.laserInput('hold');
     } else if (!panelKind && !event.repeat && game.run?.ship.alien && (key === bindings.extend || key === bindings.retract)) {
@@ -667,19 +676,22 @@
     pause();
   });
 
+  $('relay-toggle').addEventListener('click', () => { if (!panelKind) game.toggleBoostRelay(); });
+
   let previous = performance.now();
   let accumulated = 0;
   const tick = 1 / 120;
   function frame(now) {
     const dt = Math.min(0.05, (now - previous) / 1000);
     previous = now;
-    accumulated += dt;
+    const gameDt = dt * game.simulationSpeed;
+    accumulated += panelKind ? 0 : gameDt;
     while (accumulated >= tick) {
       if (!panelKind) game.update(tick);
       accumulated -= tick;
     }
     if (!panelKind && ['gameover', 'victory'].includes(game.state)) open('result');
-    view.draw(game, panelKind && game.run ? 0 : dt);
+    view.draw(game, panelKind && game.run ? 0 : game.run ? gameDt : dt);
     renderHUD(now);
     requestAnimationFrame(frame);
   }
