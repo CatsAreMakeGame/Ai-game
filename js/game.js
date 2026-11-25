@@ -15,6 +15,7 @@
       this.notify = notify;
       this.random = random;
       this.profile = AG.readProfile(storage);
+      AG.syncShips(this.profile);
       this.keys = new Set();
       this.pointer = null;
       this.state = 'home';
@@ -25,14 +26,17 @@
     }
 
     get credits() { return this.profile.credits; }
-    get waveLimit() { return this.testing ? MAX_WAVE : LAST_WAVE; }
+    get waveLimit() { return this.testing ? MAX_WAVE : AG.MODES[this.run?.mode ?? this.profile.mode]; }
     get waveLabel() {
       const wave = this.run.wave;
-      return wave.toLocaleString() + ' / ' + (wave === MAX_WAVE ? MAX_WAVE : LAST_WAVE).toLocaleString();
+      const limit = this.testing ? (wave === MAX_WAVE ? MAX_WAVE : LAST_WAVE) :
+        this.run.mode === 'endless' ? Math.max(LAST_WAVE, wave) : this.waveLimit;
+      return wave.toLocaleString() + ' / ' + limit.toLocaleString();
     }
 
     save() {
-      if (this.testing) return;
+      if (this.testing || this.run?.practice) return;
+      if (this.state === 'intermission') this.checkpoint();
       try { this.storage.setItem('alien-shooter.profile.v1', JSON.stringify(this.profile)); } catch {}
     }
 
@@ -42,6 +46,7 @@
         profile: this.profile, run: this.run, state: this.state, resumeState: this.resumeState
       };
       this.profile = this.testProfile ?? JSON.parse(JSON.stringify(this.profile));
+      AG.syncShips(this.profile);
       this.testing = true;
       this.run = null;
       this.state = 'home';
@@ -52,6 +57,7 @@
       const { profile, run, state, resumeState } = this.liveSession;
       this.testProfile = this.profile;
       this.profile = profile;
+      AG.syncShips(profile);
       this.run = run;
       this.state = state;
       this.resumeState = resumeState;
@@ -63,6 +69,7 @@
     clearTestingData() {
       if (!this.testing) return false;
       this.profile = AG.readProfile(null);
+      AG.syncShips(this.profile);
       this.testProfile = this.profile;
       this.run = null;
       this.state = 'home';
@@ -76,11 +83,12 @@
       this.laserInput('off');
     }
 
-    start() {
-      const ship = SHIPS[this.profile.ship];
+    start(mode = this.profile.mode, shipId = this.profile.ship) {
+      const ship = SHIPS[shipId];
       this.releaseInput();
       this.run = {
-        wave: 0, level: 1, xp: 0, score: 0, boosts: {}, ship, aegisCooldown: 0, aegisFlash: 0,
+        wave: 0, level: 1, xp: 0, score: 0, boosts: {}, ship, shipId, mode, mindCooldown: 0, alienTick: 0, tendrils: [],
+        stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisFlash: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
         missiles: [], missileIn: 0, targetMode: 'nearest', energy: 0,
@@ -96,6 +104,8 @@
       run.wave = number;
       run.diff = diff;
       run.pending = AG.bossLineup(number);
+      const lead = AG.mainBoss(number);
+      if (lead) run.pending.unshift(...run.pending.splice(run.pending.indexOf(lead), 1));
       const pool = Object.keys(ENEMIES).filter(type => !BOSSES[type] && ENEMIES[type].unlock <= number);
       const count = diff.boss ? Math.ceil(diff.count * 0.42) : diff.count;
       for (let index = 0; index < count; index++) {
@@ -112,17 +122,19 @@
         this.laserInput('off');
       }
       this.state = 'playing';
-      this.notify('wave', diff.boss ? (BOSSES[run.pending[Math.min(4, number / 10 - 1)]].name + ' incoming') : 'Wave ' + number.toLocaleString());
+      this.notify('wave', diff.boss ? (BOSSES[lead].name + ' incoming') : 'Wave ' + number.toLocaleString());
     }
 
     canSkip() {
       const run = this.run;
-      return this.state === 'playing' && !run.diff.boss && run.wave < this.waveLimit && run.pending.length > 0;
+      return this.state === 'playing' && !run.practice && !run.diff.boss && run.wave < this.waveLimit && run.pending.length > 0;
     }
 
     skip() {
       if (!this.canSkip()) return false;
-      this.beginWave(this.run.wave + 1, true);
+      const { wave, spawned, resolved, total } = this.run;
+      this.beginWave(wave + 1, true);
+      this.notify('skip', { wave, spawned, resolved, total });
       return true;
     }
 
@@ -130,7 +142,6 @@
       const run = this.run;
       const credits = 18 + Math.min(500, run.wave * 2);
       this.profile.credits += credits;
-      this.save();
       const before = run.player.hp;
       this.gainXp(12);
       this.repair(8, false);
@@ -140,6 +151,9 @@
       run.breakTime = run.wave === this.waveLimit ? 7 : 4.8;
       run.hostile = [];
       this.state = 'intermission';
+      run.allyShots = [];
+      while (this.retractTendril()) {}
+      this.save();
       this.notify('wave', 'Wave ' + run.wave + ' clear');
     }
 
@@ -148,11 +162,14 @@
       run.shots = [];
       run.missiles = [];
       run.hostile = [];
+      run.allyShots = [];
       this.profile.bestScore = Math.max(this.profile.bestScore, run.score);
-      this.profile.bestWave = Math.max(this.profile.bestWave, run.wave);
-      this.save();
+      this.profile.bestWave = Math.max(this.profile.bestWave, Math.min(LAST_WAVE, run.wave));
+      this.profile.modeRecords[run.mode] = Math.max(this.profile.modeRecords[run.mode] ?? 0, run.wave);
+      this.profile.checkpoint = null;
       this.releaseInput();
       this.state = state;
+      this.save();
     }
 
     gainXp(amount) {
@@ -208,19 +225,19 @@
     shotDamage() {
       const run = this.run;
       if (this.testing && run.testDamage != null) return run.testDamage;
-      const waveBonus = Math.floor((Math.min(run.wave, 50) - 1) / 7);
+      const waveBonus = run.practice ? 0 : Math.floor((Math.min(run.wave, 50) - 1) / 7);
       return Math.min(Number.MAX_SAFE_INTEGER,
         (run.ship.damage + waveBonus + this.upgradeEffects().damage) * 2 ** this.boostCount('doubleDamage'));
     }
 
-    upgradeEffects() {
-      const mounts = this.profile.loadouts[this.profile.ship] ?? {};
-      const effects = { speed: 1, damage: 0, vertical: false, missile: null, laser: false };
+    upgradeEffects(ship = this.run?.shipId ?? this.profile.ship, mounts = this.profile.loadouts[ship] ?? {}) {
+      const effects = { speed: 1, damage: 0, vertical: false, vectors: 0, missile: null, laser: false };
       for (const id of Object.values(mounts)) {
         const upgrade = UPGRADES[id];
         effects.speed += upgrade.speed ?? 0;
         effects.damage += upgrade.damage ?? 0;
         effects.vertical ||= Boolean(upgrade.vertical);
+        effects.vectors += Number(Boolean(upgrade.vertical));
         effects.missile ||= upgrade.missile ?? null;
         effects.laser ||= Boolean(upgrade.laser);
       }
@@ -239,7 +256,7 @@
       } else {
         delete mounts[slot];
       }
-      if (this.run && !this.canVisitBase() && ship === this.profile.ship && !this.upgradeEffects().vertical) {
+      if (this.run && !this.canVisitBase() && ship === this.run.shipId && !this.upgradeEffects().vertical) {
         this.run.player.y = FLIGHT_LANE;
       }
       this.save();
@@ -247,16 +264,24 @@
     }
 
     grantItem(type, amount = 1) {
-      if (!Object.hasOwn(AG.ITEMS, type)) return false;
+      if (!Object.hasOwn(AG.ITEMS, type) || !Number.isSafeInteger(amount) || amount < 1 || this.run?.practice) return false;
       const profile = this.profile;
-      if (type === 'credit') profile.credits += amount;
-      else if (type === 'gem') profile.gems += amount;
+      if (type === 'credit') {
+        if (!Number.isSafeInteger(profile.credits + amount)) return false;
+        profile.credits += amount;
+      } else if (type === 'gem') {
+        if (!Number.isSafeInteger(profile.gems + amount)) return false;
+        profile.gems += amount;
+      }
       else if (SHIPS[type]) {
         if (profile.unlocked.includes(type)) return false;
         profile.unlocked.push(type);
+        profile.copies[type] = 1;
       } else {
-        const stock = UPGRADES[type] ? profile.upgrades : BOOSTS[type] ? profile.boosts : profile.crates;
-        stock[type] = (stock[type] ?? 0) + amount;
+        const stock = UPGRADES[type] ? profile.upgrades : BOOSTS[type] ? profile.boosts : AG.MATERIALS[type] ? profile.materials : profile.crates;
+        const count = (stock[type] ?? 0) + amount;
+        if (!Number.isSafeInteger(count)) return false;
+        stock[type] = count;
       }
       this.save();
       this.notify('loot', { type, amount });
@@ -264,7 +289,7 @@
     }
 
     canUseBoost(type) {
-      return Boolean(this.run && !this.canVisitBase() && this.run.player.hp > 0 && this.profile.boosts[type] &&
+      return Boolean(this.run && !this.run.practice && !this.canVisitBase() && this.run.player.hp > 0 && this.profile.boosts[type] &&
         (!BOOSTS[type].repair || this.run.player.hp < this.run.ship.hull));
     }
 
@@ -308,13 +333,11 @@
       let featured;
       let bestRank = -1;
       for (let index = 0; index < count; index++) {
-        let roll = this.random() * 100;
-        const outcome = crate.outcomes.find(entry => (roll -= entry.weight) < 0) ?? crate.outcomes.at(-1);
-        const id = outcome.items[Math.floor(this.random() * outcome.items.length)];
+        const { id, rarity } = AG.crateRoll(crate, this.random);
         const duplicate = SHIPS[id] && unlocked.has(id);
         const result = duplicate
           ? { type: 'credit', rolled: id, amount: 250, text: 'Duplicate ' + SHIPS[id].name + ' converted to 250 Credits.' }
-          : { type: id, rolled: id, amount: 1, text: AG.ITEMS[id].name + ' · ' + outcome.rarity };
+          : { type: id, rolled: id, amount: 1, text: AG.ITEMS[id].name + ' · ' + rarity };
 
         if (SHIPS[id]) unlocked.add(id);
         rewards.set(result.type, (rewards.get(result.type) ?? 0) + result.amount);
@@ -368,7 +391,7 @@
 
     canUnlockShip(id) {
       return this.canVisitBase() && Object.hasOwn(SHIPS, id) &&
-        SHIPS[id].price > 0 && !this.profile.unlocked.includes(id) && this.credits >= SHIPS[id].price;
+        Number.isFinite(SHIPS[id].price) && !this.shipCount(id) && this.credits >= SHIPS[id].price;
     }
 
     unlockShip(id) {
@@ -378,14 +401,21 @@
     }
 
     canUnlockFlagship(id) {
-      const price = Object.hasOwn(SHIPS, id) && SHIPS[id].gemPrice;
-      return Boolean(this.canVisitBase() && price && !this.profile.unlocked.includes(id) && this.profile.gems >= price);
+      const price = this.flagshipPrice(id);
+      return this.canVisitBase() && Number.isSafeInteger(price) && this.profile.gems >= price && this.flagshipWait() === 0;
     }
 
     unlockFlagship(id) {
       if (!this.canUnlockFlagship(id)) return false;
-      this.profile.gems -= SHIPS[id].gemPrice;
-      return this.grantItem(id);
+      this.profile.gems -= this.flagshipPrice(id);
+      const copies = this.shipCount(id);
+      if (!copies) this.profile.unlocked.push(id);
+      this.profile.copies[id] = copies + 1;
+      this.profile.flagshipPurchases++;
+      this.profile.flagshipTime = Date.now();
+      this.save();
+      this.notify('loot', { type: id, amount: 1 });
+      return true;
     }
 
     equip(id) {
@@ -401,12 +431,20 @@
       const boss = BOSSES[type];
       const margin = spec.size + 24;
       const lane = run.spawned % 10;
-      const x = boss ? WIDTH / 2 : clamp(90 + lane * 80 + (this.random() - 0.5) * 100, margin, WIDTH - margin);
+      let x = boss ? WIDTH / 2 : clamp(90 + lane * 80 + (this.random() - 0.5) * 100, margin, WIDTH - margin);
+      const formation = boss || extra || run.practice || run.wave < 12 ? '' :
+        run.wave >= 32 && run.spawned % 12 < 4 ? 'diagonal' :
+        run.wave >= 22 && run.spawned % 10 < 4 ? 'cluster' :
+        run.spawned % 8 < 2 ? 'pair' : '';
+      if (formation === 'diagonal') x = 240 + run.spawned % 12 * 110;
+      if (formation === 'cluster') x = WIDTH / 2 + (run.spawned % 10 - 1.5) * 34;
+      if (formation === 'pair') x = WIDTH / 2 + (run.spawned % 8 ? 45 : -45);
       const hp = boss ? Math.round(spec.hp * (1 + .25 * Math.max(0, Math.log10(run.wave / 50)))) : Math.ceil(spec.hp * run.diff.health);
       run.enemies.push({
         type, x, origin: x, y: -spec.size, size: spec.size, hp, maxHp: hp,
-        speed: run.diff.speed * (spec.speed ?? 0), lane: run.spawned % 5, fireIn: 1 + this.random() * run.diff.fire,
-        fireDelay: run.diff.fire, age: 0, bornWave: run.wave, flash: 0, volley: 0
+        speed: run.diff.speed * (spec.speed ?? 0), lane: (run.spawned + 2) % 5, fireIn: 1 + this.random() * run.diff.fire,
+        fireDelay: run.diff.fire, age: 0, bornWave: run.wave, flash: 0, volley: 0, formation,
+        escort: Boolean(boss && (run.spawned !== 0 || extra))
       });
       if (extra) run.total++;
       else run.spawned++;
@@ -419,6 +457,7 @@
       const effects = this.upgradeEffects();
       const speed = this.run.ship.speed * effects.speed * (1 + .4 * this.boostCount('overdrive'));
       const vertical = effects.vertical;
+      const verticalBoost = 1 + Math.max(0, effects.vectors - 1) * .2;
       let x = 0;
       let y = 0;
       for (const key of this.keys) {
@@ -432,11 +471,11 @@
         const distance = Math.hypot(x, y);
         const step = distance > 0 ? Math.min(1, speed * dt / distance) : 0;
         player.x += x * step;
-        player.y += y * step;
+        player.y += Math.sign(y) * Math.min(Math.abs(y), Math.abs(y * step * verticalBoost));
       } else {
         const length = Math.max(1, Math.hypot(x, y));
         player.x += x / length * speed * dt;
-        player.y += y / length * speed * dt;
+        player.y += y / length * speed * dt * verticalBoost;
       }
       player.x = clamp(player.x, 25, WIDTH - 25);
       player.y = clamp(player.y, 108, HEIGHT - 24);
@@ -481,15 +520,18 @@
       }
 
       if (!this.laserActive()) this.launchMissile(dt);
+      this.updateAlien(dt);
       this.moveEnemies(dt);
       this.updateProjectiles(dt);
       this.updateMissiles(dt);
       this.updateLaser(dt);
       this.collectDrops(dt);
       if (player.hp <= 0) {
-        this.finish('gameover');
-      } else if (!run.pending.length && !run.enemies.length) {
-        this.finishWave();
+        if (run.practice) this.fillPractice(run.practice);
+        else this.finish('gameover');
+      } else if (!run.pending.length && !run.enemies.some(enemy => !enemy.allied)) {
+        if (run.practice) this.fillPractice(run.practice);
+        else this.finishWave();
       }
     }
 
@@ -500,13 +542,26 @@
         const enemy = run.enemies[index];
         enemy.age += dt;
         enemy.flash -= dt;
+        enemy.coreTime = Math.max(0, (enemy.coreTime ?? 0) - dt);
+        enemy.ghostTime = Math.max(0, (enemy.ghostTime ?? 0) - dt);
+        if (enemy.grips > 0) continue;
+        if (enemy.allied) { this.actAsAlly(enemy, dt); continue; }
+        if (run.practice) {
+          if (run.practice === 'moving') enemy.x = WIDTH / 2 + 245 * Math.sin(enemy.age * 1.6);
+          continue;
+        }
         const boss = BOSSES[enemy.type];
         if (boss) {
           enemy.y = Math.min(enemy.y + (68 + boss.tier * 8) * dt, 128 + enemy.lane * 33);
           const center = enemy.bornWave === 10 ? WIDTH / 2 : 120 + enemy.lane * 164;
-          enemy.x = clamp(center + Math.sin(enemy.age * (.78 + boss.tier * .18)) * (enemy.bornWave === 10 ? 275 : 90), boss.size + 12, WIDTH - boss.size - 12);
+          enemy.x = clamp(center + (enemy.teleportOffset ?? 0) + Math.sin(enemy.age * (.78 + boss.tier * .18)) * (enemy.bornWave === 10 ? 275 : 90), boss.size + 12, WIDTH - boss.size - 12);
+          if (enemy.teleportIn > 0 && (enemy.teleportIn -= dt) <= 0) {
+            enemy.ghostX = enemy.x;
+            enemy.ghostTime = .6;
+            enemy.teleportOffset = enemy.x < WIDTH / 2 ? 165 : -165;
+          }
         } else {
-          enemy.y += enemy.speed * dt;
+          enemy.y += (enemy.formation ? run.diff.speed * .91 : enemy.speed) * dt;
           const diver = enemy.type === 'diver';
           enemy.x = clamp(enemy.origin + Math.sin(enemy.age * (diver ? 4.2 : 1.5)) * (diver ? 73 : 17), enemy.size, WIDTH - enemy.size);
         }
@@ -516,7 +571,7 @@
           continue;
         }
         if (touches(enemy, player)) {
-          this.hurt(boss ? 24 : 16);
+          this.hurt(boss ? 24 : 16, (boss?.name ?? enemy.type) + ' collision');
           if (!boss) this.removeEnemy(index, false);
           continue;
         }
@@ -531,7 +586,7 @@
     }
 
     fireAtPlayer(enemy, count) {
-      const { player, hostile } = this.run;
+      const { player, hostile, enemies } = this.run;
       const boss = BOSSES[enemy.type];
       const volley = enemy.volley++;
       const direct = Math.atan2(player.y - enemy.y, player.x - enemy.x);
@@ -539,13 +594,25 @@
       const sweep = enemy.type === 'phantom' ? Math.sin(volley * 1.45) * .33 : 0;
       const spread = (boss?.spread ?? .17) * (volley % 2 ? 1.35 : 1);
       const speed = boss ? 220 + boss.tier * 12 : 205;
+      if (enemy.type === 'dread' && volley % 2) enemy.coreTime = 1.4;
+      if (enemy.type === 'phantom' && volley % 2) {
+        enemy.ghostX = enemy.x;
+        enemy.ghostTime = .9;
+        enemy.teleportIn = .34;
+      }
+      if (enemy.type === 'nexus' && volley % 2) {
+        enemies.filter(other => other !== enemy && BOSSES[other.type] && !other.allied)
+          .forEach((other, i) => { other.fireIn = .5 + i * .45; });
+        this.notify('upgrade', 'Nexus Overlord · Fleet salvo');
+      }
       for (let index = 0; index < count; index++) {
         const offset = index - (count - 1) / 2;
         const angle = aim + sweep + offset * spread;
         const shotSpeed = enemy.type === 'prism' && index % 2 ? speed * 1.32 :
           enemy.type === 'nexus' && index % 2 ? speed * .72 : speed;
         hostile.push({ x: enemy.x, y: enemy.y + 4, size: 6, vx: Math.cos(angle) * shotSpeed,
-          vy: Math.sin(angle) * shotSpeed, damage: boss ? 12 + boss.tier : 9 });
+          vy: Math.sin(angle) * shotSpeed, damage: boss ? 12 + boss.tier : 9,
+          source: (boss?.name ?? enemy.type) + ' fire', splitIn: enemy.type === 'prism' && index % 2 === 0 ? .53 : null });
       }
     }
 
@@ -560,7 +627,7 @@
       let best = null;
       let priority = -Infinity;
       for (const enemy of enemies) {
-        if (enemy.y < 0 || enemy.y > HEIGHT) continue;
+        if (enemy.allied || enemy.y < 0 || enemy.y > HEIGHT) continue;
         const rating = score(enemy);
         if (rating <= priority) continue;
         priority = rating;
@@ -590,7 +657,7 @@
       run.missiles = run.missiles.filter(missile => {
         const guided = missile.kind === 'homing';
         if (guided) {
-          if (!run.enemies.includes(missile.target)) missile.target = this.pickMissileTarget();
+          if (missile.target?.allied || !run.enemies.includes(missile.target)) missile.target = this.pickMissileTarget();
           if (missile.target) {
             const desired = Math.atan2(missile.target.y - missile.y, missile.target.x - missile.x);
             const delta = Math.atan2(Math.sin(desired - missile.angle), Math.cos(desired - missile.angle));
@@ -602,7 +669,7 @@
         missile.y += Math.sin(missile.angle) * step;
         missile.range -= step;
         missile.life -= dt;
-        const hit = run.enemies.findIndex(enemy => touches(missile, enemy));
+        const hit = run.enemies.findIndex(enemy => !enemy.allied && touches(missile, enemy));
         if (guided && hit >= 0) {
           this.hitEnemy(hit, missile.damage, 'missile');
           this.notify('blast', { x: missile.x, y: missile.y, radius: 22 });
@@ -612,7 +679,7 @@
           const radius = 72;
           for (let index = run.enemies.length - 1; index >= 0; index--) {
             const enemy = run.enemies[index];
-            if (Math.hypot(enemy.x - missile.x, enemy.y - missile.y) <= radius + enemy.size) {
+            if (!enemy.allied && Math.hypot(enemy.x - missile.x, enemy.y - missile.y) <= radius + enemy.size) {
               this.hitEnemy(index, missile.damage, 'missile');
             }
           }
@@ -676,15 +743,23 @@
         const enemy = run.enemies[index];
         const progress = (enemy.x - x) * ux + (enemy.y - y) * uy;
         const offset = Math.abs((enemy.x - x) * uy - (enemy.y - y) * ux);
-        if (progress >= 0 && progress <= reach && offset <= enemy.size + 19) this.hitEnemy(index, damage, 'laser');
+        if (!enemy.allied && progress >= 0 && progress <= reach && offset <= enemy.size + 19) this.hitEnemy(index, damage, 'laser');
       }
       if (run.energy < 3) this.laserInput('off');
+      if (run.energy === 0) while (this.retractTendril()) {}
     }
 
-    hitEnemy(index, damage, source = 'shot') {
+    hitEnemy(index, damage, source = 'shot', impactX = null) {
       const enemy = this.run.enemies[index];
+      if (enemy.formation === 'pair' && source === 'shot' && !enemy.shieldBroken && Math.abs(impactX - enemy.x) < enemy.size * .65) {
+        enemy.shieldBroken = true;
+        enemy.flash = .16;
+        return;
+      }
+      if (enemy.coreTime > 0 && source !== 'tendril' && source !== 'ally') damage *= 1.5;
       enemy.hp -= damage;
       enemy.flash = .09;
+      this.alienHit(enemy, source, damage);
       this.notify('enemy-damage', { x: enemy.x, y: enemy.y, size: enemy.size, amount: damage, source });
       if (enemy.hp <= 0) this.removeEnemy(index, true);
     }
@@ -693,9 +768,9 @@
       const run = this.run;
       run.shots = run.shots.filter(shot => {
         shot.y += shot.vy * dt;
-        const hit = run.enemies.findIndex(enemy => touches(shot, enemy));
+        const hit = run.enemies.findIndex(enemy => !enemy.allied && touches(shot, enemy));
         if (hit < 0) return shot.y > -24;
-        this.hitEnemy(hit, shot.damage);
+        this.hitEnemy(hit, shot.damage, 'shot', shot.x);
         return false;
       });
     }
@@ -703,18 +778,39 @@
     updateProjectiles(dt) {
       this.updatePlayerShots(dt);
       const run = this.run;
+      const fragments = [];
       run.hostile = run.hostile.filter(shot => {
         shot.x += shot.vx * dt;
         shot.y += shot.vy * dt;
+        if (shot.splitIn != null && (shot.splitIn -= dt) <= 0) {
+          const angle = Math.atan2(shot.vy, shot.vx);
+          const speed = Math.hypot(shot.vx, shot.vy);
+          for (const offset of [-.35, .35]) fragments.push({ ...shot, splitIn: null,
+            vx: Math.cos(angle + offset) * speed, vy: Math.sin(angle + offset) * speed });
+          return false;
+        }
+        const ally = run.enemies.findIndex(enemy => enemy.allied && touches(shot, enemy));
+        if (ally >= 0) {
+          if ((run.enemies[ally].hp -= shot.damage) <= 0) this.removeEnemy(ally, false);
+          return false;
+        }
         if (touches(shot, run.player)) {
-          this.hurt(shot.damage);
+          this.hurt(shot.damage, shot.source);
           return false;
         }
         return shot.x > -20 && shot.x < WIDTH + 20 && shot.y > -20 && shot.y < HEIGHT + 20;
       });
+      run.hostile.push(...fragments);
+      run.allyShots = run.allyShots.filter(shot => {
+        shot.x += shot.vx * dt;
+        shot.y += shot.vy * dt;
+        const index = run.enemies.findIndex(enemy => !enemy.allied && touches(shot, enemy));
+        if (index >= 0) this.hitEnemy(index, shot.damage, 'ally');
+        return index < 0 && shot.x > 0 && shot.x < WIDTH && shot.y > 0 && shot.y < HEIGHT;
+      });
     }
 
-    hurt(damage) {
+    hurt(damage, source = 'Enemy fire') {
       const { player, boosts } = this.run;
       if ((this.testing && this.run.godMode) || player.invulnerable > 0 || boosts.shield || boosts.fortress) return;
       const ability = this.run.ship.ability;
@@ -725,6 +821,7 @@
         this.notify('upgrade', ability.name + ' absorbed the hit');
       }
       player.hp = Math.max(0, player.hp - damage);
+      this.run.stats.lastHit = source;
       player.invulnerable = 0.78;
       this.notify('hit');
     }
@@ -732,12 +829,18 @@
     removeEnemy(index, killed, escaped = false) {
       const run = this.run;
       const [enemy] = run.enemies.splice(index, 1);
-      if (enemy.bornWave === run.wave) run.resolved++;
+      if (!enemy.allied && enemy.bornWave === run.wave) run.resolved++;
       if (!killed) {
-        if (escaped) this.hurt(5);
+        if (escaped) this.hurt(5, 'An escaped enemy');
         return;
       }
       const boss = BOSSES[enemy.type];
+      if (run.practice) {
+        this.notify('destroy', enemy);
+        run.energy = 100;
+        return;
+      }
+      this.rewardAlien(enemy);
       const score = ENEMIES[enemy.type].score;
       run.score += score;
       run.energy = Math.min(100, run.energy + (boss ? 22 : 5));
@@ -768,15 +871,23 @@
 
     collectDrops(dt) {
       const run = this.run;
+      const collected = [];
       run.drops = run.drops.filter(drop => {
         drop.age += dt;
         drop.y = Math.min(FLIGHT_LANE, drop.y + 140 * dt);
         if (touches(drop, run.player)) {
-          this.grantItem(drop.type, drop.amount);
+          if (drop.type !== 'alienSerum' || !this.profile.serumUsed) collected.push(drop);
           return false;
         }
         return drop.age < 16;
       });
+      for (const drop of collected) {
+        if (drop.type === 'gem') run.stats.gems += drop.amount;
+        const ranks = Object.keys(AG.RARITIES);
+        const rank = id => ranks.indexOf(AG.ITEMS[id]?.rarity ?? 'common');
+        if (!run.stats.rarest || rank(drop.type) > rank(run.stats.rarest)) run.stats.rarest = drop.type;
+        this.grantItem(drop.type, drop.amount);
+      }
     }
   }
 

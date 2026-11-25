@@ -260,3 +260,84 @@ progress::-webkit-progress-value { background: var(--lime); border-radius: 20px;
 }
 
 .boss-hp { color: #ffe3ec; font: 700 .7rem ui-monospace, monospace; margin-left: 6px; white-space: nowrap; }
+
+/* Navigation, outfitting and quick flight controls */
+.console { --panel: #101d24; --line: #36515b; }
+.panel { background: linear-gradient(150deg, #17302e, #102025 55%, #0c1820); }
+.event-banner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px;
+  width: fit-content; border: 1px solid #698d50; border-radius: 8px; background: #17291de8;
+  color: #deffae; padding: 7px 13px; margin-bottom: 20px; font: 750 .82rem ui-monospace, monospace; }
+.event-banner span { color: #dff2dc; }
+.launch-options { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 11px; }
+.launch-options select, .outfit-select select, .settings-grid input, .settings-grid select, .store-exchange input {
+  max-width: 100%; min-height: 40px; padding: 6px 9px; border: 1px solid var(--line);
+  border-radius: 7px; background: #09171f; color: var(--ink); font: inherit;
+}
+.settings-grid { display: flex; gap: 9px; flex-wrap: wrap; margin: 5px 0 15px; }
+.settings-grid label { display: grid; gap: 5px; color: var(--muted); }
+.settings-grid input { width: 55px; text-transform: uppercase; text-align: center; }
+.flight-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.flight-actions button { display: flex; align-items: center; gap: 5px; }
+.flight-actions .item-icon { width: 24px; height: 24px; }
+.flight-actions .item-icon img { width: 19px; height: 19px; }
+.completion { flex-basis: 245px; }
+.outfit-select { display: block; margin-bottom: 10px; }
+.mount.compatible { border-color: #d5fa74; box-shadow: 0 0 0 1px #a6da6688, 0 0 15px #bdf07c44; }
+.mount .item-icon { width: 22px; height: 22px; margin: 3px auto 0; }
+.mount .item-icon img { width: 17px; height: 17px; }
+.outfit-parts button, .ingredient-bank button { display: flex; align-items: center; gap: 8px; }
+.outfit-parts .item-icon, .ingredient-bank .item-icon, .ingredient-bank .ship-graphic { width: 29px; height: 29px; flex: 0 0 29px; }
+.outfit-parts .item-icon img, .ingredient-bank .item-icon img { width: 21px; height: 21px; }
+.inventory-tabs { padding-bottom: 9px; border-bottom: 1px solid var(--line); }
+.inventory-tabs button { flex: 1 1 auto; }
+.practice-range, .store-exchange { border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin-bottom: 12px; }
+.practice-range button, .store-exchange button { margin: 4px 6px 0 0; }
+.store-exchange input { width: 100px; margin-right: 8px; }
+.flagship-details progress { margin: 7px 0 12px; accent-color: #9975f6; }
+.flagship-details progress::-webkit-progress-value { background: #9975f6; }
+.craft-layout { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 12px;
+  align-items: start; margin-bottom: 12px; }
+.craft-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.craft-grid button { display: grid; place-items: center; min-width: 0; aspect-ratio: 1; padding: 3px;
+  background: #0b1823; border-style: dashed; color: var(--muted); font-size: .72rem; }
+.craft-grid button:has(.item-icon, .ship-graphic) { border-style: solid; }
+.ingredient-bank { display: grid; align-content: start; gap: 6px; max-height: 250px; overflow: auto; }
+.ingredient-bank button b { margin-left: auto; }
+.run-summary { display: grid; gap: 6px; padding: 12px 14px; list-style: none; margin: 0 0 13px;
+  background: #0c1921; border: 1px solid var(--line); border-radius: 8px; }
+.craft-layout + .home-actions { margin-bottom: 10px; }
+input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-offset: 2px; }
+
+@media (max-width: 620px) {
+  .top { gap: 4px; }
+  .mark { display: none; }
+  .console-actions { gap: 4px; }
+  .console-actions button { padding-inline: 6px; min-height: 38px; }
+  .stage:has(.hud:not([hidden])) { min-height: 0; }
+  canvas { height: auto; aspect-ratio: 3 / 2; }
+  .stage:has(.home:not([hidden])) { min-height: 365px; }
+  .stage:has(.home:not([hidden])) > canvas { position: absolute; inset: 0 0 auto; opacity: .7; }
+  .stage:has(.home:not([hidden])) .overlay { position: relative; }
+  .stage:has(.panel:not([hidden])) .overlay { position: fixed; z-index: 9; inset: 53px 0 0; padding: 8px; background: #071119ed; }
+  .stage:has(.panel:not([hidden])) { isolation: auto; }
+  .top { position: relative; z-index: 10; }
+  .panel { width: min(100%, 620px); margin: auto; }
+  .hud { min-height: 33px; }
+  .hud > div { min-width: 26px; }
+  .hud .wallet { display: grid; gap: 1px; }
+  .hud .label { letter-spacing: .02em; }
+  .hud strong, .wallet b { font-size: .66rem; }
+  .boosts, .ship-ability { top: auto; bottom: 7px; font-size: .62rem; }
+  .boss { top: 49px; left: 26%; right: 26%; }
+  .controls { padding: 7px; gap: 5px; }
+  .controls .completion { flex: 1 0 100%; }
+  .controls button { min-height: 41px; }
+  .home h1 { margin-bottom: 20px; }
+  .event-banner { margin-bottom: 14px; }
+}
+@media (max-width: 420px) {
+  .console-actions .quiet { font-size: .72rem; }
+  .craft-grid .item-icon, .craft-grid .ship-graphic { width: 33px; height: 33px; }
+  .craft-grid .item-icon img { width: 23px; height: 23px; }
+  .ingredient-bank button { padding: 4px; font-size: .76rem; }
+}

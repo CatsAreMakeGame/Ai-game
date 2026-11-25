@@ -79,7 +79,7 @@
     body.append(intro);
     const items = group('Give yourself an item');
     const categories = [
-      ['Ship', AG.SHIPS], ['Upgrade', AG.UPGRADES], ['Boost', AG.BOOSTS], ['Crate', AG.CRATES],
+      ['Ship', AG.SHIPS], ['Upgrade', AG.UPGRADES], ['Boost', AG.BOOSTS], ['Crate', AG.CRATES], ['Item', AG.MATERIALS],
       ['Currency', { credit: AG.ITEMS.credit, gem: AG.ITEMS.gem }]
     ];
     const choices = categories.flatMap(([category, catalog]) => Object.entries(catalog)
@@ -109,7 +109,7 @@
       const id = item.value;
       const profile = game.profile;
       const owned = id === 'credit' ? profile.credits : id === 'gem' ? profile.gems :
-        (profile.upgrades[id] ?? profile.boosts[id] ?? profile.crates[id] ?? 0);
+        (profile.upgrades[id] ?? profile.boosts[id] ?? profile.crates[id] ?? profile.materials[id] ?? 0);
       if (Number.isSafeInteger(count) && count >= 1 && Number.isSafeInteger(owned + count)) return count;
       feedback.textContent = 'Enter a positive whole quantity that keeps your total within the safe number range.';
       amount.focus();
@@ -132,6 +132,7 @@
       feedback.textContent = AG.ITEMS[item.value].name + ' dropped in the flight lane.';
     }));
     actions(items, ...itemActions);
+    actions(items, button('Grant everything', () => { game.grantEverything(); refresh(); }, { primary: true }));
     items.append(feedback);
 
     const wave = group('Wave controls');

@@ -44,6 +44,11 @@
     polygon(ctx, points.map(([x,y]) => [x * .83, y * .87 - 1]), spec.color);
     polygon(ctx, [[0,-24],[8,-2],[7,15],[0,20],[-7,15],[-8,-2]], '#e2f2f6');
     polygon(ctx, [[0,-16],[5,-4],[0,3],[-5,-4]], '#14283c');
+    if (spec.alien) {
+      disc(ctx, 0, 4, 8, '#263946');
+      disc(ctx, 0, 4, 5, '#e0ff91');
+      for (const x of [-13, 13]) disc(ctx, x, 3, 3, '#34475c');
+    }
     if (spec.ability) {
       disc(ctx, 0, 4, 8, '#593cba');
       disc(ctx, 0, 4, 5, '#f8ddff');
@@ -78,7 +83,7 @@
         depth: index % 3 + 1
       }));
       const sets = { spaceships: Object.keys(AG.SHIPS), enemies: Object.keys(ENEMIES),
-        boosts: Object.values(BOOSTS).map(boost => boost.file) };
+        boosts: Object.values(BOOSTS).map(boost => boost.file).filter(Boolean) };
       for (const [folder, names] of Object.entries(sets)) {
         for (const name of names) {
           const image = new Image();
@@ -86,9 +91,9 @@
           this.images[folder + '/' + name] = image;
         }
       }
-      for (const id of ['credit', 'gem']) {
+      for (const id of Object.keys(AG.ITEMS).filter(id => AG.ITEMS[id].icon || ['credit', 'gem'].includes(id))) {
         const image = new Image();
-        image.src = AG.ITEMS[id].file;
+        image.src = AG.ITEMS[id].icon ?? AG.ITEMS[id].file;
         this.images[id] = image;
       }
       this.backdrop = this.createBackdrop();
@@ -162,9 +167,22 @@
     enemy(enemy) {
       const ctx = this.ctx;
       const { type, size } = enemy;
-      const color = enemy.flash > 0 ? '#fffaf3' : ENEMIES[type].color;
+      const color = enemy.allied ? '#9ff387' : enemy.flash > 0 ? '#fffaf3' : ENEMIES[type].color;
       ctx.save();
+      if (enemy.ghostTime > 0) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(.45, enemy.ghostTime);
+        disc(ctx, enemy.ghostX, enemy.y, size, '#a8ffe6');
+        ctx.restore();
+      }
       ctx.translate(enemy.x, enemy.y);
+      if ((enemy.formation === 'pair' && !enemy.shieldBroken) || enemy.allied || enemy.coreTime > 0) {
+        ctx.strokeStyle = enemy.allied ? '#9ff387' : enemy.coreTime > 0 ? '#ffe99c' : '#6dceff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, size + 6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       if (!this.sprite('enemies/' + type, size * 1.18)) {
         ctx.scale(size / 20, size / 20);
         const hulls = {
@@ -199,7 +217,7 @@
         ctx.lineWidth = 3;
         ctx.strokeStyle = '#10131e';
         ctx.fillStyle = '#fff4f4';
-        const label = enemy.hp + '/' + enemy.maxHp + ' HP';
+        const label = Number(enemy.hp.toFixed(2)) + '/' + enemy.maxHp + ' HP';
         ctx.strokeText(label, enemy.x, enemy.y + size + 10);
         ctx.fillText(label, enemy.x, enemy.y + size + 10);
         ctx.restore();
@@ -348,7 +366,41 @@
         disc(ctx, shot.x, shot.y, 7, '#e1516355');
         disc(ctx, shot.x, shot.y, 4, '#ffa280');
       }
+      for (const shot of run.allyShots) disc(ctx, shot.x, shot.y, 5, '#a8ff71');
+      for (const tendril of run.tendrils) {
+        ctx.save();
+        ctx.strokeStyle = '#7cf766';
+        ctx.shadowColor = '#5dfa9e';
+        ctx.shadowBlur = 12;
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        ctx.moveTo(tendril.x, tendril.y);
+        ctx.bezierCurveTo(tendril.x - 42, tendril.y - 90, tendril.x + 40, tendril.top + 85, tendril.x, tendril.top);
+        ctx.stroke();
+        ctx.lineWidth = 3;
+        for (const enemy of tendril.captures.keys()) {
+          ctx.beginPath();
+          ctx.moveTo(tendril.x, enemy.y);
+          ctx.lineTo(enemy.x, enemy.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
       for (const enemy of run.enemies) this.enemy(enemy);
+      if (game.upgradeEffects().missile) {
+        const target = game.pickMissileTarget();
+        if (target) {
+          ctx.save();
+          ctx.translate(target.x, target.y);
+          ctx.strokeStyle = '#a3ebff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, target.size + 12, 0, Math.PI * 2);
+          ctx.stroke();
+          this.sprite('seeker', 9);
+          ctx.restore();
+        }
+      }
       for (const drop of run.drops) {
         const item = AG.ITEMS[drop.type];
         ctx.save();
@@ -356,7 +408,7 @@
         if (AG.SHIPS[drop.type]) {
           ctx.scale(.44, .44);
           paintShip(ctx, AG.SHIPS[drop.type]);
-        } else if (!this.sprite(['credit', 'gem'].includes(drop.type) ? drop.type : 'boosts/' + item.file, 16)) {
+        } else if (!this.sprite(drop.type, 16) && !this.sprite('boosts/' + item.file, 16)) {
           const shape = item.slot ? [[-10, -15], [10, -15], [17, 0], [10, 15], [-10, 15], [-17, 0]] :
             [[0, -15], [15, 0], [0, 15], [-15, 0]];
           polygon(ctx, shape, AG.RARITIES[item.rarity ?? 'common']);
@@ -389,7 +441,7 @@
         ctx.restore();
       }
       if (player.hp > 0 && (player.invulnerable <= 0 || Math.floor(player.invulnerable * 12) % 2 === 0)) {
-        this.ship(player.x, player.y, run.ship.color, 0.84, game.profile.ship);
+        this.ship(player.x, player.y, run.ship.color, 0.84, run.shipId);
       }
       this.effects = this.effects.filter(particle => {
         particle.life -= dt;

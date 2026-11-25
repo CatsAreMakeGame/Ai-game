@@ -18,7 +18,10 @@
   let panelKind = '';
   let returnFocus = $('launch');
   let tutorialIndex = 0;
-  const armory = { inventoryTab: 'ships', shopTab: 'ships', autoOpen: false, result: '', part: '' };
+  const armory = { inventoryTab: 'ships', shopTab: 'ships', autoOpen: false, result: '', part: '', ship: '', ingredient: '', grid: Array(9).fill('') };
+  const armoryPanels = ['hangar', 'shop', 'inventory', 'outfit', 'craft'];
+  const panelHistory = [];
+  let mindAim = false;
   const loot = new Map();
   let adminUnlocked = false;
   try { adminUnlocked = sessionStorage.getItem('alien-shooter.admin') === 'yes'; } catch {}
@@ -34,7 +37,7 @@
   const tutorial = [
     ['Steer your ship', 'Move left and right with A/D, the arrow keys, or a held drag. Find and equip the rare Vector Engine to move up and down.'],
     ['Fire automatically', 'Your ship fires whenever a wave is active. Line up with enemies and dodge incoming fire.'],
-    ['Fight the Mothership', 'Survive 50 waves. Every tenth wave adds a new boss and brings back the earlier bosses. Collect the Star Gems they drop.'],
+    ['Fight the Mothership', 'Choose Easy, Medium, Hard or Endless. Every tenth wave adds a new boss and brings back the earlier bosses. Collect the Star Gems they drop.'],
     ['Skip reinforcements', 'Skip Wave advances to the next wave and enemies already on the field stay in play. Auto Skip waits for 60% to spawn. Boss waves must be cleared.'],
     ['Level up and resupply', 'Earn pilot XP from combat. At level 5, spend Credits on repairs and rapid fire between cleared waves.'],
     ['Use your inventory', 'Fly into drops to store them. Open Inventory or press I to view Ships, Upgrades, Boosts and Crates. Fit parts in Outfit ship.'],
@@ -78,6 +81,10 @@
       setText(banner, value);
       waveUntil = now + 1600;
     }
+    if (type === 'skip') {
+      setText(banner, 'Wave ' + value.wave + ' skipped · ' + value.spawned + '/' + value.total + ' spawned · ' + value.resolved + ' cleared');
+      waveUntil = now + 2600;
+    }
     if (type === 'upgrade') {
       setText(alert, value);
       announcementUntil = now + 1700;
@@ -97,6 +104,12 @@
   }
 
   function renderHUD(now) {
+    if (!$('home').hidden) {
+      const seconds = Math.max(0, Math.ceil((AG.EVENT_END - Date.now()) / 1000));
+      const time = [Math.floor(seconds / 86400) + 'd', Math.floor(seconds / 3600) % 24 + 'h',
+        Math.floor(seconds / 60) % 60 + 'm', seconds % 60 + 's'].join(' ');
+      setText($('event-time'), seconds ? time + ' left' : 'Event ended');
+    }
     for (const [id, entry] of loot) {
       if (entry.until > now) continue;
       entry.tile.remove();
@@ -108,25 +121,27 @@
     setText($('admin'), game.testing ? 'Admin · Testing' : 'Admin');
     alert.hidden = !active || Boolean(panelKind) || now >= Math.max(rewardUntil, creditUntil);
     banner.hidden = !active || Boolean(panelKind) || now >= waveUntil;
-    const boss = active && run.enemies.find(enemy => AG.BOSSES[enemy.type] && enemy.y > 65);
+    const boss = active && run.enemies.find(enemy => (run.practice ? AG.BOSSES[enemy.type] : enemy.type === AG.mainBoss(run.wave) && !enemy.escort) && enemy.y > 65 && !enemy.allied);
     $('boss').hidden = !boss;
     $('boosts').hidden = !active || !Object.keys(run.boosts).length;
-    $('ship-ability').hidden = !active || !run.ship.ability;
+    $('ship-ability').hidden = !active || !(run.ship.ability || run.ship.alien);
     if (!active) return;
     if (run.ship.ability) {
       const state = run.aegisCooldown > 0 ? Math.ceil(run.aegisCooldown) + 's' : 'Ready';
       setText($('ship-ability'), run.ship.ability.name + ' · ' + state);
     }
+    if (run.ship.alien) setText($('ship-ability'), run.tendrils.length + ' tendrils' + (game.profile.serumUsed ? ' · Mind control ' + (run.mindCooldown > 0 ? Math.ceil(run.mindCooldown) + 's' : 'ready') : ''));
     if (now >= rewardUntil && now < creditUntil) setText(alert, '+' + creditBatch + ' credits');
     if (boss) {
       setText($('boss-name'), AG.BOSSES[boss.type].name);
-      setText($('boss-hp'), boss.hp.toLocaleString() + ' / ' + boss.maxHp.toLocaleString() + ' HP');
+      setText($('boss-hp'), boss.hp.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' / ' + boss.maxHp.toLocaleString() + ' HP');
       const health = $('boss-health');
       health.max = boss.maxHp;
       health.value = boss.hp;
     }
-    setText($('wave'), game.waveLabel);
+    setText($('wave'), run.practice ? 'Practice' : game.waveLabel);
     const effects = game.upgradeEffects();
+    $('energy-hud').hidden = !effects.laser && !run.ship.alien;
     $('energy').value = run.energy;
     setText($('energy-value'), run.energy + '%');
     $('energy-hud').classList.toggle('energy-full', run.energy === 100);
@@ -136,7 +151,29 @@
     $('laser-toggle').hidden = !effects.laser;
     $('laser-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy < 3;
     $('laser-toggle').setAttribute('aria-pressed', String(game.laserActive()));
-    setText($('hull-value'), run.player.hp + '/' + run.ship.hull);
+    $('laser-toggle').title = 'Right-click or hold ' + game.profile.bindings.laser.toUpperCase();
+    $('alien-actions').hidden = !run.ship.alien;
+    $('tendril-extend').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy < 1;
+    $('tendril-retract').disabled = Boolean(panelKind) || !run.tendrils.length;
+    $('mind-toggle').hidden = !game.profile.serumUsed;
+    $('mind-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.mindCooldown > 0;
+    $('mind-toggle').setAttribute('aria-pressed', String(mindAim));
+    setText($('mind-toggle'), mindAim ? 'Tap an enemy' : 'Mind control');
+    for (let i = 0; i < 2; i++) {
+      const id = game.profile.favoriteBoosts[i];
+      const quick = $('boost-favorite-' + i);
+      quick.hidden = !id;
+      if (!id) continue;
+      quick.disabled = Boolean(panelKind) || !game.canUseBoost(id);
+      if (quick.dataset.item !== id) {
+        quick.dataset.item = id;
+        quick.replaceChildren(AG.itemGraphic(id), element('span'));
+        quick.title = AG.BOOSTS[id].name;
+        quick.setAttribute('aria-label', AG.BOOSTS[id].name);
+      }
+      setText(quick.lastElementChild, '×' + (game.profile.boosts[id] ?? 0));
+    }
+    setText($('hull-value'), Number(run.player.hp.toFixed(1)) + '/' + run.ship.hull);
     setText($('level'), 'LV ' + run.level);
     setText($('score'), run.score.toLocaleString());
     setText($('credits'), game.credits.toLocaleString());
@@ -145,7 +182,7 @@
     $('xp').value = run.level === 50 ? 100 : 100 * run.xp / AG.xpForLevel(run.level);
     const percent = Math.round(100 * run.resolved / run.total);
     $('completion').value = percent;
-    setText($('completion-value'), percent + '%');
+    setText($('completion-value'), run.spawned + '/' + run.total + ' spawned · ' + run.resolved + ' cleared');
     setText($('boosts'), Object.entries(run.boosts).map(([key, timers]) => {
       const seconds = key === 'shield' || key === 'fortress' ?
         timers.reduce((sum, time) => sum + time, 0) : Math.max(...timers);
@@ -157,9 +194,10 @@
     const icon = levelLocked ? AG.ICONS.locked : AG.ICONS.supplies;
     if ($('supply-icon').getAttribute('src') !== icon) $('supply-icon').src = icon;
     setText($('supply-label'), levelLocked ? 'Supplies · Lv 5' : 'Supplies');
-    $('supplies').disabled = levelLocked || game.state !== 'intermission' || Boolean(panelKind);
+    $('supplies').disabled = !!run.practice || levelLocked || game.state !== 'intermission' || Boolean(panelKind);
     $('supplies').title = levelLocked ? 'Unlocks at pilot level 5' : 'Available between cleared waves';
-    $('inventory').disabled = $('pause').disabled = Boolean(panelKind);
+    $('inventory').disabled = Boolean(panelKind) || !!run.practice;
+    $('pause').disabled = Boolean(panelKind);
   }
 
   function button(label, action, options = {}) {
@@ -188,11 +226,16 @@
   }
 
   function refreshRecord() {
-    $('record').hidden = !game.profile.bestWave;
-    setText($('record'), 'BEST WAVE ' + game.profile.bestWave + '  ·  HIGH SCORE ' + game.profile.bestScore.toLocaleString());
+    const wave = game.profile.modeRecords[game.profile.mode] ?? (game.profile.mode === 'hard' ? game.profile.bestWave : 0);
+    $('record').hidden = !wave;
+    $('mode').value = game.profile.mode;
+    $('continue').hidden = !game.canContinue();
+    if (!$('continue').hidden) setText($('continue'), 'Continue · Wave ' + (game.profile.checkpoint.wave + 1).toLocaleString());
+    setText($('record'), 'BEST WAVE ' + wave.toLocaleString() + '  ·  HIGH SCORE ' + game.profile.bestScore.toLocaleString());
   }
 
   function showHome() {
+    panelHistory.length = 0;
     game.state = 'home';
     game.run = null;
     game.releaseInput();
@@ -205,11 +248,14 @@
   }
 
   function start() {
-    game.start();
+    panelHistory.length = 0;
+    game.newRun();
     resumeFlight();
   }
 
   function resumeFlight() {
+    mindAim = false;
+    panelHistory.length = 0;
     if (game.profile.sound) audio.unlock();
     adminReturn = null;
     panelKind = '';
@@ -237,8 +283,34 @@
     (kind === 'result' ? body.querySelector('button') : $('close')).focus({ preventScroll: true });
   }
 
+  function navigate(kind, values = {}) {
+    if (kind !== panelKind) panelHistory.push({
+      kind: panelKind, inventoryTab: armory.inventoryTab, shopTab: armory.shopTab,
+      part: armory.part, ship: armory.ship, focus: document.activeElement?.textContent
+    });
+    open(kind, false);
+    if (Object.keys(values).length) {
+      Object.assign(armory, values);
+      drawPanel();
+    }
+  }
+
   function dismiss() {
     const kind = panelKind;
+    mindAim = false;
+    if (kind === 'craft') { armory.grid.fill(''); armory.ingredient = ''; }
+    if ((armoryPanels.includes(kind) || kind === 'settings') && panelHistory.length) {
+      const parent = panelHistory.pop();
+      resetPanelDraft();
+      Object.assign(armory, { inventoryTab: parent.inventoryTab, shopTab: parent.shopTab, part: parent.part, ship: parent.ship });
+      if (!parent.kind) closePanel();
+      else {
+        panelKind = parent.kind;
+        drawPanel();
+        ([...body.querySelectorAll('button')].find(control => !control.disabled && control.textContent === parent.focus) ?? $('close')).focus();
+      }
+      return;
+    }
     resetPanelDraft();
     if (kind === 'tutorial') {
       game.profile.tutorialSeen = true;
@@ -255,7 +327,7 @@
       restorePanel(previous);
       return;
     }
-    if (['hangar', 'shop', 'inventory', 'outfit'].includes(kind) && ['gameover', 'victory'].includes(game.state)) {
+    if (armoryPanels.includes(kind) && ['gameover', 'victory'].includes(game.state)) {
       open('result', false);
       return;
     }
@@ -296,6 +368,7 @@
 
   function enterTesting() {
     normalReturn = adminReturn;
+    if (normalReturn) normalReturn.history = panelHistory.splice(0);
     adminReturn = null;
     game.enterTesting();
     adminUnlocked = true;
@@ -313,6 +386,7 @@
     view.effects.length = 0;
     view.damageNumbers.length = 0;
     rewardUntil = creditUntil = announcementUntil = waveUntil = 0;
+    panelHistory.splice(0, panelHistory.length, ...(normalReturn?.history ?? []));
     restorePanel(normalReturn);
     normalReturn = null;
   }
@@ -342,16 +416,38 @@
         dots, button(tutorialIndex === tutorial.length - 1 ? 'Done' : 'Next',
           () => tutorialIndex === tutorial.length - 1 ? dismiss() : showSlide(tutorialIndex + 1), { primary: true }));
       body.append(slide, nav);
-    } else if (['hangar', 'shop', 'inventory', 'outfit'].includes(panelKind)) {
-      const titles = { hangar: 'Hangar', shop: 'Shop', inventory: 'Inventory', outfit: 'Outfit ship' };
+    } else if (armoryPanels.includes(panelKind)) {
+      const titles = { hangar: 'Hangar', shop: 'Shop', inventory: 'Inventory', outfit: 'Outfitting', craft: 'Crafting' };
       setText(title, titles[panelKind]);
       AG.renderArmory({ kind: panelKind, state: armory, game, body, button, element, dismiss,
-        open: kind => open(kind, false), refresh: () => drawPanel(true) });
+        open: navigate, refresh: () => drawPanel(true), practice: kind => {
+          game.startPractice(kind);
+          resumeFlight();
+        } });
+    } else if (panelKind === 'settings') {
+      setText(title, 'Settings');
+      const settings = element('div', '', 'settings-grid');
+      const status = element('p', '', 'panel-note');
+      status.setAttribute('role', 'status');
+      for (const [id, name] of [['extend', 'Extend tendril'], ['retract', 'Retract tendril'], ['laser', 'Fitted special']]) {
+        const label = element('label', name);
+        const input = element('input');
+        input.maxLength = 1;
+        input.value = game.profile.bindings[id].toUpperCase();
+        input.addEventListener('change', () => {
+          const saved = game.setBinding(id, input.value.toLowerCase());
+          input.value = game.profile.bindings[id].toUpperCase();
+          status.textContent = saved ? name + ' key saved.' : 'Choose an unused letter. WASD, P and I are reserved.';
+        });
+        label.append(input);
+        settings.append(label);
+      }
+      body.append(settings, status, button('Back', dismiss));
     } else if (panelKind === 'admin') {
       setText(title, 'Admin testing');
       AG.renderAdmin({ body, game, button, element, dismiss, resumeFlight, enterTesting, exitTesting,
-        refresh: () => drawPanel(true), shop: () => open('shop', false),
-        inventory: () => open('inventory', false) });
+        refresh: () => drawPanel(true), shop: () => navigate('shop'),
+        inventory: () => navigate('inventory') });
     } else if (panelKind === 'supplies') {
       setText(title, 'Flight supplies');
       setText(note, 'Credits available  ·  ' + game.credits);
@@ -372,10 +468,21 @@
       note.hidden = false;
       const actions = element('div', '', 'home-actions');
       if (paused) actions.append(button('Resume', dismiss, { primary: true }), button('Admin', openAdmin));
-      else actions.append(button('Launch again', start, { primary: true }),
-        button('Hangar', () => open('hangar')), button('Shop', () => open('shop')),
-        button('Inventory', () => open('inventory')));
-      actions.append(button('Main menu', showHome));
+      else {
+        const stats = game.run.stats;
+        const bosses = Object.entries(stats.bossKills).map(([id, count]) => AG.BOSSES[id].name + ' ×' + count).join(' · ');
+        const summary = element('ul', '', 'run-summary');
+        for (const entry of [game.state === 'gameover' ? 'Final hit · ' + (stats.lastHit || 'Unknown') : '',
+          'Bosses defeated · ' + (bosses || 'None'), 'Star Gems collected · ' + stats.gems,
+          'Rarest pickup · ' + (AG.ITEMS[stats.rarest]?.name ?? 'None')]) if (entry) summary.append(element('li', entry));
+        body.append(summary);
+        actions.append(button('Launch again', start, { primary: true }),
+          button('Hangar', () => navigate('hangar')), button('Shop', () => navigate('shop')), button('Inventory', () => navigate('inventory')));
+      }
+      actions.append(game.run.practice ? button('Exit practice', () => {
+        showHome();
+        open('hangar');
+      }) : button('Main menu', showHome));
       body.append(actions);
     }
     if (restoreFocus) {
@@ -400,12 +507,21 @@
   }
 
   $('launch').addEventListener('click', start);
+  $('continue').addEventListener('click', () => { if (game.continueRun()) resumeFlight(); });
+  $('mode').addEventListener('change', () => { game.profile.mode = $('mode').value; game.save(); refreshRecord(); });
+  $('settings').addEventListener('click', () => {
+    if (panelKind === 'settings') dismiss();
+    else if (panelKind) navigate('settings');
+    else open('settings');
+  });
+  $('outfit-open').addEventListener('click', () => { armory.ship = game.profile.ship; open('outfit'); });
+  $('craft-open').addEventListener('click', () => open('craft'));
   $('hangar-open').addEventListener('click', () => open('hangar'));
   $('shop-open').addEventListener('click', () => open('shop'));
   $('admin').addEventListener('click', openAdmin);
   function openInventory() {
     if (panelKind === 'inventory') dismiss();
-    else if (!panelKind && (game.canVisitBase() || ['playing', 'intermission'].includes(game.state))) open('inventory');
+    else if (!panelKind && !game.run?.practice && (game.canVisitBase() || ['playing', 'intermission'].includes(game.state))) open('inventory');
   }
   $('inventory').addEventListener('click', openInventory);
   $('inventory-home').addEventListener('click', openInventory);
@@ -430,6 +546,13 @@
     if (game.state === 'intermission' && game.run.level >= AG.SUPPLY_LEVEL) open('supplies');
   });
   $('pause').addEventListener('click', pause);
+  $('tendril-extend').addEventListener('click', () => { if (!panelKind) game.extendTendril(); });
+  $('tendril-retract').addEventListener('click', () => { if (!panelKind) game.retractTendril(); });
+  $('mind-toggle').addEventListener('click', () => { mindAim = !mindAim; });
+  for (let i = 0; i < 2; i++) $('boost-favorite-' + i).addEventListener('click', () => {
+    const id = game.profile.favoriteBoosts[i];
+    if (!panelKind && id) game.useBoost(id);
+  });
   $('target-mode').addEventListener('change', () => {
     const choice = $('target-mode').value;
     if (game.run && Object.hasOwn(AG.TARGET_MODES, choice)) game.run.targetMode = choice;
@@ -464,9 +587,12 @@
   });
   canvas.addEventListener('pointerdown', event => {
     if (event.button !== 0 || pointerId !== null || panelKind || !['playing', 'intermission'].includes(game.state)) return;
+    const point = trackAim(event);
+    if ((event.pointerType === 'mouse' || mindAim) && game.mindControl(point)) { mindAim = false; return; }
+    if (mindAim) return;
     pointerId = event.pointerId;
     canvas.setPointerCapture(pointerId);
-    game.pointer = trackAim(event);
+    game.pointer = point;
   });
   canvas.addEventListener('pointerdown', event => {
     if (event.button !== 2 || panelKind) return;
@@ -490,9 +616,13 @@
     if (event.ctrlKey || event.metaKey || event.altKey || document.querySelector('.crate-reveal[open]')) return;
     const key = event.key.toLowerCase();
     if (['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName) && key !== 'escape') return;
-    if (key === 'e' && !panelKind && game.state === 'playing' && game.upgradeEffects().laser) {
+    const bindings = game.profile.bindings;
+    if (key === bindings.laser && !panelKind && game.state === 'playing' && game.upgradeEffects().laser) {
       event.preventDefault();
       if (!event.repeat) game.laserInput('hold');
+    } else if (!panelKind && !event.repeat && game.run?.ship.alien && (key === bindings.extend || key === bindings.retract)) {
+      if (key === bindings.extend) game.extendTendril();
+      else game.retractTendril();
     } else if (key === 'i' && !event.repeat && (!panelKind || panelKind === 'inventory')) {
       openInventory();
     } else if (key === 'escape' || key === 'p') {
@@ -515,7 +645,7 @@
   window.addEventListener('keyup', event => {
     const key = event.key.toLowerCase();
     game.keys.delete(key);
-    if (key === 'e') game.laserInput('release');
+    if (key === game.profile.bindings.laser) game.laserInput('release');
   });
   window.addEventListener('blur', () => {
     game.releaseInput();

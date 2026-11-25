@@ -11,7 +11,7 @@ window.AG = (() => {
     locked: 'icons/ui/shaded_lock.png',
     supplies: 'icons/ui/in_round_shop.png'
   };
-  const RARITIES = { common: '#b4c6c8', rare: '#70c9ff', epic: '#c597ff', legendary: '#ffce70', mythical: '#ff7ba7', godly: '#8872ff' };
+  const RARITIES = { common: '#d5d9df', rare: '#75df95', epic: '#9b67cc', legendary: '#ffbf51', mythical: '#ff626b', godly: '#8872ff' };
   // Hull, speed, shot interval, damage, engine mounts, silhouette, accent, rarity, price.
   const shipRows = {
     scout: ['Scout', 100, 445, .28, 1, 1, 'dart', '#d5fa74', 'common', 0],
@@ -137,10 +137,16 @@ window.AG = (() => {
   function readProfile(storage) {
     let saved;
     try { saved = JSON.parse(storage.getItem('alien-shooter.profile.v1')); } catch {}
-    const unlocked = ['scout'];
+    const alienShips = Object.fromEntries(Object.entries(saved?.alienShips ?? {}).filter(([id, ship]) =>
+      /^alien-[1-9]\d*$/.test(id) && ship?.alien === true && typeof ship.name === 'string' &&
+      Object.values(shipRows).some(row => row[6] === ship.frame) && Number.isFinite(ship.damage) &&
+      Number.isFinite(ship.hull) && Number.isFinite(ship.speed) && ship.delay > 0 && ship.engines >= 1 && ship.engines <= 3));
+    const catalog = { ...SHIPS, ...alienShips };
+    const unlocked = Array.isArray(saved?.unlocked) ? [] : ['scout'];
     if (Array.isArray(saved?.unlocked)) {
-      for (const id of saved.unlocked) if (Object.hasOwn(SHIPS, id) && !unlocked.includes(id)) unlocked.push(id);
+      for (const id of saved.unlocked) if (Object.hasOwn(catalog, id) && !unlocked.includes(id)) unlocked.push(id);
     }
+    if (!unlocked.length) unlocked.push('scout');
     const counts = (key, catalog) => Object.fromEntries(Object.entries(saved?.[key] ?? {})
       .filter(([id, count]) => Object.hasOwn(catalog, id) && Number.isSafeInteger(count) && count > 0));
     const upgrades = counts('upgrades', UPGRADES);
@@ -150,7 +156,7 @@ window.AG = (() => {
       const used = {};
       for (const [slot, id] of Object.entries(saved?.loadouts?.[ship] ?? {})) {
         if (SLOTS[slot]?.[0] !== UPGRADES[id]?.slot || !upgrades[id]) continue;
-        if (slot.startsWith('engine') && +slot.slice(-1) > SHIPS[ship].engines) continue;
+        if (slot.startsWith('engine') && +slot.slice(-1) > catalog[ship].engines) continue;
         if ((used[id] ?? 0) >= upgrades[id]) continue;
         mounts[slot] = id;
         used[id] = (used[id] ?? 0) + 1;
@@ -159,7 +165,15 @@ window.AG = (() => {
     }
     const readNumber = key => Number.isSafeInteger(saved?.[key]) ? Math.max(0, saved[key]) : 0;
     return {
-      unlocked, ship: unlocked.includes(saved?.ship) ? saved.ship : 'scout',
+      unlocked, ship: unlocked.includes(saved?.ship) ? saved.ship : unlocked[0], alienShips,
+      materials: counts('materials', window.AG?.MATERIALS ?? {}),
+      copies: counts('copies', catalog), flagshipPurchases: Math.max(0, readNumber('flagshipPurchases') || Number(unlocked.includes('supernova'))),
+      flagshipTime: readNumber('flagshipTime'), serumUsed: saved?.serumUsed === true,
+      bounties: (Array.isArray(saved?.bounties) ? saved.bounties : []).filter(id => Object.hasOwn(BOSSES, id)),
+      favoriteBoosts: Array.from({ length: 2 }, (_, i) => Object.hasOwn(BOOSTS, saved?.favoriteBoosts?.[i]) ? saved.favoriteBoosts[i] : ''),
+      bindings: { extend: saved?.bindings?.extend || 'e', retract: saved?.bindings?.retract || 'q', laser: saved?.bindings?.laser || 'f' },
+      mode: Object.hasOwn(window.AG?.MODES ?? {}, saved?.mode) ? saved.mode : 'hard',
+      checkpoint: saved?.checkpoint ?? null, modeRecords: saved?.modeRecords ?? {},
       credits: readNumber('credits'), gems: readNumber('gems'), upgrades, loadouts,
       boosts: counts('boosts', BOOSTS), crates: counts('crates', CRATES), bestScore: readNumber('bestScore'),
       bestWave: Math.min(LAST_WAVE, readNumber('bestWave')),

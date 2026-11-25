@@ -430,3 +430,12 @@ normal run and exiting testing restores it, including any open panel.
 - Seven ships are sold for Credits, including the existing Falcon. Three more
   are exclusive to the Spaceship Crate. Both Star Gem crates show their odds.
 - Admin remembers unlock for the tab session and can reset its isolated data.
+
+## 10. Alien Event and flight deck update
+
+- Added campaign mode selection, per-mode records and a browser-persisted checkpoint after each cleared wave.
+- The primary boss gets the main HUD. Later waves add shielded pairs, clusters and diagonals. Prism splits its shots, Dreadnought exposes its core, Phantom teleports and Nexus triggers an escort salvo.
+- The Hangar includes three practice targets. Inventory has five tabs, favourite boosts, item art from the uploaded pack, and a separate Outfitting screen with stat previews and matching mounts.
+- The Alien Event uses a fixed Melbourne midnight deadline. Afterward, repeatable boss bounties award crafting materials. Alien Mind and Alien Brain remain distinct.
+- The default tendril keys are E and Q, and the Lightning Beacon is F. Settings can change those bindings. Mind control is a permanent account unlock for Alien Ships.
+- The Premium Store shows Supernova savings, repeat purchases, cooldowns, and the one-way Star Gems-to-Credits exchange. The first defeat of each boss grants a one-time bounty of 2, 3, 4, 5 or 6 Star Gems in boss order.

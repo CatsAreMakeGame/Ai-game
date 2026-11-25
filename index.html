@@ -5,19 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A browser-based alien shooter with 50 escalating waves, Mothership bosses, pilot upgrades and unlockable ships.">
   <title>Alien Shooter</title>
-  <link rel="stylesheet" href="css/style.css?v=damage-numbers">
-  <script defer src="js/data.js?v=damage-numbers"></script>
-  <script defer src="js/game.js?v=damage-numbers"></script>
-  <script defer src="js/flight-view.js?v=damage-numbers"></script>
-  <script defer src="js/admin.js?v=damage-numbers"></script>
-  <script defer src="js/armory.js?v=damage-numbers"></script>
-  <script defer src="js/main.js?v=damage-numbers"></script>
+  <link rel="stylesheet" href="css/style.css?v=alien-event">
+  <script defer src="js/data.js?v=alien-event"></script>
+  <script defer src="js/game.js?v=alien-event"></script>
+  <script defer src="js/expansion.js?v=alien-event"></script>
+  <script defer src="js/flight-view.js?v=alien-event"></script>
+  <script defer src="js/admin.js?v=alien-event"></script>
+  <script defer src="js/armory.js?v=alien-event"></script>
+  <script defer src="js/main.js?v=alien-event"></script>
 </head>
 <body>
   <main class="console">
     <header class="top">
       <a class="brand" href="./index.html" aria-label="Alien Shooter home"><span class="mark" aria-hidden="true">✦</span> ALIEN<span class="brand-end">/SHOOTER</span></a>
       <div class="console-actions">
+        <button id="settings" class="quiet" type="button">Settings</button>
         <button id="admin" class="quiet" type="button">Admin</button>
         <button id="sound" class="quiet" type="button" aria-pressed="false">Sound off</button>
       </div>
@@ -44,10 +46,16 @@
       <div id="wave-message" class="wave-message" hidden></div>
       <div id="overlay" class="overlay">
         <section id="home" class="screen home" aria-labelledby="title">
-          <p class="eyebrow">50-WAVE SURVIVAL</p>
+          <aside class="event-banner"><strong>Alien Event</strong><span id="event-time"></span></aside>
           <h1 id="title">ALIEN<br><em>SHOOTER</em></h1>
-          <div class="home-actions">
+          <div class="launch-options">
+            <label>Mode <select id="mode"><option value="easy">Easy · 20 waves</option><option value="medium">Medium · 30 waves</option><option value="hard">Hard · 50 waves</option><option value="endless">Endless</option></select></label>
+            <button id="continue" class="primary" hidden>Continue run</button>
             <button id="launch" class="primary">Launch run <span aria-hidden="true">↗</span></button>
+          </div>
+          <div class="home-actions">
+            <button id="outfit-open">Outfitting</button>
+            <button id="craft-open">Crafting</button>
             <button id="hangar-open">Hangar</button>
             <button id="shop-open">Shop</button>
             <button id="inventory-home">Inventory</button>
@@ -63,7 +71,7 @@
       </div>
     </section>
     <section id="controls" class="controls" aria-label="Flight controls" hidden>
-      <div class="completion"><span class="label">WAVE COMPLETION <b id="completion-value"></b></span><progress id="completion" aria-label="Wave completion" max="100"></progress></div>
+      <div class="completion"><span class="label">WAVE PROGRESS <b id="completion-value"></b></span><progress id="completion" aria-label="Wave completion" max="100"></progress></div>
       <button id="skip">Skip wave</button>
       <button id="auto" type="button" aria-label="Auto Skip" aria-pressed="false">Auto Skip · <span id="auto-state">Off</span></button>
       <button id="supplies"><img id="supply-icon" alt=""><span id="supply-label">Supplies · Lv 5</span></button>
@@ -71,7 +79,13 @@
         <option value="nearest">Closest to ship</option><option value="bottom">Closest to bottom</option>
         <option value="strongest">Strongest</option><option value="weakest">Weakest</option>
       </select></label>
-      <button id="laser-toggle" type="button" aria-pressed="false" title="Right-click the playfield or hold E" hidden>Laser</button>
+      <button id="laser-toggle" type="button" aria-pressed="false" hidden>Laser</button>
+      <div id="alien-actions" class="flight-actions" hidden>
+        <button id="tendril-extend" type="button">Extend tendril</button>
+        <button id="tendril-retract" type="button">Retract tendril</button>
+        <button id="mind-toggle" type="button" aria-pressed="false" hidden>Mind control</button>
+      </div>
+      <div class="flight-actions"><button id="boost-favorite-0" hidden></button><button id="boost-favorite-1" hidden></button></div>
       <button id="inventory">Inventory</button>
       <button id="pause">Pause</button>
     </section>
