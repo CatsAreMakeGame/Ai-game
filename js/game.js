@@ -1358,10 +1358,28 @@
       run.shots = run.shots.filter(shot => {
         shot.x += shot.vx * dt;
         shot.y += shot.vy * dt;
-        const hit = run.enemies.findIndex(enemy => !enemy.allied && touches(shot, enemy));
-        if (hit >= 0) {
-          this.hitEnemy(hit, shot.damage, 'shot', shot.x);
-          return false;
+        if (shot.barrage) {
+          if (shot.x < shot.size || shot.x > WIDTH - shot.size) {
+            const wall = shot.x < shot.size ? shot.size : WIDTH - shot.size;
+            shot.x = 2 * wall - shot.x;
+            shot.vx = -shot.vx;
+          }
+          const hitEnemies = shot.hitEnemies ??= [];
+          for (let index = 0; index < run.enemies.length;) {
+            const enemy = run.enemies[index];
+            if (!enemy.allied && !hitEnemies.includes(enemy) && touches(shot, enemy)) {
+              hitEnemies.push(enemy);
+              this.hitEnemy(index, shot.damage, 'shot', shot.x);
+              if (hitEnemies.length === 3) return false;
+            }
+            if (run.enemies[index] === enemy) index++;
+          }
+        } else {
+          const hit = run.enemies.findIndex(enemy => !enemy.allied && touches(shot, enemy));
+          if (hit >= 0) {
+            this.hitEnemy(hit, shot.damage, 'shot', shot.x);
+            return false;
+          }
         }
         const rock = run.asteroids.find(rock => rock.hp > 0 && touches(shot, rock));
         if (rock) this.hitAsteroid(rock, shot.damage);
