@@ -6,12 +6,14 @@
   const EVENT_END = Date.parse('2026-12-01T00:00:00+11:00');
   const MATERIALS = {
     alienCell: { name: 'Alien Cell', rarity: 'rare', description: 'Used in both Alien recipes.' },
-    alienMind: { name: 'Alien Mind', rarity: 'legendary', description: 'Crafted with Alien Serum and eight Alien Cells. Place below the ship used in the recipe to craft an Alien Ship.' },
-    alienSerum: { name: 'Alien Serum', rarity: 'godly', description: 'Use to craft an Alien Mind or apply to an equipped Alien Ship to unlock mind control permanently.' }
+    alienMind: { name: 'Alien Mind', rarity: 'legendary', description: 'Crafted from nine Alien Cells. Place below the ship used in the recipe to craft an Alien Ship.' },
+    alienSerum: { name: 'Alien Mind Serum', rarity: 'mythical', description: 'Use in the crafting grid to make an Alien ship or give an Alien ship Mind Control.' }
   };
   const RECIPES = {
-    ship: { name: 'Alien Ship', pattern: ['alienCell', 'alienSerum', 'alienCell', 'alienCell', 'donor', 'alienCell', 'alienCell', 'alienMind', 'alienCell'] },
-    mind: { name: 'Alien Mind', pattern: ['alienCell', 'alienCell', 'alienCell', 'alienCell', 'alienSerum', 'alienCell', 'alienCell', 'alienCell', 'alienCell'] }
+    ship: { name: 'Alien Ship', event: true, pattern: ['alienCell', 'alienSerum', 'alienCell', 'alienCell', 'donor', 'alienCell', 'alienCell', 'alienMind', 'alienCell'] },
+    mind: { name: 'Alien Mind', event: true, pattern: Array(9).fill('alienCell') },
+    serum: { name: 'Alien Mind Serum', event: true, pattern: ['alienCell', 'alienCell', 'alienCell', 'alienCell', 'alienMind', 'alienCell', 'alienCell', 'alienCell', 'alienCell'] },
+    control: { name: 'Mind Control', event: true, ingredients: ['alienShip', 'alienSerum', 'alienMind'] }
   };
   const BASE_SHIPS = { ...SHIPS };
   Object.assign(ITEMS, MATERIALS);
@@ -41,13 +43,13 @@
   "boostRelay": "Clothing/Backpack/Backpack Blue 256.png",
   "alienCell": "Nature/DNA/DNA 256.png",
   "alienMind": "Player/Brain/Brain 256.png",
-  "alienSerum": "Tools/Potion 3/Potion 3 Pink 256.png"
+  "alienSerum": "Tools/Potion 3/Potion 3 Green 256.png"
 })) {
     ITEMS[id].icon = 'new-icons/vector-icon-pack/' + icon;
     ITEMS[id].glyph ??= '◆';
   }
   const clone = value => JSON.parse(JSON.stringify(value));
-  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostRelayOn', 'cleared', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed'];
+  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostRelayOn', 'cleared', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
   const mainBoss = wave => wave >= 10 && wave % 10 === 0 ? Object.keys(BOSSES)[Math.min(wave / 10 - 1, 4)] : null;
 
@@ -72,7 +74,7 @@
     const hull = Number((donor.hull * 1.1).toFixed(2));
     const damage = Number((donor.damage * 1.1).toFixed(3));
     return { name, hull, damage, speed: donor.speed * 1.1, delay: donor.delay / 1.1,
-      energyCapacity: AG.energyCapacity(donor), engines: donor.engines, frame: donor.frame, color: '#8ae86c', rarity: 'mythical', alien: true,
+      energyCapacity: AG.energyCapacity(donor), engines: donor.engines, frame: donor.frame, color: '#8ae86c', rarity: donor.rarity, alien: true, mindControl: false,
       donor: donor.name, donorRarity: donor.donorRarity ?? donor.rarity, donorDamage: donor.donorDamage ?? donor.damage,
       description: hull + ' hull · ' + Math.round(donor.speed * 1.1) + ' speed · ' + damage + ' damage · ' + donor.engines + (donor.engines === 1 ? ' engine' : ' engines') };
   }
@@ -128,10 +130,21 @@
       if (!this.canVisitBase() || !Array.isArray(grid) || grid.length !== 9) return '';
       const donor = grid[4];
       const items = this.profile.materials;
-      if (items.alienSerum > 0 && items.alienCell >= 8 && RECIPES.mind.pattern.every((id, index) => grid[index] === id)) return 'mind';
+      if (items.alienCell >= 9 && RECIPES.mind.pattern.every((id, index) => grid[index] === id)) return 'mind';
+      if (items.alienMind > 0 && items.alienCell >= 8 && RECIPES.serum.pattern.every((id, index) => grid[index] === id)) return 'serum';
+      if (this.controlRecipeShip(grid)) return 'control';
       if (this.shipCount(donor) && items.alienMind > 0 && items.alienSerum > 0 && items.alienCell >= 6 &&
           RECIPES.ship.pattern.every((id, index) => grid[index] === (id === 'donor' ? donor : id))) return 'ship';
       return '';
+    },
+
+    controlRecipeShip(grid) {
+      const chosen = grid.filter(Boolean);
+      const shipId = chosen.find(id => SHIPS[id]?.alien);
+      if (chosen.length !== 3 || !shipId || !this.shipCount(shipId) || SHIPS[shipId].mindControl ||
+          !chosen.includes('alienSerum') || !chosen.includes('alienMind') ||
+          !(this.profile.materials.alienSerum > 0) || !(this.profile.materials.alienMind > 0)) return '';
+      return shipId;
     },
 
     addAlien(donor) {
@@ -148,11 +161,21 @@
       if (!recipe) return '';
       const profile = this.profile;
       const donor = grid[4];
-      if (recipe === 'mind') {
-        profile.materials[donor]--;
-        profile.materials.alienCell -= 8;
-        this.grantItem('alienMind');
-        return 'alienMind';
+      if (recipe === 'mind' || recipe === 'serum') {
+        profile.materials.alienCell -= recipe === 'mind' ? 9 : 8;
+        if (recipe === 'serum') profile.materials.alienMind--;
+        const id = recipe === 'mind' ? 'alienMind' : 'alienSerum';
+        this.grantItem(id);
+        return id;
+      }
+      if (recipe === 'control') {
+        const id = this.controlRecipeShip(grid);
+        profile.materials.alienSerum--;
+        profile.materials.alienMind--;
+        profile.alienShips[id].mindControl = true;
+        profile.serumUsed = true;
+        this.save();
+        return id;
       }
       const id = this.addAlien(SHIPS[donor]);
       profile.materials.alienMind--;
@@ -172,15 +195,6 @@
       }
       this.grantItem(id);
       return id;
-    },
-
-    applySerum() {
-      const profile = this.profile;
-      if (!this.canVisitBase() || !SHIPS[profile.ship].alien || !profile.materials.alienSerum || profile.serumUsed) return false;
-      profile.materials.alienSerum--;
-      profile.serumUsed = true;
-      this.save();
-      return true;
     },
 
     flagshipPrice(id) { return SHIPS[id]?.gemPrice * 2 ** this.profile.flagshipPurchases; },
@@ -246,7 +260,7 @@
 
     extendTendril() {
       const run = this.run;
-      if (this.state !== 'playing' || !run?.ship.alien || run.energy + 1e-8 < 30) return false;
+      if (this.state !== 'playing' || !run?.ship.alien || run.energy + 1e-8 < 30 || run.enemies.some(enemy => enemy.allied)) return false;
       const { player, tendrils } = run;
       run.energy = Math.max(0, run.energy - 30);
       tendrils.push({ anchorX: player.x <= WIDTH / 2 ? 0 : WIDTH, anchorY: player.y, captures: new Map() });
@@ -312,7 +326,7 @@
         else this.gainEnergy(.5 * dt);
       }
       if (run.energy <= 1e-8 && run.tendrils.length) while (this.retractTendril()) {}
-      if (run.ship.alien && this.profile.serumUsed && run.mindCooldown > 0) {
+      if (run.ship.mindControl && run.mindCooldown > 0) {
         run.mindCooldown = Math.max(0, run.mindCooldown - dt);
         if (run.mindCooldown === 0) this.notify('upgrade', 'Mind control ready · select an enemy');
       }
@@ -369,7 +383,7 @@
 
     mindControl(point) {
       const run = this.run;
-      if (this.state !== 'playing' || !run?.ship.alien || !this.profile.serumUsed || run.mindCooldown > 0) return false;
+      if (this.state !== 'playing' || !run?.ship.mindControl || run.mindCooldown > 0) return false;
       const enemy = run.enemies.find(target => !target.allied && target.y >= 0 &&
         Math.hypot(target.x - point.x, target.y - point.y) <= target.size + 8);
       if (!enemy) return false;
@@ -377,7 +391,9 @@
         this.notify('upgrade', 'The lead boss resists mind control');
         return true;
       }
+      while (this.retractTendril()) {}
       enemy.joinedAtY = enemy.y;
+      enemy.controlOrder = ++run.controlSequence;
       enemy.allied = true;
       enemy.alliedFor = BOSSES[enemy.type] ? 8 : null;
       if (enemy.bornWave === run.wave) run.resolved++;
@@ -386,15 +402,28 @@
       return true;
     },
 
-    actAsAlly(enemy, dt) {
+    releaseControlledEnemy(enemy) {
+      enemy.allied = false;
+      enemy.x = enemy.origin;
+      enemy.y = enemy.joinedAtY ?? enemy.y;
+      if (enemy.bornWave === this.run.wave) this.run.resolved--;
+    },
+
+    releaseMindControl() {
+      if (!['playing', 'intermission'].includes(this.state)) return false;
+      const enemy = this.run.enemies.filter(entry => entry.allied)
+        .reduce((latest, entry) => (entry.controlOrder ?? 0) >= (latest?.controlOrder ?? 0) ? entry : latest, null);
+      if (!enemy) return false;
+      this.releaseControlledEnemy(enemy);
+      return true;
+    },
+
+    actAsAlly(enemy, dt, followingOnly = false) {
       const run = this.run;
-      if (enemy.alliedFor !== null) {
+      if (!followingOnly && enemy.alliedFor !== null) {
         enemy.alliedFor -= dt;
         if (enemy.alliedFor <= 0) {
-          enemy.allied = false;
-          enemy.x = enemy.origin;
-          enemy.y = enemy.joinedAtY ?? enemy.y;
-          if (enemy.bornWave === run.wave) run.resolved--;
+          this.releaseControlledEnemy(enemy);
           return;
         }
       }
@@ -408,6 +437,7 @@
       enemy.x += (targetX - enemy.x) * step;
       enemy.y += (targetY - enemy.y) * step;
 
+      if (followingOnly) return;
       const boss = BOSSES[enemy.type];
       if (!boss && !['shooter', 'tank'].includes(enemy.type)) return;
       enemy.fireIn -= dt;
@@ -429,7 +459,7 @@
       for (let shot = 0; shot < count; shot++) {
         const angle = aim + (shot - (count - 1) / 2) * (boss?.spread ?? 0) * .65;
         run.allyShots.push({ x: enemy.x, y: enemy.y, size: 5, vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed, damage: run.ship.donorDamage, color: AG.ENEMIES[enemy.type].color });
+          vy: Math.sin(angle) * speed, damage: this.shotDamage(false), color: run.ship.color });
       }
       enemy.fireIn = boss?.cadence ?? 1.35;
     },

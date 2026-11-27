@@ -162,6 +162,7 @@
     const { count, featured: result, rewards } = batch;
     const crate = CRATES[crateId];
     const item = ITEMS[result.type];
+    const protectedReveal = !game.profile.allowRareCrateSkip && ['mythical', 'godly'].includes(item.rarity);
     const dialog = element('dialog', '', 'crate-reveal');
     const title = element('h2', crate.name + (count > 1 ? ' ×' + count.toLocaleString() : ''));
     title.id = 'crate-reveal-title';
@@ -202,11 +203,14 @@
       message.textContent = AG.itemName(result.type) + ' ×' + result.amount.toLocaleString() + ' · ' + (item.rarity ?? 'common');
       summary.hidden = false;
       next.textContent = 'Done';
+      next.hidden = false;
     }
     const next = button('Skip animation', () => {
       if (revealed) dialog.close();
-      else showReward();
+      else if (!protectedReveal) showReward();
     }, { primary: true });
+    next.hidden = protectedReveal;
+    dialog.addEventListener('cancel', event => { if (!revealed && protectedReveal) event.preventDefault(); });
     dialog.append(title, viewport, message, next);
     const summary = element('section', '', 'reel-other');
     summary.hidden = true;
@@ -258,7 +262,7 @@
     state.grid.forEach((id, index) => {
       const tile = button('', () => place(index, state.ingredient));
       if (id && ITEMS[id]) tile.append(graphic(id));
-      tile.setAttribute('aria-label', 'Slot ' + (index + 1) + ' · ' + (ITEMS[id]?.name ?? 'empty'));
+      tile.setAttribute('aria-label', 'Slot ' + (index + 1) + ' · ' + (id ? AG.itemName(id) : 'empty'));
       tile.addEventListener('dragover', event => event.preventDefault());
       tile.addEventListener('drop', event => { event.preventDefault(); place(index, event.dataTransfer.getData('text/plain')); });
       grid.append(tile);
@@ -267,7 +271,7 @@
       const remaining = available(id) - state.grid.filter(item => item === id).length;
       const option = button('', () => { state.ingredient = state.ingredient === id ? '' : id; refresh(); }, { disabled: remaining <= 0 });
       option.setAttribute('aria-pressed', String(state.ingredient === id));
-      option.append(graphic(id), element('span', ITEMS[id].name), element('b', '×' + remaining));
+      option.append(graphic(id), element('span', AG.itemName(id)), element('b', '×' + remaining));
       option.draggable = remaining > 0;
       option.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', id));
       ingredients.append(option);
@@ -275,13 +279,14 @@
     const layout = element('div', '', 'craft-layout');
     layout.append(grid, ingredients);
     const recipe = game.recipe(state.grid);
-    const label = recipe === 'ship' ? 'Consume ' + ITEMS[state.grid[4]].name + ' and craft Alien Ship' :
-      recipe === 'mind' ? 'Craft Alien Mind' : 'Craft';
+    const label = recipe === 'ship' ? 'Consume ' + AG.itemName(state.grid[4]) + ' and craft Alien Ship' :
+      recipe === 'mind' ? 'Craft Alien Mind' : recipe === 'serum' ? 'Craft Alien Mind Serum' :
+        recipe === 'control' ? 'Add Mind Control' : 'Craft';
     const actions = element('div', '', 'home-actions');
     actions.append(button(label, () => {
       const id = game.craft(state.grid);
       if (id) { state.grid.fill(''); state.ingredient = ''; }
-      state.result = id ? ITEMS[id].name + ' added to Inventory.' : 'Check the ingredients in the grid.';
+      state.result = id ? AG.itemName(id) + (recipe === 'control' ? ' gained Mind Control.' : ' added to Inventory.') : 'Check the ingredients in the grid.';
       refresh();
     }, { primary: true, disabled: !recipe }), button('Clear grid', () => {
       state.grid.fill(''); state.ingredient = ''; refresh();
@@ -290,34 +295,59 @@
       layout, actions);
   }
 
-  function renderRecipes(body, element, selectedShip) {
-    const list = element('div', '', 'recipe-list');
+  function renderRecipes(body, element, game) {
+    const active = AG.eventActive(game.now());
+    const lists = { normal: element('div', '', 'recipe-list'), event: element('div', '', 'recipe-list') };
+    const ships = Object.keys(SHIPS);
+    const example = game.profile.ship;
+    const alienExample = ships.find(id => SHIPS[id].alien) ?? example;
+    const ingredients = {
+      ship: [['alienCell', 'Alien Cells ×6'], [example, 'Any owned spaceship ×1'],
+        ['alienMind', 'Alien Mind ×1'], ['alienSerum', 'Alien Mind Serum ×1']],
+      mind: [['alienCell', 'Alien Cells ×9']],
+      serum: [['alienCell', 'Alien Cells ×8'], ['alienMind', 'Alien Mind ×1']],
+      control: [[alienExample, 'Any Alien spaceship ×1'], ['alienSerum', 'Alien Mind Serum ×1'], ['alienMind', 'Alien Mind ×1']]
+    };
     for (const [key, recipe] of Object.entries(AG.RECIPES)) {
       const card = element('article', '', 'recipe-card');
-      const grid = element('div', '', 'craft-grid recipe-grid');
-      for (const id of recipe.pattern) {
-        const item = id === 'donor' ? selectedShip : id;
-        const slot = element('div', '', 'recipe-slot');
-        const name = id === 'donor' ? 'Any owned spaceship' : ITEMS[item].name;
-        slot.setAttribute('role', 'img');
-        slot.setAttribute('aria-label', name);
-        slot.title = name;
-        slot.append(graphic(item));
-        grid.append(slot);
-      }
+      card.append(element('h3', recipe.name));
+      if (recipe.pattern) {
+        const grid = element('div', '', 'craft-grid recipe-grid');
+        for (const id of recipe.pattern) {
+          const slot = element('div', '', 'recipe-slot');
+          const anyShip = id === 'donor';
+          const name = anyShip ? 'Any owned spaceship' : AG.itemName(id);
+          slot.setAttribute('role', 'img');
+          slot.setAttribute('aria-label', name);
+          slot.title = name;
+          slot.append(graphic(anyShip ? example : id));
+          if (anyShip && ships.length > 1) {
+            let index = Math.max(0, ships.indexOf(example));
+            const rotation = setInterval(() => {
+              if (!slot.isConnected) { clearInterval(rotation); return; }
+              index = (index + 1) % ships.length;
+              slot.replaceChildren(graphic(ships[index]));
+            }, 850);
+          }
+          grid.append(slot);
+        }
+        card.append(grid);
+      } else card.append(element('p', 'Place the three ingredients anywhere in the grid.'));
       const legend = element('ul', '', 'recipe-legend');
-      const entries = key === 'ship'
-        ? [['alienCell', 'Alien Cells ×6'], [selectedShip, 'Any owned spaceship ×1'], ['alienMind', 'Alien Mind ×1'], ['alienSerum', 'Alien Serum ×1']]
-        : [['alienCell', 'Alien Cells ×8'], ['alienSerum', 'Alien Serum ×1']];
-      for (const [id, label] of entries) {
+      for (const [id, label] of ingredients[key]) {
         const row = element('li');
         row.append(graphic(id), element('span', label));
         legend.append(row);
       }
-      card.append(element('h3', recipe.name), grid, legend);
-      list.append(card);
+      card.append(legend);
+      lists[recipe.event && !active ? 'event' : 'normal'].append(card);
     }
-    body.append(list);
+    if (lists.normal.children.length) body.append(lists.normal);
+    if (lists.event.children.length) {
+      const section = element('section', '', 'event-recipes');
+      section.append(element('h3', 'Event Recipes'), lists.event);
+      body.append(section);
+    }
   }
 
   function decorateRarity(node, item) {
@@ -410,7 +440,7 @@
       for (const id of [...profile.unlocked].sort((a, b) => rarityRank(b) - rarityRank(a) || shipRank(a) - shipRank(b))) {
         const ship = SHIPS[id];
         const pick = button('', () => open('outfit', { ship: id, part: state.part }));
-        pick.append(graphic(id), element('strong', ship.name),
+        pick.append(graphic(id), element('strong', AG.itemName(id)),
           element('small', ship.alien ? 'Alienated · ' + titleCase(ship.rarity) : titleCase(ship.rarity)));
         itemHover(pick, id, false);
         decorateRarity(pick, ship);
@@ -634,11 +664,7 @@
         body.append(element('h3', 'Event', 'inventory-subsection'));
         for (const id of sortItems(AG.MATERIALS, () => 0)) {
           if (!profile.materials[id]) continue;
-          const action = id === 'alienSerum' && button(profile.serumUsed ? 'Mind control unlocked' : 'Use on equipped Alien Ship', () => {
-            if (game.applySerum()) state.result = 'Mind control unlocked permanently.';
-            refresh();
-          }, { disabled: !base || !SHIPS[profile.ship].alien || profile.serumUsed });
-          card(id, ITEMS[id].description, action, profile.materials[id]);
+          card(id, ITEMS[id].description, null, profile.materials[id]);
         }
       } else {
         for (const id of sortItems(CRATES, crate => crate.price)) {
@@ -700,7 +726,7 @@
       body.append(menuIcon(button('Recipes', () => open('recipes')), 'recipes'));
       footer();
     } else if (kind === 'recipes') {
-      renderRecipes(body, element, profile.ship);
+      renderRecipes(body, element, game);
       footer();
     } else {
       const ship = base ? (profile.unlocked.includes(state.ship) ? state.ship : profile.ship) : game.run.shipId;
@@ -797,7 +823,7 @@
         parts.append(choose);
       }
       if (!parts.children.length) parts.append(element('p', 'Collect upgrades in flight or open an Upgrade Crate.', 'panel-note'));
-      body.append(element('h3', spec.name));
+      body.append(element('h3', AG.itemName(ship)));
       if (Object.values(crafts).includes('boostRelay')) body.append(button('Configure Auto Boost', () => open('autoBoost', { ship })));
       const presets = element('div', '', 'loadout-presets');
       for (let i = 0; i < profile.presets.length; i++) {

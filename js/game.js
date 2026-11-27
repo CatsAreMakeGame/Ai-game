@@ -107,7 +107,7 @@
       const ship = SHIPS[shipId];
       this.releaseInput();
       this.run = {
-        wave: 0, level: 1, xp: 0, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostRelayOn: true, ship, shipId, mode, mindCooldown: 30, tendrils: [],
+        wave: 0, level: 1, xp: 0, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostRelayOn: true, ship, shipId, mode, mindCooldown: 30, controlSequence: 0, tendrils: [],
         stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisShield: 0, smoke: [], smokeIn: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
@@ -274,11 +274,11 @@
       return this.run.boosts[type]?.length ?? 0;
     }
 
-    shotDamage() {
+    shotDamage(includeNose = true) {
       const run = this.run;
       if (this.testing && run.testDamage != null) return run.testDamage;
       return Math.min(Number.MAX_SAFE_INTEGER,
-        (run.ship.damage + this.upgradeEffects().damage) * 2 ** this.boostCount('doubleDamage'));
+        (run.ship.damage + (includeNose ? this.upgradeEffects().damage : 0)) * 2 ** this.boostCount('doubleDamage'));
     }
 
     upgradeEffects(ship, mounts = (ship ? this.profile.loadouts[ship] : this.run?.loadout ?? this.profile.loadouts[this.profile.ship]) ?? {}) {
@@ -636,6 +636,7 @@
       this.updateSmoke(dt, x, y);
       this.updateEnergy(dt);
       if (this.state === 'intermission') {
+        for (const enemy of run.enemies) if (enemy.allied) this.actAsAlly(enemy, dt, true);
         this.updatePlayerShots(dt);
         this.updateMissiles(dt);
         this.collectDrops(dt);

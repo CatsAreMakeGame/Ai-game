@@ -158,7 +158,7 @@
       const state = run.aegisShield > 0 ? run.aegisShield + ' shield' : run.aegisCooldown > 0 ? Math.ceil(run.aegisCooldown) + 's' : 'Ready';
       setText($('ship-ability'), run.ship.ability.name + ' · ' + state);
     }
-    if (run.ship.alien) setText($('ship-ability'), run.tendrils.length + ' tendrils' + (game.profile.serumUsed ? ' · Mind control ' + (run.mindCooldown > 0 ? Math.ceil(run.mindCooldown) + 's' : 'ready') : ''));
+    if (run.ship.alien) setText($('ship-ability'), run.tendrils.length + ' tendrils' + (run.ship.mindControl ? ' · Mind control ' + (run.mindCooldown > 0 ? Math.ceil(run.mindCooldown) + 's' : 'ready') : ''));
     if (now >= rewardUntil && now < creditUntil) setText(alert, '+' + AG.formatCurrency(creditBatch) + ' credits');
     if (boss) {
       setText($('boss-name'), AG.BOSSES[boss.type].name);
@@ -187,14 +187,14 @@
     relay.title = 'Toggle with ' + game.profile.bindings.relay.toUpperCase();
     setText(relay, 'Auto · ' + (run.boostRelayOn ? 'On' : 'Off'));
     $('alien-actions').hidden = !run.ship.alien;
-    setText($('mind-countdown'), !game.profile.serumUsed ? 'Mind control locked' :
+    setText($('mind-countdown'), !run.ship.mindControl ? 'Mind control locked' :
       run.mindCooldown > 0 ? 'Mind control · ' + Math.ceil(run.mindCooldown) + 's' : 'Mind control · Ready');
     const overdrive = $('overdrive-toggle');
     overdrive.hidden = !game.canEnergyOverdrive();
     overdrive.disabled = !!panelKind || (!run.energyOverdrive && run.energy + 1e-8 < run.energyCap);
     overdrive.setAttribute('aria-pressed', String(run.energyOverdrive));
     setText(overdrive, run.energyOverdrive ? 'Overdrive · On' : 'Overdrive · Off');
-    $('mind-toggle').hidden = !game.profile.serumUsed || run.mindCooldown > 0;
+    $('mind-toggle').hidden = !run.ship.mindControl || run.mindCooldown > 0;
     $('mind-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.mindCooldown > 0;
     $('mind-toggle').setAttribute('aria-pressed', String(mindAim));
     setText($('mind-toggle'), mindAim ? 'Tap an enemy' : 'Choose a target');
@@ -526,7 +526,13 @@
       });
       const actions = element('div', '', 'home-actions');
       actions.append(names, button('Back', dismiss));
-      body.append(side, actions);
+      const crateLabel = element('label', ' Allow skipping Mythical and Godly crate animations', 'crate-switch');
+      const rareSkip = element('input');
+      rareSkip.type = 'checkbox';
+      rareSkip.checked = game.profile.allowRareCrateSkip;
+      rareSkip.addEventListener('change', () => { game.profile.allowRareCrateSkip = rareSkip.checked; game.save(); });
+      crateLabel.prepend(rareSkip);
+      body.append(side, crateLabel, actions);
     } else if (panelKind === 'keybinds') {
       setText(title, 'Keybinds');
       const status = element('p', '', 'panel-note');
@@ -545,7 +551,7 @@
         return label;
       }
       for (const [name, bindings] of [
-        ['Alien Spaceship', [['extend', 'Extend tendril'], ['retract', 'Retract tendril']]],
+        ['Alien Spaceship', [['extend', 'Extend tendril'], ['retract', 'Release controlled ship or retract tendril']]],
         ['Equipment', [['laser', 'Lightning Beacon'], ['relay', 'Toggle Auto Boost']]]
       ]) {
         const section = element('section', '', 'keybind-section');
@@ -761,7 +767,7 @@
       if (!event.repeat) game.laserInput('hold');
     } else if (!panelKind && !event.repeat && game.run?.ship.alien && (key === bindings.extend || key === bindings.retract)) {
       if (key === bindings.extend) game.extendTendril();
-      else game.retractTendril();
+      else if (!game.releaseMindControl()) game.retractTendril();
     } else if (key === 'i' && !event.repeat && (!panelKind || panelKind === 'inventory')) {
       openInventory();
     } else if (key === 'escape' || key === 'p') {

@@ -170,6 +170,11 @@ window.AG = (() => {
       /^alien-[1-9]\d*$/.test(id) && ship?.alien === true && typeof ship.name === 'string' &&
       Object.values(shipRows).some(row => row[6] === ship.frame) && Number.isFinite(ship.damage) &&
       Number.isFinite(ship.hull) && Number.isFinite(ship.speed) && ship.delay > 0 && ship.engines >= 1 && ship.engines <= 3));
+    for (const ship of Object.values(alienShips)) {
+      const original = Object.values(SHIPS).find(base => !base.alien && base.name === ship.donor?.replace(/^Alien /, ''));
+      ship.rarity = original?.rarity ?? (Object.hasOwn(RARITIES, ship.donorRarity) ? ship.donorRarity : ship.rarity);
+      ship.mindControl = ship.mindControl === true || (saved?.serumUsed === true && saved?.mindControlPerShip !== true);
+    }
     const catalog = { ...SHIPS, ...alienShips };
     const unlocked = Array.isArray(saved?.unlocked) ? [] : ['scout'];
     if (Array.isArray(saved?.unlocked)) {
@@ -224,7 +229,8 @@ window.AG = (() => {
       unlocked, ship: unlocked.includes(saved?.ship) ? saved.ship : unlocked[0], alienShips,
       materials,
       copies: counts('copies', catalog), flagshipPurchases: Math.max(0, readNumber('flagshipPurchases') || Number(unlocked.includes('supernova'))),
-      flagshipTime: readNumber('flagshipTime'), serumUsed: saved?.serumUsed === true,
+      flagshipTime: readNumber('flagshipTime'), serumUsed: saved?.serumUsed === true, mindControlPerShip: true,
+      allowRareCrateSkip: saved?.allowRareCrateSkip === true,
       bounties: (Array.isArray(saved?.bounties) ? saved.bounties : []).filter(id => Object.hasOwn(BOSSES, id)),
       boostSlots: Array.from({ length: 3 }, (_, i) => {
         const id = (saved?.boostSlots ?? saved?.favoriteBoosts)?.[i];
@@ -263,7 +269,7 @@ window.AG = (() => {
     cannon: ['Damage', 1], rail: ['Damage', 2], nova: ['Damage', 3] };
   function itemName(id, style = window.AG?.game?.profile.nameStyle) {
     const tier = statNames[id];
-    if (!tier || !['roman', 'numeric'].includes(style)) return ITEMS[id]?.name ?? id;
+    if (!tier || !['roman', 'numeric'].includes(style)) return ITEMS[id] ? ITEMS[id].name + (SHIPS[id]?.mindControl ? ' 🧠' : '') : id;
     return tier[0] + ' ' + (style === 'roman' ? ['I','II','III','IV'][tier[1] - 1] : tier[1]);
   }
 
