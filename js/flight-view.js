@@ -431,8 +431,8 @@
           ctx.rotate(Math.atan2(shot.vy, shot.vx) + Math.PI / 2);
           ctx.fillStyle = shot.color ?? run.ship.color;
           ctx.shadowColor = ctx.fillStyle;
-          ctx.shadowBlur = 6;
-          if (shot.barrage) ctx.fillRect(-1.5, -12, 3, 24);
+          ctx.shadowBlur = shot.barrage ? 0 : 6;
+          if (shot.barrage) ctx.fillRect(-1.5, -19, 3, 38);
           else ctx.fillRect(-2, -9, 4, 18);
           ctx.restore();
         }

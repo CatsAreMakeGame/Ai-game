@@ -1340,8 +1340,10 @@
       const { x, y } = run.player;
       while (barrage.emitted < due) {
         const i = barrage.emitted++;
-        const sweep = ((i * .61803398875) % 1) * 2 - 1;
-        const angle = -Math.PI / 2 + sweep * (i % 5 === 0 ? Math.PI : 1.42);
+        const progress = i / (spec.shots - 1);
+        const sweep = Math.cos(progress * spec.sweepPasses * Math.PI);
+        const halfArc = spec.arcDegrees * Math.PI / 360;
+        const angle = -Math.PI / 2 + sweep * halfArc;
         const vx = Math.cos(angle);
         const vy = Math.sin(angle);
         run.shots.push({ x: x + vx * 16, y: y + vy * 16, vx: vx * 780, vy: vy * 780,
