@@ -387,3 +387,83 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .reserve-row button { min-height: 34px; padding: 3px 7px; }
 .reel-rewards { grid-template-columns: repeat(auto-fit, minmax(74px, 1fr)); }
 .reel-reward-tile b, .reel-quantity { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Flight controls and compact ship loadouts */
+.flight-layout { display: flex; gap: 10px; align-items: start; }
+.flight-layout > .stage { width: 100%; flex: 1 1 0; min-width: 0; }
+.flight-layout.boost-left > .boost-dock { order: -1; }
+.boost-dock { display: grid; gap: 7px; flex: 0 0 clamp(48px, 7vw, 72px); padding: 7px; margin-top: 62px;
+  background: #0d2025; border: 1px solid var(--line); border-radius: 9px; }
+.boost-dock button { display: grid; justify-items: center; gap: 2px; padding: 4px 2px; min-width: 0; font-size: .66rem; }
+.boost-dock .item-icon { width: 29px; height: 29px; }
+.boost-dock img { width: 21px; height: 21px; }
+#relay-toggle[aria-pressed=true], #auto[aria-pressed=true] { border-color: #96e557; background: #274e31; color: #dcffb0;
+  box-shadow: 0 0 10px #91f25850, inset 0 0 0 1px #91f25880; }
+.wave-actions { display: flex; gap: 5px; position: absolute; top: 8px; right: 8px; z-index: 2; }
+.wave-actions button { min-width: 34px; min-height: 34px; padding: 0 5px; font-size: 1.18rem; color: #e5ffb1; }
+.wave-actions #skip:disabled { color: #8b9b9d; filter: grayscale(1); opacity: .43; }
+.stage:has(.wave-actions:not([hidden])) .hud { right: 90px; }
+.combat-rim { position: absolute; inset: 0; border-radius: inherit; z-index: 1; pointer-events: none; --shield-rgb: 77 166 255;
+  box-shadow: inset 0 0 clamp(19px, 7vw, 90px) rgb(244 36 63 / var(--hurt, 0)),
+              inset 0 0 clamp(14px, 4vw, 60px) rgb(var(--shield-rgb) / var(--shield, 0));
+  transition: box-shadow .16s ease-out; }
+.combat-rim.nova-rim { --shield-rgb: 192 115 255; }
+.merchant-teaser { position: fixed; z-index: 6; top: 40%; left: 0; display: flex; align-items: center; white-space: nowrap;
+  width: 39px; overflow: hidden; padding: 7px 8px; border: 1px solid #74b95b; background: #173225;
+  color: #e1ffc8; transition: width .22s ease; }
+.merchant-teaser:hover, .merchant-teaser:focus-visible { width: 151px; }
+#shop-open { border-color: #8eea53; box-shadow: 0 0 12px #78dd483b, inset 0 0 0 1px #7edc50a0; }
+#shop-open .menu-icon { animation: shop-hop 4s ease-in-out infinite; }
+@keyframes shop-hop { 0%, 83%, 100% { transform: translateY(0); } 89% { transform: translateY(-5px); } 95% { transform: translateY(1px); } }
+@media (prefers-reduced-motion: reduce) { #shop-open .menu-icon { animation: none; } }
+.mode-carousel { display: grid; grid-auto-flow: column; grid-auto-columns: min(210px, 80%); overflow-x: auto;
+  scroll-snap-type: x mandatory; gap: 10px; padding: 4px 3px 12px; margin-bottom: 8px; }
+.mode-card { scroll-snap-align: start; display: grid; align-content: start; gap: 6px; padding: 12px;
+  background: #10212a; border: 1px solid var(--line); border-radius: 9px; }
+.mode-card > * { margin: 0; }
+.ship-picker { display: grid; gap: 7px; margin-bottom: 12px; }
+.ship-picker button { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 8px; text-align: left; }
+.rarity-outline { border-color: var(--rarity); }
+.alien-rarity { border: 2px solid transparent; background: linear-gradient(#11232b, #11232b) padding-box,
+  linear-gradient(130deg, #9cff57, var(--donor-rarity), #51c968) border-box; }
+.inventory-tile.alien-rarity:hover:not(:disabled), .inventory-tile.alien-rarity[aria-pressed=true] {
+  border-color: transparent; background: linear-gradient(#263d3a, #15252f) padding-box,
+  linear-gradient(130deg, #9cff57, var(--donor-rarity), #51c968) border-box; }
+.inventory-preview small { color: var(--muted); }
+.inventory-subsection { margin: 0; font-size: .9rem; }
+.boost-assign { display: flex; gap: 6px; margin-bottom: 5px; }
+.boost-assign button { display: grid; place-items: center; min-width: 57px; min-height: 55px; padding: 4px; }
+.boost-assign .item-icon { width: 27px; height: 27px; }
+.boost-assign img { width: 21px; height: 21px; }
+.outfit-layout { align-items: start; }
+.ship-diagram { min-height: 0; align-self: start; grid-template-rows: auto clamp(66px, 13vw, 106px) auto auto auto;
+  align-items: center; row-gap: 5px; }
+.ship-diagram .diagram-art { grid-area: 2 / 1 / 3 / 4; position: static; translate: none; justify-self: center;
+  width: clamp(65px, 21vw, 133px); height: min(100%, 104px); object-fit: contain; }
+.mount-nose { grid-area: 1 / 2; }
+.mount-leftWing { grid-area: 3 / 1; }
+.mount-special { grid-area: 3 / 2; }
+.mount-rightWing { grid-area: 3 / 3; }
+.mount-engine1 { grid-area: 4 / 2; }
+.mount-engine2 { grid-area: 4 / 1; }
+.mount-engine3 { grid-area: 4 / 3; }
+.mount-ability1 { grid-area: 5 / 1; }
+.mount-ability2 { grid-area: 5 / 2; }
+.mount-ability3 { grid-area: 5 / 3; }
+.outfit-parts { max-height: min(330px, 48dvh); overflow-y: auto; padding: 3px; }
+.loadout-presets { display: flex; flex-wrap: wrap; gap: 7px; margin: 9px 0; }
+.loadout-presets > div { display: flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 7px; padding: 4px 6px; }
+.loadout-presets button { min-height: 32px; padding: 3px 6px; }
+@media (max-width: 620px) {
+  .flight-layout { gap: 4px; }
+  .boost-dock { padding: 3px; gap: 4px; margin-top: 49px; }
+  .boost-dock button { min-height: 32px; }
+  .wave-actions { top: 5px; right: 4px; gap: 2px; }
+  .wave-actions button { min-width: 26px; min-height: 26px; padding: 0 2px; }
+  .stage:has(.wave-actions:not([hidden])) .hud { right: 61px; }
+  .hud .wallet { display: none; }
+  .merchant-teaser { top: auto; bottom: 8px; }
+}
+
+.inventory-preview { min-height: 4.6em; }
+.inventory-preview > small { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }

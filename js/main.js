@@ -19,12 +19,13 @@
   let returnFocus = $('launch');
   let tutorialIndex = 0;
   const armory = { inventoryTab: 'ships', shopTab: 'ships', autoOpen: false, result: '', part: '', ship: '', ingredient: '', grid: Array(9).fill('') };
-  const armoryPanels = ['hangar', 'shop', 'inventory', 'outfit', 'craft', 'recipes'];
+  const armoryPanels = ['hangar', 'shop', 'inventory', 'outfit', 'craft', 'recipes', 'merchant', 'shipPicker', 'autoBoost'];
   const panelHistory = [];
   let mindAim = false;
   const loot = new Map();
   let adminUnlocked = false;
   try { adminUnlocked = sessionStorage.getItem('alien-shooter.admin') === 'yes'; } catch {}
+  game.adminUnlocked = adminUnlocked;
   let adminReturn = null;
   let normalReturn = null;
   let announcementUntil = 0;
@@ -40,7 +41,7 @@
     ['Fight the Mothership', 'Choose Easy, Medium, Hard or Endless. Every tenth wave adds a new boss and brings back the earlier bosses. Collect the Star Gems they drop.'],
     ['Skip reinforcements', 'Skip Wave advances to the next wave and enemies already on the field stay in play. Auto Skip waits for 60% to spawn. Boss waves must be cleared.'],
     ['Level up and resupply', 'Earn pilot XP from combat. At level 5, spend Credits on repairs and rapid fire between cleared waves.'],
-    ['Use your inventory', 'Fly into drops to store them. Open Inventory or press I to view Ships, Upgrades, Boosts and Crates. Fit parts in Outfit ship.'],
+    ['Use your inventory', 'Fly into drops to store them. Between runs, open Inventory for boosts or Ship Loadout for upgrades.'],
     ['Fly the Falcon', 'Spend Credits on the Falcon, or use Star Gems for a crate. Equip ships in the Hangar. Both menus are available before or after a run.']
   ];
 
@@ -118,7 +119,10 @@
     }
     const run = game.run;
     const active = ['playing', 'intermission', 'paused'].includes(game.state);
-    hud.hidden = controls.hidden = !active;
+    hud.hidden = controls.hidden = $('wave-actions').hidden = $('boost-dock').hidden = !active;
+    $('merchant-open').hidden = !game.canVisitBase() || Boolean(panelKind);
+    $('flight-layout').classList.toggle('boost-left', game.profile.boostSide === 'left');
+    $('combat-rim').hidden = !active;
     setText($('admin'), game.testing ? 'Admin · Testing' : 'Admin');
     alert.hidden = !active || Boolean(panelKind) || now >= Math.max(rewardUntil, creditUntil);
     banner.hidden = !active || Boolean(panelKind) || now >= waveUntil;
@@ -128,7 +132,7 @@
     $('ship-ability').hidden = !active || !(run.ship.ability || run.ship.alien);
     if (!active) return;
     if (run.ship.ability) {
-      const state = run.aegisCooldown > 0 ? Math.ceil(run.aegisCooldown) + 's' : 'Ready';
+      const state = run.aegisShield > 0 ? run.aegisShield + ' shield' : run.aegisCooldown > 0 ? Math.ceil(run.aegisCooldown) + 's' : 'Ready';
       setText($('ship-ability'), run.ship.ability.name + ' · ' + state);
     }
     if (run.ship.alien) setText($('ship-ability'), run.tendrils.length + ' tendrils' + (game.profile.serumUsed ? ' · Mind control ' + (run.mindCooldown > 0 ? Math.ceil(run.mindCooldown) + 's' : 'ready') : ''));
@@ -158,7 +162,7 @@
     relay.disabled = Boolean(panelKind) || !['playing', 'intermission'].includes(game.state);
     relay.setAttribute('aria-pressed', String(run.boostRelayOn));
     relay.title = 'Toggle with ' + game.profile.bindings.relay.toUpperCase();
-    setText(relay, 'Auto boosts · ' + (run.boostRelayOn ? 'On' : 'Off'));
+    setText(relay, 'Auto · ' + (run.boostRelayOn ? 'On' : 'Off'));
     $('alien-actions').hidden = !run.ship.alien;
     $('tendril-extend').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy < 1;
     $('tendril-retract').disabled = Boolean(panelKind) || !run.tendrils.length;
@@ -166,20 +170,27 @@
     $('mind-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.mindCooldown > 0;
     $('mind-toggle').setAttribute('aria-pressed', String(mindAim));
     setText($('mind-toggle'), mindAim ? 'Tap an enemy' : 'Mind control');
-    for (let i = 0; i < 2; i++) {
-      const id = game.profile.favoriteBoosts[i];
-      const quick = $('boost-favorite-' + i);
-      quick.hidden = !id;
-      if (!id) continue;
-      quick.disabled = Boolean(panelKind) || !game.canUseBoost(id);
-      if (quick.dataset.item !== id) {
-        quick.dataset.item = id;
-        quick.replaceChildren(AG.itemGraphic(id), element('span'));
-        quick.title = AG.BOOSTS[id].name;
-        quick.setAttribute('aria-label', AG.BOOSTS[id].name);
+    for (let i = 0; i < 3; i++) {
+      const id = game.profile.boostSlots[i];
+      const slot = $('flight-boost-' + i);
+      const ready = game.boostSlotOpen(i);
+      slot.disabled = Boolean(panelKind) || !ready || !id || !game.canUseBoost(id);
+      const caption = !ready ? 'Lv ' + [1, 5, 10][i] : id ? '×' + (game.profile.boosts[id] ?? 0) : 'Empty';
+      if (slot.dataset.item !== (ready ? id : 'locked')) {
+        slot.dataset.item = ready ? id : 'locked';
+        slot.replaceChildren(...(ready && id ? [AG.itemGraphic(id)] : []), element('small'));
       }
-      setText(quick.lastElementChild, '×' + (game.profile.boosts[id] ?? 0));
+      setText(slot.lastElementChild, caption);
+      const name = ready ? (AG.BOOSTS[id]?.name ?? 'Empty boost slot') : 'Unlocks at pilot level ' + [1, 5, 10][i];
+      slot.title = name;
+      slot.setAttribute('aria-label', name);
     }
+    const health = run.player.hp / run.ship.hull;
+    const rim = $('combat-rim');
+    rim.style.setProperty('--hurt', health <= .3 ? Math.max(.32, 1 - health * 2) : 0);
+    rim.style.setProperty('--shield', run.aegisShield > 0 ? Math.max(.17, run.aegisShield / 15) :
+      run.boosts.shield || run.boosts.fortress ? .65 : 0);
+    rim.classList.toggle('nova-rim', run.aegisShield > 0);
     setText($('hull-value'), Number(run.player.hp.toFixed(1)) + '/' + run.ship.hull);
     setText($('level'), 'LV ' + run.level);
     setText($('score'), run.score.toLocaleString());
@@ -203,7 +214,6 @@
     setText($('supply-label'), levelLocked ? 'Supplies · Lv 5' : 'Supplies');
     $('supplies').disabled = !!run.practice || levelLocked || game.state !== 'intermission' || Boolean(panelKind);
     $('supplies').title = levelLocked ? 'Unlocks at pilot level 5' : 'Available between cleared waves';
-    $('inventory').disabled = Boolean(panelKind) || !!run.practice;
     $('pause').disabled = Boolean(panelKind);
   }
 
@@ -235,7 +245,6 @@
   function refreshRecord() {
     const wave = game.profile.modeRecords[game.profile.mode] ?? (game.profile.mode === 'hard' ? game.profile.bestWave : 0);
     $('record').hidden = !wave;
-    $('mode').value = game.profile.mode;
     $('continue').hidden = !game.canContinue();
     if (!$('continue').hidden) setText($('continue'), 'Continue · Wave ' + (game.profile.checkpoint.wave + 1).toLocaleString());
     setText($('record'), 'BEST WAVE ' + wave.toLocaleString() + '  ·  HIGH SCORE ' + game.profile.bestScore.toLocaleString());
@@ -306,7 +315,7 @@
     const kind = panelKind;
     mindAim = false;
     if (kind === 'craft') { armory.grid.fill(''); armory.ingredient = ''; }
-    if ((armoryPanels.includes(kind) || kind === 'settings' || kind === 'keybinds') && panelHistory.length) {
+    if ((armoryPanels.includes(kind) || kind === 'settings' || kind === 'keybinds' || kind === 'launchMode') && panelHistory.length) {
       const parent = panelHistory.pop();
       resetPanelDraft();
       Object.assign(armory, { inventoryTab: parent.inventoryTab, shopTab: parent.shopTab, part: parent.part, ship: parent.ship });
@@ -378,7 +387,7 @@
     if (normalReturn) normalReturn.history = panelHistory.splice(0);
     adminReturn = null;
     game.enterTesting();
-    adminUnlocked = true;
+    game.adminUnlocked = adminUnlocked = true;
     try { sessionStorage.setItem('alien-shooter.admin', 'yes'); } catch {}
     syncAudio();
     open('admin', false);
@@ -424,18 +433,46 @@
           () => tutorialIndex === tutorial.length - 1 ? dismiss() : showSlide(tutorialIndex + 1), { primary: true }));
       body.append(slide, nav);
     } else if (armoryPanels.includes(panelKind)) {
-      const titles = { hangar: 'Hangar', shop: 'Shop', inventory: 'Inventory', outfit: 'Outfitting', craft: 'Crafting', recipes: 'Recipes' };
+      const titles = { hangar: 'Hangar', shop: 'Shop', inventory: 'Inventory', outfit: 'Ship Loadout', craft: 'Crafting', recipes: 'Recipes', shipPicker: 'Select a ship', merchant: 'Merchant', autoBoost: 'Auto Boost' };
       setText(title, titles[panelKind]);
       AG.renderArmory({ kind: panelKind, state: armory, game, body, button, element, dismiss,
         open: navigate, refresh: () => drawPanel(true), practice: kind => {
           game.startPractice(kind);
           resumeFlight();
         } });
+    } else if (panelKind === 'launchMode') {
+      setText(title, 'Choose a mode');
+      const modes = element('div', '', 'mode-carousel');
+      for (const [id, title, waves, recommendation] of [
+        ['easy', 'Easy', '20 waves', 'Common or higher'], ['medium', 'Medium', '30 waves', 'Rare or higher'],
+        ['hard', 'Hard', '50 waves', 'Epic or higher'], ['endless', 'Endless', 'Unlimited waves', 'Legendary or higher']
+      ]) {
+        const card = element('article', '', 'mode-card');
+        card.append(element('h3', title), element('p', waves), element('p', 'Recommended ship · ' + recommendation),
+          button('Launch ' + title, () => { game.profile.mode = id; start(); }, { primary: true }));
+        modes.append(card);
+      }
+      modes.tabIndex = 0;
+      modes.setAttribute('aria-label', 'Flight modes, scroll sideways');
+      const arrows = element('div', '', 'home-actions');
+      arrows.append(button('← Previous', () => modes.scrollBy({ left: -215, behavior: 'smooth' })),
+        button('Next →', () => modes.scrollBy({ left: 215, behavior: 'smooth' })), button('Back', dismiss));
+      body.append(modes, arrows);
     } else if (panelKind === 'settings') {
       setText(title, 'Settings');
       const actions = element('div', '', 'home-actions');
       actions.append(AG.menuIcon(button('Keybinds', () => navigate('keybinds')), 'keybinds'), button('Back', dismiss));
-      body.append(actions);
+      const side = element('label', 'Flight boost slots ');
+      const select = element('select');
+      for (const [id, text] of [['right', 'Right'], ['left', 'Left']]) {
+        const option = element('option', text);
+        option.value = id;
+        select.append(option);
+      }
+      select.value = game.profile.boostSide;
+      select.addEventListener('change', () => { game.profile.boostSide = select.value; game.save(); });
+      side.append(select);
+      body.append(side, actions);
     } else if (panelKind === 'keybinds') {
       setText(title, 'Keybinds');
       const status = element('p', '', 'panel-note');
@@ -455,7 +492,7 @@
       }
       for (const [name, bindings] of [
         ['Alien Spaceship', [['extend', 'Extend tendril'], ['retract', 'Retract tendril']]],
-        ['Equipment', [['laser', 'Lightning Beacon'], ['relay', 'Toggle Boost Relay']]]
+        ['Equipment', [['laser', 'Lightning Beacon'], ['relay', 'Toggle Auto Boost']]]
       ]) {
         const section = element('section', '', 'keybind-section');
         const grid = element('div', '', 'settings-grid');
@@ -468,7 +505,7 @@
       setText(title, 'Admin testing');
       AG.renderAdmin({ body, game, button, element, dismiss, resumeFlight, enterTesting, exitTesting,
         refresh: () => drawPanel(true), shop: () => navigate('shop'),
-        inventory: () => navigate('inventory') });
+        inventory: () => { if (game.canVisitBase()) navigate('inventory'); } });
     } else if (panelKind === 'supplies') {
       setText(title, 'Flight supplies');
       setText(note, 'Credits available  ·  ' + game.credits);
@@ -497,8 +534,7 @@
           'Bosses defeated · ' + (bosses || 'None'), 'Star Gems collected · ' + stats.gems,
           'Rarest pickup · ' + (AG.ITEMS[stats.rarest]?.name ?? 'None')]) if (entry) summary.append(element('li', entry));
         body.append(summary);
-        actions.append(button('Launch again', start, { primary: true }),
-          button('Hangar', () => navigate('hangar')), button('Shop', () => navigate('shop')), button('Inventory', () => navigate('inventory')));
+        actions.append(button('Launch again', () => navigate('launchMode'), { primary: true }));
       }
       actions.append(game.run.practice ? button('Exit practice', () => {
         showHome();
@@ -527,24 +563,23 @@
     open('pause');
   }
 
-  $('launch').addEventListener('click', start);
+  $('launch').addEventListener('click', () => open('launchMode'));
   $('continue').addEventListener('click', () => { if (game.continueRun()) resumeFlight(); });
-  $('mode').addEventListener('change', () => { game.profile.mode = $('mode').value; game.save(); refreshRecord(); });
+  $('merchant-open').addEventListener('click', () => { if (game.canVisitBase()) open('merchant'); });
   $('settings').addEventListener('click', () => {
     if (panelKind === 'settings') dismiss();
     else if (panelKind) navigate('settings');
     else open('settings');
   });
-  $('outfit-open').addEventListener('click', () => { armory.ship = game.profile.ship; open('outfit'); });
+  $('outfit-open').addEventListener('click', () => open('shipPicker'));
   $('craft-open').addEventListener('click', () => open('craft'));
   $('hangar-open').addEventListener('click', () => open('hangar'));
   $('shop-open').addEventListener('click', () => open('shop'));
   $('admin').addEventListener('click', openAdmin);
   function openInventory() {
     if (panelKind === 'inventory') dismiss();
-    else if (!panelKind && !game.run?.practice && (game.canVisitBase() || ['playing', 'intermission'].includes(game.state))) open('inventory');
+    else if (!panelKind && game.canVisitBase()) { armory.showItemDetails = false; open('inventory'); }
   }
-  $('inventory').addEventListener('click', openInventory);
   $('inventory-home').addEventListener('click', openInventory);
   $('help').addEventListener('click', () => { tutorialIndex = 0; open('tutorial'); });
   $('close').addEventListener('click', dismiss);
@@ -553,7 +588,7 @@
     const toggle = $('auto');
     const enabled = game.profile.auto;
     toggle.setAttribute('aria-pressed', String(enabled));
-    setText($('auto-state'), enabled ? 'On' : 'Off');
+    toggle.setAttribute('aria-label', enabled ? 'Auto Skip on' : 'Auto Skip off');
     toggle.title = game.run?.diff.boss
       ? 'Boss waves cannot be skipped. This setting applies to later waves.'
       : 'Automatically advance after 60% of the wave has spawned.';
@@ -570,9 +605,9 @@
   $('tendril-extend').addEventListener('click', () => { if (!panelKind) game.extendTendril(); });
   $('tendril-retract').addEventListener('click', () => { if (!panelKind) game.retractTendril(); });
   $('mind-toggle').addEventListener('click', () => { mindAim = !mindAim; });
-  for (let i = 0; i < 2; i++) $('boost-favorite-' + i).addEventListener('click', () => {
-    const id = game.profile.favoriteBoosts[i];
-    if (!panelKind && id) game.useBoost(id);
+  for (let i = 0; i < 3; i++) $('flight-boost-' + i).addEventListener('click', () => {
+    const id = game.profile.boostSlots[i];
+    if (!panelKind && id && game.boostSlotOpen(i)) game.useBoost(id);
   });
   $('target-mode').addEventListener('change', () => {
     const choice = $('target-mode').value;
@@ -659,7 +694,7 @@
     } else if (key === 'enter' && !event.repeat && event.target.tagName !== 'BUTTON' && event.target.tagName !== 'A'
       && (!panelKind && game.state === 'home' || panelKind === 'result')) {
       event.preventDefault();
-      start();
+      navigate('launchMode');
     } else if (!panelKind && ['playing', 'intermission'].includes(game.state) && moveKeys.has(key)) {
       event.preventDefault();
       game.keys.add(key);

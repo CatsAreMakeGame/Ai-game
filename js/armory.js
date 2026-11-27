@@ -207,7 +207,7 @@
       }
       const legend = element('ul', '', 'recipe-legend');
       const entries = key === 'ship'
-        ? [['alienCell', 'Alien Cells ×7'], [selectedShip, 'Any owned spaceship ×1'], ['alienMind', 'Alien Mind ×1']]
+        ? [['alienCell', 'Alien Cells ×6'], [selectedShip, 'Any owned spaceship ×1'], ['alienMind', 'Alien Mind ×1'], ['alienSerum', 'Alien Serum ×1']]
         : [['alienCell', 'Alien Cells ×8'], ['alienSerum', 'Alien Serum ×1']];
       for (const [id, label] of entries) {
         const row = element('li');
@@ -220,6 +220,23 @@
     body.append(list);
   }
 
+  function decorateRarity(node, item) {
+    const donor = Object.values(AG.BASE_SHIPS).find(ship => ship.name === item.donor?.replace(/^Alien /, ''));
+    node.style.setProperty('--rarity', RARITIES[item.rarity ?? 'common']);
+    if (item.alien) {
+      node.classList.add('alien-rarity');
+      node.style.setProperty('--donor-rarity', RARITIES[item.donorRarity ?? donor?.rarity ?? item.rarity]);
+    }
+    node.classList.add('rarity-outline');
+  }
+
+  function shipRank(id) {
+    const ship = SHIPS[id];
+    const base = ship.alien ? Object.keys(AG.BASE_SHIPS).find(key => AG.BASE_SHIPS[key].name === ship.donor?.replace(/^Alien /, '')) : id;
+    const rank = AG.SHIP_ORDER.indexOf(base);
+    return (rank < 0 ? AG.SHIP_ORDER.length : rank) - (ship.alien ? .25 : 0);
+  }
+
   function renderArmory({ kind, state, game, body, button, element, open, dismiss, refresh, practice }) {
     const profile = game.profile;
     const base = game.canVisitBase();
@@ -229,12 +246,15 @@
     const details = element('div', '', 'inventory-details');
     const tileChoices = new Map();
 
+    details.hidden = true;
     function selectTile(id) {
       const choice = tileChoices.get(id);
       if (!choice) return;
       const { item, text, action, showPreview } = choice;
       showPreview();
       state.selectedItem = id;
+      state.showItemDetails = true;
+      details.hidden = false;
       for (const [key, entry] of tileChoices) entry.tile.setAttribute('aria-pressed', String(key === id));
       const copy = element('div');
       const rarity = element('span', item.rarity ?? 'common', 'item-rarity');
@@ -250,16 +270,21 @@
       const tile = button('', () => selectTile(id));
       tile.className = 'inventory-tile';
       tile.style.setProperty('--rarity', RARITIES[rarity]);
-      tile.title = item.name + '\n' + rarity;
+      decorateRarity(tile, item);
+      tile.title = item.name + '\n' + rarity + '\n' + text;
       tile.setAttribute('aria-label', item.name + ', ' + rarity + ', quantity ' + (count || 1));
       tile.append(graphic(id), element('b', '×' + (count || 1).toLocaleString(), 'inventory-count'));
       function showPreview() {
         const tier = element('span', rarity, 'item-rarity');
         tier.style.color = RARITIES[rarity];
-        preview.replaceChildren(element('strong', item.name), tier);
+        preview.replaceChildren(element('strong', item.name + (item.alien ? ' · Alienated' : '')), tier, element('small', text));
       }
       tile.addEventListener('pointerenter', showPreview);
       tile.addEventListener('focus', showPreview);
+      if (BOOSTS[id]) {
+        tile.draggable = true;
+        tile.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', id));
+      }
       tiles.append(tile);
       tileChoices.set(id, { item, tile, text, action, showPreview });
     }
@@ -268,6 +293,7 @@
       if (kind === 'inventory') { tileCard(id, text, action, count); return; }
       const item = ITEMS[id];
       const row = element('div', '', 'card item-card');
+      if (SHIPS[id]) decorateRarity(row, item);
       const copy = element('div');
       const header = element('strong', item.name + (count ? ' ×' + count : ''));
       const rarity = element('span', item.rarity ?? 'common', 'item-rarity');
@@ -285,7 +311,55 @@
       body.append(row);
     }
 
-    if (kind === 'shop') {
+    if (kind === 'shipPicker') {
+      const list = element('div', '', 'ship-picker');
+      for (const id of [...profile.unlocked].sort((a, b) => shipRank(a) - shipRank(b))) {
+        const ship = SHIPS[id];
+        const pick = button('', () => open('outfit', { ship: id, part: state.part }));
+        pick.append(graphic(id), element('strong', ship.name),
+          element('small', ship.alien ? 'Alienated · ' + ship.donor : ship.rarity));
+        pick.title = ship.description;
+        decorateRarity(pick, ship);
+        list.append(pick);
+      }
+      body.append(list);
+      footer();
+    } else if (kind === 'merchant') {
+      body.append(element('p', game.credits.toLocaleString() + ' Credits available', 'panel-note'));
+      for (const [id, price] of Object.entries(AG.MERCHANT)) {
+        card(id, ITEMS[id].description, button(price.toLocaleString() + ' Credits', () => {
+          if (game.buyMerchant(id)) state.result = ITEMS[id].name + ' purchased.';
+          refresh();
+        }, { disabled: !base || game.credits < price }));
+      }
+      body.append(cards);
+      footer();
+    } else if (kind === 'autoBoost') {
+      const headings = element('div', '', 'inventory-tabs');
+      for (const [id, label] of [['load', 'Available boosts'], ['queue', 'Loaded boosts']]) {
+        const tab = button(label, () => { state.relayTab = id; refresh(); });
+        tab.setAttribute('aria-pressed', String((state.relayTab ?? 'load') === id));
+        headings.append(tab);
+      }
+      const reserve = element('section', '', 'reserve-grid');
+      const types = Object.keys(profile.boostReserve).length;
+      reserve.append(element('p', types + '/5 boost types · up to 5 copies per type', 'panel-note'));
+      for (const [id, boost] of Object.entries(BOOSTS)) {
+        const available = profile.boosts[id] ?? 0;
+        const stored = profile.boostReserve[id] ?? 0;
+        const unloading = state.relayTab === 'queue';
+        if (unloading ? !stored : !available) continue;
+        const row = element('div', '', 'reserve-row');
+        const action = button(unloading ? 'Unload' : 'Load', () => {
+          if (game.adjustBoostReserve(id, unloading ? -1 : 1)) refresh();
+        }, { disabled: !unloading && (stored >= 5 || (!stored && types >= 5)) });
+        row.append(graphic(id), element('span', boost.name + ' · ' + stored + '/5 loaded'), action);
+        reserve.append(row);
+      }
+      if (reserve.children.length === 1) reserve.append(element('p', 'No boosts here yet.'));
+      body.append(headings, reserve);
+      footer();
+    } else if (kind === 'shop') {
       const options = element('div', '', 'inventory-tabs');
       for (const [id, name] of [['ships', 'Credit ships'], ['crates', 'Star Gem crates'], ['flagship', 'Premium Store']]) {
         const tab = menuIcon(button(name, () => { state.shopTab = id; refresh(); }), id);
@@ -294,7 +368,7 @@
       }
       body.append(options, element('p', game.credits.toLocaleString() + ' Credits · ' + profile.gems + ' Star Gems', 'panel-note'));
       if (state.shopTab === 'ships') {
-        for (const id of Object.keys(AG.BASE_SHIPS).filter(id => Number.isFinite(SHIPS[id].price)).sort((a, b) => SHIPS[a].price - SHIPS[b].price)) {
+        for (const id of Object.keys(AG.BASE_SHIPS).filter(id => Number.isFinite(SHIPS[id].price)).sort((a, b) => shipRank(b) - shipRank(a))) {
           const ship = SHIPS[id];
           if (!ship.price && game.shipCount(id)) continue;
           const owned = profile.unlocked.includes(id);
@@ -339,7 +413,7 @@
           }, 1000);
         }
         details.append(element('span', 'Flagship Store · Godly', 'flagship-rarity'), element('h3', ship.name), stats,
-          element('h4', ability.name), element('p', 'Reduces the next hit by ' + Math.round(ability.reduction * 100) + '%. Recharges in ' + ability.interval + ' seconds.'),
+          element('h4', ability.name), element('p', 'Absorbs up to ' + ability.capacity + ' damage. Recharges ' + ability.interval + ' seconds after the shield breaks.'),
           element('p', 'Owned ×' + game.shipCount('supernova') + ' · ' + profile.gems.toLocaleString() + ' Star Gems saved'),
           savings, wait, buy);
         featured.append(visual, details);
@@ -406,7 +480,7 @@
         body.append(element('p', 'Duplicate ships and upgrades add to the copies you own.', 'panel-note'));
       }
       body.append(cards);
-      footer(button('Inventory', () => open('inventory')), button('Hangar', () => open('hangar')));
+      footer();
     } else if (kind === 'inventory' || kind === 'hangar') {
       const inventory = kind === 'inventory';
       const tab = inventory ? state.inventoryTab : 'ships';
@@ -420,7 +494,7 @@
         body.append(tabs);
       }
       if (tab === 'ships') {
-        for (const id of sortItems(SHIPS, ship => ship.hull + ship.speed + 50 * ship.damage)) {
+        for (const id of [...profile.unlocked].sort((a, b) => shipRank(a) - shipRank(b))) {
           if (!profile.unlocked.includes(id)) continue;
           const equipped = profile.ship === id;
           const ship = SHIPS[id];
@@ -432,59 +506,45 @@
       } else if (tab === 'upgrades') {
         for (const id of sortItems(UPGRADES, part => (part.damage ?? part.speed ?? 0))) {
           if (!profile.upgrades[id]) continue;
-          const outfit = button('Outfit ship', () => {
+          const outfit = button('Use', () => {
             state.selectedUpgrade = id;
-            open('outfit', { part: id, ship: base ? profile.ship : game.run.shipId });
+            open('shipPicker', { part: id });
           });
           if (state.selectedUpgrade === id) outfit.setAttribute('aria-pressed', 'true');
           card(id, UPGRADES[id].description, outfit, profile.upgrades[id]);
         }
       } else if (tab === 'boosts') {
-        const settings = element('div', '', 'settings-grid');
-        for (let index = 0; index < 2; index++) {
-          const label = element('label', 'Quick boost ' + (index + 1));
-          const select = element('select');
-          for (const [id, name] of [['', 'None'], ...Object.entries(BOOSTS).map(([id, boost]) => [id, boost.name])]) {
-            const option = element('option', name);
-            option.value = id;
-            select.append(option);
+        const assigned = element('div', '', 'boost-assign');
+        profile.boostSlots.forEach((id, i) => {
+          const slot = button('', () => assign(BOOSTS[state.selectedItem] ? state.selectedItem : ''));
+          slot.setAttribute('aria-label', 'Flight boost slot ' + (i + 1));
+          if (id) slot.append(graphic(id));
+          slot.append(element('small', 'Level ' + [1, 5, 10][i]));
+          function assign(type) {
+            if (type && (!BOOSTS[type] || !profile.boosts[type])) return;
+            profile.boostSlots[i] = type;
+            game.save();
+            refresh();
           }
-          select.value = profile.favoriteBoosts[index];
-          select.addEventListener('change', () => { profile.favoriteBoosts[index] = select.value; game.save(); });
-          label.append(select);
-          settings.append(label);
-        }
-        body.append(settings);
-        if (profile.upgrades.boostRelay || Object.keys(profile.boostReserve).length) {
-          const reserve = element('section', '', 'reserve-grid');
-          const types = Object.keys(profile.boostReserve).length;
-          reserve.append(element('h3', 'Boost Relay · ' + types + '/5 types'),
-            element('p', 'Load up to five of each. In flight, toggle automatic use with ' + profile.bindings.relay.toUpperCase() + '.', 'panel-note'));
-          for (const [id, boost] of Object.entries(BOOSTS)) {
-            const available = profile.boosts[id] ?? 0;
-            const stored = profile.boostReserve[id] ?? 0;
-            if (!available && !stored) continue;
-            const row = element('div', '', 'reserve-row');
-            const load = button('Load', () => { if (game.adjustBoostReserve(id, 1)) refresh(); },
-              { disabled: !available || stored >= 5 || (!stored && types >= 5) });
-            const unload = button('Unload', () => { if (game.adjustBoostReserve(id, -1)) refresh(); }, { disabled: !stored });
-            load.setAttribute('aria-label', 'Load ' + boost.name);
-            unload.setAttribute('aria-label', 'Unload ' + boost.name);
-            row.append(graphic(id), element('span', boost.name + ' · ' + stored + '/5 loaded'), load, unload);
-            reserve.append(row);
-          }
-          body.append(reserve);
-        }
+          slot.addEventListener('contextmenu', event => { event.preventDefault(); assign(''); });
+          slot.addEventListener('dragover', event => event.preventDefault());
+          slot.addEventListener('drop', event => {
+            event.preventDefault();
+            const type = event.dataTransfer.getData('text/plain');
+            if (BOOSTS[type]) assign(type);
+          });
+          assigned.append(slot);
+        });
+        body.append(assigned, element('p', 'Drag a boost to a flight slot, or select a boost and tap a slot. Right-click a slot to clear it.', 'panel-note'));
         for (const id of sortItems(BOOSTS, boost => boost.repair ?? boost.duration)) {
           if (!profile.boosts[id]) continue;
-          card(id, BOOSTS[id].description, button('Use', () => {
-            game.useBoost(id); refresh();
-          }, { disabled: !game.canUseBoost(id) }), profile.boosts[id]);
+          card(id, BOOSTS[id].description, button('Use', () => { state.selectedItem = id; assigned.firstElementChild?.focus(); }), profile.boosts[id]);
         }
       } else if (tab === 'items') {
+        body.append(element('h3', 'Event', 'inventory-subsection'));
         for (const id of sortItems(AG.MATERIALS, () => 0)) {
           if (!profile.materials[id]) continue;
-          const action = id === 'alienSerum' && button(profile.serumUsed ? 'Mind control unlocked' : 'Apply to equipped Alien Ship', () => {
+          const action = id === 'alienSerum' && button(profile.serumUsed ? 'Mind control unlocked' : 'Use on equipped Alien Ship', () => {
             if (game.applySerum()) state.result = 'Mind control unlocked permanently.';
             refresh();
           }, { disabled: !base || !SHIPS[profile.ship].alien || profile.serumUsed });
@@ -508,7 +568,9 @@
           }
 
           const controls = element('div', '', 'crate-batch-controls');
-          if (game.testing) {
+          controls.append(button('Open 1', () => openBatch(1)),
+            button('Open 10', () => openBatch(10), { disabled: limit < 10 }));
+          if (game.testing || game.adminUnlocked) {
             const quantity = element('input');
             quantity.type = 'number';
             quantity.min = '1';
@@ -517,9 +579,6 @@
             quantity.value = '1';
             quantity.setAttribute('aria-label', CRATES[id].name + ' quantity');
             controls.append(quantity, button('Open', () => openBatch(quantity.valueAsNumber), { primary: true }));
-          } else {
-            controls.append(button('Open 1', () => openBatch(1)));
-            if (limit > 1) controls.append(button('Open ' + limit, () => openBatch(limit), { primary: true }));
           }
           card(id, crateOdds(CRATES[id]), controls, count);
         }
@@ -532,8 +591,7 @@
           scroll.append(tiles);
           shell.append(preview, scroll, details);
           body.append(shell);
-          const active = tileChoices.has(state.selectedItem) ? state.selectedItem : tileChoices.keys().next().value;
-          selectTile(active);
+          if (tileChoices.has(state.selectedItem) && state.showItemDetails) selectTile(state.selectedItem);
           const positions = state.inventoryScroll ??= {};
           scroll.scrollTop = positions[tab] ?? 0;
           scroll.addEventListener('scroll', () => { positions[tab] = scroll.scrollTop; });
@@ -545,18 +603,17 @@
         if (!cards.children.length) cards.append(element('p', 'No ships collected yet.', 'panel-note'));
         body.append(cards);
       }
-      const options = [button('Outfit ship', () => open('outfit'))];
-      if (base) options.push(button('Shop', () => open('shop')), button('Crafting', () => open('craft')));
+      
       if (!inventory && base) {
         const range = element('section', '', 'practice-range');
         range.append(element('h3', 'Practice range'), ...[['boss', 'Boss dummy'], ['moving', 'Moving target'], ['cluster', 'Grunt cluster']].map(([id, label]) => button(label, () => practice(id))));
         body.append(range);
       }
-      footer(...options);
+      footer();
     } else if (kind === 'craft') {
       renderCraft({ game, state, element, button, body, refresh });
-      footer(menuIcon(button('Recipes', () => open('recipes')), 'recipes'),
-        menuIcon(button('Inventory', () => open('inventory', { inventoryTab: 'items' })), 'inventory'));
+      body.append(menuIcon(button('Recipes', () => open('recipes')), 'recipes'));
+      footer();
     } else if (kind === 'recipes') {
       renderRecipes(body, element, profile.ship);
       footer();
@@ -587,13 +644,13 @@
           ' · ' + Number((spec.damage + effects.damage).toFixed(3)) + ' damage' +
           (effects.missile ? ' · ' + (effects.missile === 'homing' ? 'Heat-Seeking Missile' : 'Blast Missile') : '') +
           (effects.laser ? ' · Lightning Beacon' : '') + (effects.magnet ? ' · Loot Magnet' : '') +
-          (effects.boostRelay ? ' · Boost Relay' : '');
+          (effects.boostRelay ? ' · Auto Boost' : '');
       };
       preview.textContent = describe(current);
       const indicators = [];
       for (const [slot, [type, name]] of Object.entries(SLOTS)) {
         const mounted = crafts[slot];
-        const locked = type === 'Engine' && +slot.slice(-1) > SHIPS[ship].engines;
+        const locked = !AG.slotAvailable(spec, slot);
         const mount = button(name, () => {
           if (state.part) place(slot, state.part);
           else if (mounted) {
@@ -618,6 +675,9 @@
         mount.addEventListener('pointerenter', predict);
         mount.addEventListener('focus', predict);
         if (mounted) mount.append(graphic(mounted));
+        if (mounted === 'boostRelay') mount.addEventListener('contextmenu', event => {
+          event.preventDefault(); open('autoBoost', { ship });
+        });
         mount.append(element('small', locked ? 'Unavailable' :
           mounted ? ITEMS[mounted].name : 'Empty'));
         if (!locked) {
@@ -629,9 +689,8 @@
       for (const id of sortItems(UPGRADES, item => item.speed ?? item.damage ?? 0)) {
         if (!profile.upgrades[id]) continue;
         const part = UPGRADES[id];
-        const free = profile.upgrades[id] - Object.values(crafts).filter(value => value === id).length;
         const choose = button('', () => { state.part = state.part === id ? '' : id; state.selectedUpgrade = id; refresh(); });
-        choose.append(graphic(id), element('span', part.name + ' · ' + free + ' free'));
+        choose.append(graphic(id), element('span', part.name));
         choose.style.setProperty('--rarity', RARITIES[part.rarity]);
         choose.title = part.slot + ' · ' + part.description;
         choose.draggable = true;
@@ -641,28 +700,29 @@
           indicators.forEach(highlight => highlight());
           event.dataTransfer.setData('text/plain', id);
           event.dataTransfer.effectAllowed = 'copy';
+          event.dataTransfer.setDragImage(choose.firstElementChild.querySelector('img') ?? choose.firstElementChild, 15, 15);
         });
         parts.append(choose);
       }
       if (!parts.children.length) parts.append(element('p', 'Collect upgrades in flight or open an Upgrade Crate.', 'panel-note'));
-      if (base) {
-        const label = element('label', 'Ship to outfit ', 'outfit-select');
-        const select = element('select');
-        for (const id of profile.unlocked) {
-          const option = element('option', SHIPS[id].name);
-          option.value = id;
-          select.append(option);
-        }
-        select.value = ship;
-        select.addEventListener('change', () => { state.ship = select.value; refresh(); });
-        label.append(select);
-        body.append(label);
+      body.append(element('h3', spec.name));
+      if (Object.values(crafts).includes('boostRelay')) body.append(button('Configure Auto Boost', () => open('autoBoost', { ship })));
+      const presets = element('div', '', 'loadout-presets');
+      for (let i = 0; i < profile.presets.length; i++) {
+        const row = element('div');
+        row.append(element('strong', 'Preset ' + (i + 1)), button('Save', () => {
+          if (game.setPreset(i, ship, true)) { state.result = 'Preset saved.'; refresh(); }
+        }), button('Apply', () => {
+          if (game.setPreset(i, ship, false)) { state.result = 'Available parts fitted from preset.'; refresh(); }
+        }, { disabled: !profile.presets[i] }));
+        presets.append(row);
       }
       body.append(preview,
         element('p', 'Drag a part onto a matching mount, or select it and tap a mount. Select a fitted mount to remove the part.', 'panel-note'));
       layout.append(diagram, parts);
       body.append(layout);
-      footer(button('Inventory', () => open('inventory')));
+      body.append(presets);
+      footer();
     }
     if (state.result) {
       const feedback = element('p', state.result, 'admin-status');

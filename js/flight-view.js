@@ -364,6 +364,16 @@
         this.ship(685, 321 + drift, '#d5fa74', 2.8, game.profile.ship);
         return;
       }
+      for (const puff of run.smoke) {
+        ctx.save();
+        ctx.globalAlpha = .23 * puff.life / 2;
+        const haze = ctx.createRadialGradient(puff.x, puff.y, 2, puff.x, puff.y, puff.size);
+        haze.addColorStop(0, '#c9d8ac');
+        haze.addColorStop(.55, '#9da88d');
+        haze.addColorStop(1, '#79836d00');
+        disc(ctx, puff.x, puff.y, puff.size, haze);
+        ctx.restore();
+      }
       for (const shot of run.shots) {
         ctx.fillStyle = '#cafa90';
         ctx.fillRect(shot.x - 2, shot.y - 10, 4, 19);
@@ -438,13 +448,23 @@
         ctx.arc(player.x, player.y, 29, 0, Math.PI * 2);
         ctx.stroke();
       }
-      if (run.aegisFlash > 0) {
+      if (run.aegisShield > 0) {
         ctx.save();
-        ctx.globalAlpha = run.aegisFlash / .46;
-        ctx.strokeStyle = '#ccb2ff';
-        ctx.lineWidth = 4;
+        const strength = run.aegisShield / 15;
+        const glow = ctx.createLinearGradient(player.x - 32, player.y - 30, player.x + 32, player.y + 30);
+        glow.addColorStop(0, '#9d66ff');
+        glow.addColorStop(.5, '#e6c6ff');
+        glow.addColorStop(1, '#7a57e7');
+        ctx.globalAlpha = .26 + .57 * strength;
+        ctx.strokeStyle = glow;
+        ctx.lineWidth = 2 + strength * 2;
         ctx.beginPath();
-        ctx.arc(player.x, player.y, 32 + (1 - run.aegisFlash / .46) * 20, 0, Math.PI * 2);
+        ctx.arc(player.x, player.y, 32, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha *= .53;
+        ctx.beginPath();
+        const phase = this.time * 1.6;
+        ctx.arc(player.x, player.y, 34, phase, phase + .9);
         ctx.stroke();
         ctx.restore();
       }

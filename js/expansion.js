@@ -6,12 +6,12 @@
   const EVENT_END = Date.parse('2026-12-01T00:00:00+11:00');
   const EXCHANGE_RATE = 250;
   const MATERIALS = {
-    alienCell: { name: 'Alien Cell', rarity: 'rare', description: 'An outer ingredient in both Alien recipes.' },
+    alienCell: { name: 'Alien Cell', rarity: 'rare', description: 'Used in both Alien recipes.' },
     alienMind: { name: 'Alien Mind', rarity: 'legendary', description: 'Crafted with Alien Serum and eight Alien Cells. Place below the donor ship to craft an Alien Ship.' },
     alienSerum: { name: 'Alien Serum', rarity: 'godly', description: 'Use to craft an Alien Mind or apply to an equipped Alien Ship to unlock mind control permanently.' }
   };
   const RECIPES = {
-    ship: { name: 'Alien Ship', pattern: ['alienCell', 'alienCell', 'alienCell', 'alienCell', 'donor', 'alienCell', 'alienCell', 'alienMind', 'alienCell'] },
+    ship: { name: 'Alien Ship', pattern: ['alienCell', 'alienSerum', 'alienCell', 'alienCell', 'donor', 'alienCell', 'alienCell', 'alienMind', 'alienCell'] },
     mind: { name: 'Alien Mind', pattern: ['alienCell', 'alienCell', 'alienCell', 'alienCell', 'alienSerum', 'alienCell', 'alienCell', 'alienCell', 'alienCell'] }
   };
   const BASE_SHIPS = { ...SHIPS };
@@ -37,6 +37,7 @@
   "rocket": "Transport/Rocket/Rocket 256.png",
   "seeker": "UI/Crosshair/Crosshair 256.png",
   "beacon": "General/Lightning Bolt/Lightning Bolt 256.png",
+  "smokeBomb": "Nature/Cloud/Cloud 256.png",
   "magnet": "Tools/Magnet/Magnet 256.png",
   "boostRelay": "Clothing/Backpack/Backpack Blue 256.png",
   "alienCell": "Nature/DNA/DNA 256.png",
@@ -47,7 +48,7 @@
     ITEMS[id].glyph ??= '◆';
   }
   const clone = value => JSON.parse(JSON.stringify(value));
-  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'mindCooldown', 'stats', 'drops', 'boostRelayOn'];
+  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostRelayOn'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
   const mainBoss = wave => wave >= 10 && wave % 10 === 0 ? Object.keys(BOSSES)[Math.min(wave / 10 - 1, 4)] : null;
 
@@ -73,8 +74,8 @@
     const damage = Number((donor.damage * 1.1).toFixed(3));
     return { name, hull, damage, speed: donor.speed * 1.1, delay: donor.delay / 1.1,
       engines: donor.engines, frame: donor.frame, color: '#8ae86c', rarity: 'mythical', alien: true,
-      donor: donor.name, donorDamage: donor.donorDamage ?? donor.damage,
-      description: 'Donor · ' + donor.name + ' · ' + hull + ' hull · ' + damage + ' damage · ' + donor.engines + ' engine mounts' };
+      donor: donor.name, donorRarity: donor.donorRarity ?? donor.rarity, donorDamage: donor.donorDamage ?? donor.damage,
+      description: 'Donor · ' + donor.name + ' · ' + hull + ' hull · ' + damage + ' damage · ' + donor.engines + (donor.engines === 1 ? ' engine' : ' engines') };
   }
 
   Object.assign(Game.prototype, {
@@ -123,7 +124,7 @@
       const donor = grid[4];
       const items = this.profile.materials;
       if (items.alienSerum > 0 && items.alienCell >= 8 && RECIPES.mind.pattern.every((id, index) => grid[index] === id)) return 'mind';
-      if (this.shipCount(donor) && items.alienMind > 0 && items.alienCell >= 7 &&
+      if (this.shipCount(donor) && items.alienMind > 0 && items.alienSerum > 0 && items.alienCell >= 6 &&
           RECIPES.ship.pattern.every((id, index) => grid[index] === (id === 'donor' ? donor : id))) return 'ship';
       return '';
     },
@@ -150,7 +151,8 @@
       }
       const id = this.addAlien(SHIPS[donor]);
       profile.materials.alienMind--;
-      profile.materials.alienCell -= 7;
+      profile.materials.alienSerum--;
+      profile.materials.alienCell -= 6;
       const copies = this.shipCount(donor);
       if (copies > 1) {
         profile.copies[donor] = copies - 1;

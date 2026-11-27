@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A browser-based alien shooter with 50 escalating waves, Mothership bosses, pilot upgrades and unlockable ships.">
   <title>Alien Shooter</title>
-  <link rel="stylesheet" href="css/style.css?v=boost-relay">
-  <script defer src="js/data.js?v=boost-relay"></script>
-  <script defer src="js/game.js?v=boost-relay"></script>
-  <script defer src="js/expansion.js?v=boost-relay"></script>
-  <script defer src="js/flight-view.js?v=boost-relay"></script>
-  <script defer src="js/admin.js?v=boost-relay"></script>
-  <script defer src="js/armory.js?v=boost-relay"></script>
-  <script defer src="js/main.js?v=boost-relay"></script>
+  <link rel="stylesheet" href="css/style.css?v=ship-loadout">
+  <script defer src="js/data.js?v=ship-loadout"></script>
+  <script defer src="js/game.js?v=ship-loadout"></script>
+  <script defer src="js/expansion.js?v=ship-loadout"></script>
+  <script defer src="js/flight-view.js?v=ship-loadout"></script>
+  <script defer src="js/admin.js?v=ship-loadout"></script>
+  <script defer src="js/armory.js?v=ship-loadout"></script>
+  <script defer src="js/main.js?v=ship-loadout"></script>
 </head>
 <body>
   <main class="console">
@@ -24,11 +24,18 @@
         <button id="sound" class="quiet" type="button" aria-pressed="false">Sound off</button>
       </div>
     </header>
+    <button id="merchant-open" class="merchant-teaser" type="button" aria-label="Visit Merchant"><img class="menu-icon" src="new-icons/vector-icon-pack/General/Shopping%20Basket/Shopping%20Basket%20Green%20256.png" alt=""><span>Visit Merchant</span></button>
+    <div id="flight-layout" class="flight-layout">
     <section class="stage" aria-label="Flight deck">
       <canvas id="sky" width="900" height="600" aria-label="Alien Shooter playfield"></canvas>
+      <div id="combat-rim" class="combat-rim" hidden aria-hidden="true"></div>
+      <div id="wave-actions" class="wave-actions" hidden>
+        <button id="skip" type="button" aria-label="Skip wave" title="Skip wave"><span aria-hidden="true">⏩︎</span></button>
+        <button id="auto" type="button" aria-label="Auto Skip" aria-pressed="false"><span aria-hidden="true">⟳</span></button>
+      </div>
       <div id="hud" class="hud" hidden>
         <div><span class="label">WAVE</span><strong id="wave"></strong></div>
-        <div><span class="label">HULL <span id="hull-value"></span></span><progress id="hull" aria-label="Hull" max="100"></progress></div>
+        <div><span class="label">HEALTH <span id="hull-value"></span></span><progress id="hull" aria-label="Health" max="100"></progress></div>
         <div><span class="label">PILOT <span id="level"></span></span><progress id="xp" aria-label="Pilot experience" max="100"></progress></div>
         <div id="energy-hud" class="energy"><span class="label">ENERGY <span id="energy-value">0%</span></span><progress id="energy" aria-label="Laser energy" max="100"></progress></div>
         <div><span class="label">SCORE</span><strong id="score"></strong></div>
@@ -46,19 +53,18 @@
       <div id="wave-message" class="wave-message" hidden></div>
       <div id="overlay" class="overlay">
         <section id="home" class="screen home" aria-labelledby="title">
-          <aside class="event-banner"><strong>Alien Event</strong><span id="event-time"></span></aside>
+          <aside class="event-banner"><strong><img class="menu-icon" src="new-icons/vector-icon-pack/Transport/UFO/UFO%20256.png" alt="">Alien Event</strong><span id="event-time"></span></aside>
           <h1 id="title">ALIEN<br><em>SHOOTER</em></h1>
           <div class="launch-options">
-            <label>Mode <select id="mode"><option value="easy">Easy · 20 waves</option><option value="medium">Medium · 30 waves</option><option value="hard">Hard · 50 waves</option><option value="endless">Endless</option></select></label>
             <button id="continue" class="primary" hidden>Continue run</button>
-            <button id="launch" class="primary">Launch run <span aria-hidden="true">↗</span></button>
+            <button id="launch" class="primary">Launch <span aria-hidden="true">↗</span></button>
           </div>
           <div class="home-actions">
-            <button id="outfit-open"><img class="menu-icon" src="new-icons/vector-icon-pack/Tools/Wrench/Wrench%20256.png" alt="">Outfitting</button>
-            <button id="craft-open"><img class="menu-icon" src="new-icons/vector-icon-pack/Tools/Hammer/Hammer%20256.png" alt="">Crafting</button>
             <button id="hangar-open"><img class="menu-icon" src="new-icons/vector-icon-pack/Transport/Rocket/Rocket%20256.png" alt="">Hangar</button>
-            <button id="shop-open"><img class="menu-icon" src="new-icons/vector-icon-pack/General/Shopping%20Basket/Shopping%20Basket%20Green%20256.png" alt="">Shop</button>
             <button id="inventory-home"><img class="menu-icon" src="new-icons/vector-icon-pack/Clothing/Backpack/Backpack%20256.png" alt="">Inventory</button>
+            <button id="craft-open"><img class="menu-icon" src="new-icons/vector-icon-pack/Tools/Hammer/Hammer%20256.png" alt="">Crafting</button>
+            <button id="shop-open"><img class="menu-icon" src="new-icons/vector-icon-pack/General/Shopping%20Basket/Shopping%20Basket%20Green%20256.png" alt="">Shop</button>
+            <button id="outfit-open"><img class="menu-icon" src="new-icons/vector-icon-pack/Tools/Wrench/Wrench%20256.png" alt="">Ship Loadout</button>
             <button id="help"><img class="menu-icon" src="new-icons/vector-icon-pack/UI/Question%20Mark/Question%20Mark%20256.png" alt="">How to play</button>
           </div>
           <p id="record" class="record" hidden></p>
@@ -70,24 +76,26 @@
         </section>
       </div>
     </section>
+      <aside id="boost-dock" class="boost-dock" aria-label="Flight boosts" hidden>
+        <button id="flight-boost-0" type="button" aria-label="Boost slot 1"></button>
+        <button id="flight-boost-1" type="button" aria-label="Boost slot 2"></button>
+        <button id="flight-boost-2" type="button" aria-label="Boost slot 3"></button>
+        <button id="relay-toggle" type="button" aria-label="Auto Boost" aria-pressed="false" hidden>Auto</button>
+      </aside>
+    </div>
     <section id="controls" class="controls" aria-label="Flight controls" hidden>
       <div class="completion"><span class="label">WAVE PROGRESS <b id="completion-value"></b></span><progress id="completion" aria-label="Wave completion" max="100"></progress></div>
-      <button id="skip">Skip wave</button>
-      <button id="auto" type="button" aria-label="Auto Skip" aria-pressed="false">Auto Skip · <span id="auto-state">Off</span></button>
       <button id="supplies"><img id="supply-icon" alt=""><span id="supply-label">Supplies · Lv 5</span></button>
       <label id="target-control" class="target-control" hidden>Target <select id="target-mode" aria-label="Missile targeting">
         <option value="nearest">Closest to ship</option><option value="bottom">Closest to bottom</option>
         <option value="strongest">Strongest</option><option value="weakest">Weakest</option>
       </select></label>
-      <button id="relay-toggle" type="button" aria-pressed="false" hidden>Auto boosts · Off</button>
       <button id="laser-toggle" type="button" aria-pressed="false" hidden>Laser</button>
       <div id="alien-actions" class="flight-actions" hidden>
         <button id="tendril-extend" type="button">Extend tendril</button>
         <button id="tendril-retract" type="button">Retract tendril</button>
         <button id="mind-toggle" type="button" aria-pressed="false" hidden>Mind control</button>
       </div>
-      <div class="flight-actions"><button id="boost-favorite-0" hidden></button><button id="boost-favorite-1" hidden></button></div>
-      <button id="inventory"><img class="menu-icon" src="new-icons/vector-icon-pack/Clothing/Backpack/Backpack%20256.png" alt="">Inventory</button>
       <button id="pause">Pause</button>
     </section>
   </main>

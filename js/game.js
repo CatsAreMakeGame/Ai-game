@@ -39,7 +39,7 @@
     get waveLabel() {
       const wave = this.run.wave;
       const limit = this.testing ? (wave === MAX_WAVE ? MAX_WAVE : LAST_WAVE) :
-        this.run.mode === 'endless' ? Math.max(LAST_WAVE, wave) : this.waveLimit;
+        this.run.mode === 'endless' ? '∞' : this.waveLimit;
       return wave.toLocaleString() + ' / ' + limit.toLocaleString();
     }
 
@@ -97,8 +97,8 @@
       const ship = SHIPS[shipId];
       this.releaseInput();
       this.run = {
-        wave: 0, level: 1, xp: 0, score: 0, boosts: {}, boostRelayOn: false, ship, shipId, mode, mindCooldown: 0, alienTick: 0, tendrils: [],
-        stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisFlash: 0,
+        wave: 0, level: 1, xp: 0, score: 0, boosts: {}, boostRelayOn: true, ship, shipId, mode, mindCooldown: 0, alienTick: 0, tendrils: [],
+        stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisShield: 0, smoke: [], smokeIn: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
         missiles: [], missileIn: 0, targetMode: 'nearest', energy: 0,
@@ -235,13 +235,12 @@
     shotDamage() {
       const run = this.run;
       if (this.testing && run.testDamage != null) return run.testDamage;
-      const waveBonus = run.practice ? 0 : Math.floor((Math.min(run.wave, 50) - 1) / 7);
       return Math.min(Number.MAX_SAFE_INTEGER,
-        (run.ship.damage + waveBonus + this.upgradeEffects().damage) * 2 ** this.boostCount('doubleDamage'));
+        (run.ship.damage + this.upgradeEffects().damage) * 2 ** this.boostCount('doubleDamage'));
     }
 
     upgradeEffects(ship = this.run?.shipId ?? this.profile.ship, mounts = this.profile.loadouts[ship] ?? {}) {
-      const effects = { speed: 1, damage: 0, vertical: false, vectors: 0, missile: null, laser: false, magnet: false, boostRelay: false };
+      const effects = { speed: 1, damage: 0, vertical: false, vectors: 0, missile: null, laser: false, magnet: false, boostRelay: false, smoke: 0 };
       for (const id of Object.values(mounts)) {
         const upgrade = UPGRADES[id];
         effects.speed += upgrade.speed ?? 0;
@@ -252,13 +251,14 @@
         effects.laser ||= Boolean(upgrade.laser);
         effects.magnet ||= Boolean(upgrade.magnet);
         effects.boostRelay ||= Boolean(upgrade.boostRelay);
+        effects.smoke += Number(Boolean(upgrade.smoke));
       }
       return effects;
     }
 
     mountUpgrade(ship, slot, type) {
       if (!this.profile.unlocked.includes(ship) || !Object.hasOwn(SLOTS, slot)) return false;
-      if (slot.startsWith('engine') && +slot.slice(-1) > SHIPS[ship].engines) return false;
+      if (!AG.slotAvailable(SHIPS[ship], slot) || !this.canVisitBase()) return false;
       const mounts = this.profile.loadouts[ship] ??= {};
       if (type) {
         if (UPGRADES[type]?.slot !== SLOTS[slot][0] || !this.profile.upgrades[type]) return false;
@@ -267,9 +267,6 @@
         mounts[slot] = type;
       } else {
         delete mounts[slot];
-      }
-      if (this.run && !this.canVisitBase() && ship === this.run.shipId && !this.upgradeEffects().vertical) {
-        this.run.player.y = FLIGHT_LANE;
       }
       this.save();
       return true;
@@ -308,6 +305,54 @@
       this.save();
       this.notify('loot', { type, amount });
       return true;
+    }
+
+    buyMerchant(id) {
+      const price = AG.MERCHANT[id];
+      if (!this.canVisitBase() || !Number.isInteger(price) || this.credits < price ||
+          !Number.isSafeInteger(this.itemCount(id) + 1)) return false;
+      this.profile.credits -= price;
+      return this.grantItem(id);
+    }
+
+    setPreset(index, ship, save) {
+      if (!this.canVisitBase() || !this.shipCount(ship) || ![0, 1, 2].includes(index)) return false;
+      if (save) this.profile.presets[index] = { ...this.profile.loadouts[ship] };
+      else {
+        const preset = this.profile.presets[index];
+        if (!preset) return false;
+        this.profile.loadouts[ship] = AG.fitLoadout(SHIPS[ship], preset, this.profile.upgrades);
+      }
+      this.save();
+      return true;
+    }
+
+    boostSlotOpen(index) {
+      return index === 0 || index === 1 && this.run?.level >= 5 || index === 2 && this.run?.level >= 10;
+    }
+
+    updateSmoke(dt, lastX, lastY) {
+      const run = this.run;
+      const count = this.upgradeEffects().smoke;
+      for (const puff of run.smoke) puff.life -= dt;
+      run.smoke = run.smoke.filter(puff => puff.life > 0);
+      run.smokeIn -= dt;
+      if (count && run.smokeIn <= 0) {
+        const { x, y } = run.player;
+        const movement = Math.hypot(x - lastX, y - lastY);
+        const back = movement > 0 ? 16 / movement : 0;
+        run.smoke.push({ x: x + (lastX - x) * back, y: movement > 0 ? y + (lastY - y) * back : y + 14,
+          life: 2, size: 37 });
+        run.smokeIn = .1;
+      }
+      for (let i = run.enemies.length - 1; i >= 0; i--) {
+        const enemy = run.enemies[i];
+        if (enemy.allied || !run.smoke.some(puff => touches(enemy, puff))) continue;
+        enemy.smokeExposure = (enemy.smokeExposure ?? 0) + dt;
+        if (enemy.smokeExposure + 1e-8 < 1) continue;
+        enemy.smokeExposure -= 1;
+        this.hitEnemy(i, count || 1, 'smoke');
+      }
     }
 
     adjustBoostReserve(type, amount) {
@@ -378,7 +423,7 @@
     }
 
     crateBatchLimit() {
-      return this.testing ? 10000 : 10;
+      return this.testing || this.adminUnlocked ? 10000 : 10;
     }
 
     openCrates(type, count) {
@@ -520,8 +565,9 @@
       if (!['playing', 'intermission'].includes(this.state)) return;
       const run = this.run;
       run.aegisCooldown = Math.max(0, run.aegisCooldown - dt);
-      run.aegisFlash = Math.max(0, run.aegisFlash - dt);
+      const { x, y } = run.player;
       this.movePlayer(dt);
+      this.updateSmoke(dt, x, y);
       if (this.state === 'intermission') {
         this.updatePlayerShots(dt);
         this.updateMissiles(dt);
@@ -849,12 +895,21 @@
     hurt(damage, source = 'Enemy fire') {
       const { player, boosts } = this.run;
       if ((this.testing && this.run.godMode) || player.invulnerable > 0 || boosts.shield || boosts.fortress) return;
-      const ability = this.run.ship.ability;
-      if (ability && damage > 0 && this.run.aegisCooldown === 0) {
-        damage = Math.max(1, Math.round(damage * (1 - ability.reduction)));
-        this.run.aegisCooldown = ability.interval;
-        this.run.aegisFlash = .46;
-        this.notify('upgrade', ability.name + ' absorbed the hit');
+      const run = this.run;
+      const ability = run.ship.ability;
+      if (ability && damage > 0 && !run.aegisShield && run.aegisCooldown === 0) {
+        run.aegisShield = ability.capacity;
+        this.notify('upgrade', ability.name + ' active');
+      }
+      if (run.aegisShield > 0) {
+        const absorbed = Math.min(damage, run.aegisShield);
+        run.aegisShield -= absorbed;
+        damage -= absorbed;
+        if (run.aegisShield === 0) run.aegisCooldown = ability.interval;
+      }
+      if (!damage) {
+        player.invulnerable = .78;
+        return;
       }
       player.hp = Math.max(0, player.hp - damage);
       this.run.stats.lastHit = source;

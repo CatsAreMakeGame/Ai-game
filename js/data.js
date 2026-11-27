@@ -30,11 +30,11 @@ window.AG = (() => {
   const SHIPS = Object.fromEntries(Object.entries(shipRows).map(([id, row]) => {
     const [name, hull, speed, delay, damage, engines, frame, color, rarity, price] = row;
     return [id, { name, hull, speed, delay, damage, engines, frame, color, rarity, price,
-      description: hull + ' hull · ' + speed + ' speed · ' + damage + ' damage · ' + engines + ' engine mounts' }];
+      description: hull + ' hull · ' + speed + ' speed · ' + damage + ' damage · ' + engines + (engines === 1 ? ' engine' : ' engines') }];
   }));
   Object.assign(SHIPS.supernova, {
     gemPrice: 100,
-    ability: { name: 'Nova Aegis', interval: 24, reduction: .65 }
+    ability: { name: 'Nova Aegis', interval: 24, capacity: 15 }
   });
   const BOSSES = {
     boss: { name: 'Mothership', hp: 95, size: 49, color: '#ff7894', score: 600, tier: 0, shots: 5, spread: .18, cadence: 2.2 },
@@ -88,12 +88,14 @@ window.AG = (() => {
       description: 'Launches toward a target’s current position. Its blast can hit several enemies.' },
     seeker: { name: 'Heat-Seeking Missile', slot: 'Weapon', rarity: 'legendary', chance: .004, glyph: '➶', missile: 'homing',
       description: 'Steers after its target and can retarget if the original enemy is destroyed.' },
+    smokeBomb: { name: 'Smoke Bomb', slot: 'Engine', rarity: 'rare', glyph: '☁', smoke: true, chance: .018,
+      description: 'Leaves a two-second smoke trail that deals 1 damage per second to enemies inside it.' },
     beacon: { name: 'Lightning Beacon', slot: 'Special', rarity: 'godly', glyph: '⚡', laser: true,
       description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold the Lightning Beacon key. Each pulse costs 3% and deals double shot damage.' },
-    magnet: { name: 'Loot Magnet', slot: 'Collector', rarity: 'legendary', glyph: '∪', magnet: true, chance: .006,
+    magnet: { name: 'Loot Magnet', slot: 'Ability', rarity: 'legendary', glyph: '∪', magnet: true, chance: .006,
       description: 'Instantly collects enemy loot anywhere on the field, including Credits, Star Gems and items.' },
-    boostRelay: { name: 'Boost Relay', slot: 'Boost Relay', rarity: 'epic', glyph: '▣', boostRelay: true, chance: .009,
-      description: 'Holds up to five copies each of five boost types. Load it in Inventory → Boosts and toggle automatic use during flight.' }
+    boostRelay: { name: 'Auto Boost', slot: 'Ability', rarity: 'epic', glyph: '▣', boostRelay: true, chance: .009,
+      description: 'Holds up to five copies each of five boost types. Right-click its equipped slot in Ship Loadout to configure it.' }
   };
   const CRATES = {
     shipCrate: { name: 'Spaceship Crate', rarity: 'epic', glyph: '▣', price: 3, outcomes: [
@@ -101,7 +103,7 @@ window.AG = (() => {
       { rarity: 'mythical', weight: 5, items: ['singularity'] }
     ] },
     upgradeCrate: { name: 'Upgrade Crate', rarity: 'rare', glyph: '▧', price: 2, outcomes: [
-      { rarity: 'rare', weight: 56, items: ['booster', 'wings', 'cannon', 'rocket'] },
+      { rarity: 'rare', weight: 56, items: ['booster', 'wings', 'cannon', 'rocket', 'smokeBomb'] },
       { rarity: 'epic', weight: 30, items: ['rail', 'fusion', 'carbon', 'boostRelay'] },
       { rarity: 'legendary', weight: 12, items: ['vector', 'seeker', 'magnet'] }, { rarity: 'mythical', weight: 1.5, items: ['nova'] },
       { rarity: 'godly', weight: .5, items: ['beacon'] }
@@ -114,9 +116,32 @@ window.AG = (() => {
   const ITEMS = { ...SHIPS, ...UPGRADES, ...BOOSTS, ...CRATES, ...CURRENCIES };
   const SLOTS = {
     leftWing: ['Wings', 'Left wing'], rightWing: ['Wings', 'Right wing'],
-    engine1: ['Engine', 'Engine 1'], engine2: ['Engine', 'Engine 2'], engine3: ['Engine', 'Engine 3'],
-    nose: ['Weapon', 'Nose'], special: ['Special', 'Special ability'], collector: ['Collector', 'Collector'], relay: ['Boost Relay', 'Boost Relay']
+    engine1: ['Engine', 'Centre engine'], engine2: ['Engine', 'Left engine'], engine3: ['Engine', 'Right engine'],
+    nose: ['Weapon', 'Nose'], special: ['Special', 'Ultimate ability'], ability1: ['Ability', 'Ability 1'], ability2: ['Ability', 'Ability 2'], ability3: ['Ability', 'Ability 3']
   };
+  function slotAvailable(ship, slot) {
+    if (!Object.hasOwn(SLOTS, slot)) return false;
+    if (!slot.startsWith('engine')) return true;
+    return ship.engines === 3 || (ship.engines === 1 ? slot === 'engine1' : slot !== 'engine1');
+  }
+
+  function fitLoadout(ship, entries, upgrades) {
+    const mounts = {};
+    const used = {};
+    const ordered = Object.entries(entries).sort(([a], [b]) => Number(slotAvailable(ship, b)) - Number(slotAvailable(ship, a)));
+    for (const [slot, id] of ordered) {
+      if (!upgrades[id] || used[id] >= upgrades[id] || SLOTS[slot]?.[0] !== UPGRADES[id]?.slot) continue;
+      const fits = key => SLOTS[key][0] === SLOTS[slot][0] && slotAvailable(ship, key) && !mounts[key];
+      const target = fits(slot) ? slot : Object.keys(SLOTS).find(fits);
+      if (!target) continue;
+      mounts[target] = id;
+      used[id] = (used[id] ?? 0) + 1;
+    }
+    return mounts;
+  }
+
+  const SHIP_ORDER = ['supernova', 'singularity', 'leviathan', 'eclipse', 'solaris', 'aurora', 'tempest', 'bastion', 'comet', 'wraith', 'falcon', 'scout'];
+  const MERCHANT = { boostRelay: 1600, vector: 2400, magnet: 2000, seeker: 2200 };
   const TARGET_MODES = { nearest: 'Closest to ship', bottom: 'Closest to bottom', strongest: 'Strongest', weakest: 'Weakest' };
   const SUPPLIES = {
     heal: { name: 'Hull repair', description: 'Restores up to 25 hull.', price: 150 },
@@ -157,15 +182,12 @@ window.AG = (() => {
     const loadouts = {};
     for (const ship of unlocked) {
       const mounts = {};
-      const used = {};
       for (const [slot, id] of Object.entries(saved?.loadouts?.[ship] ?? {})) {
-        if (SLOTS[slot]?.[0] !== UPGRADES[id]?.slot || !upgrades[id]) continue;
-        if (slot.startsWith('engine') && +slot.slice(-1) > catalog[ship].engines) continue;
-        if ((used[id] ?? 0) >= upgrades[id]) continue;
-        mounts[slot] = id;
-        used[id] = (used[id] ?? 0) + 1;
+        const key = slot === 'collector' ? 'ability1' : slot === 'relay' ? 'ability2' :
+          !saved?.layoutVersion && catalog[ship].engines === 2 && slot.startsWith('engine') ? 'engine' + (+slot.slice(-1) + 1) : slot;
+        mounts[key] = id;
       }
-      loadouts[ship] = mounts;
+      loadouts[ship] = fitLoadout(catalog[ship], mounts, upgrades);
     }
     const materials = counts('materials', window.AG?.MATERIALS ?? {});
     const canonicalMaterial = id => id === 'alienBrain' ? 'alienMind' : id === 'craftingSerum' ? 'alienSerum' : id;
@@ -194,7 +216,17 @@ window.AG = (() => {
       copies: counts('copies', catalog), flagshipPurchases: Math.max(0, readNumber('flagshipPurchases') || Number(unlocked.includes('supernova'))),
       flagshipTime: readNumber('flagshipTime'), serumUsed: saved?.serumUsed === true,
       bounties: (Array.isArray(saved?.bounties) ? saved.bounties : []).filter(id => Object.hasOwn(BOSSES, id)),
-      favoriteBoosts: Array.from({ length: 2 }, (_, i) => Object.hasOwn(BOOSTS, saved?.favoriteBoosts?.[i]) ? saved.favoriteBoosts[i] : ''),
+      boostSlots: Array.from({ length: 3 }, (_, i) => {
+        const id = (saved?.boostSlots ?? saved?.favoriteBoosts)?.[i];
+        return Object.hasOwn(BOOSTS, id) ? id : '';
+      }),
+      boostSide: saved?.boostSide === 'left' ? 'left' : 'right',
+      layoutVersion: 1,
+      presets: Array.from({ length: 3 }, (_, i) => {
+        const entry = saved?.presets?.[i];
+        return entry && typeof entry === 'object' ? Object.fromEntries(Object.entries(entry)
+          .filter(([key, id]) => Object.hasOwn(SLOTS, key) && Object.hasOwn(UPGRADES, id))) : null;
+      }),
       bindings, boostReserve: reserve,
       mode: Object.hasOwn(window.AG?.MODES ?? {}, saved?.mode) ? saved.mode : 'hard',
       checkpoint, modeRecords: saved?.modeRecords ?? {},
@@ -206,6 +238,6 @@ window.AG = (() => {
     };
   }
 
-  return { WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();
