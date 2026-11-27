@@ -15,8 +15,8 @@ A browser-based shooter with four flight modes, returning boss fleets, unlockabl
 - Easy ends at wave 20, Medium at 30, Hard at 50, and Endless continues after the wave-50 boss. Continue resumes from the last cleared wave in the same browser.
 - The Alien Event ends at midnight at the start of 1 December 2026 in Melbourne. Afterward, repeatable boss bounties supply Alien Cells, Alien Minds and Alien Serum for permanent recipes.
 - Craft an Alien Ship with an owned ship in the centre, Alien Serum above it, an Alien Mind below it, and six Alien Cells in the other slots. Craft an Alien Mind with Alien Serum in the centre and eight Alien Cells around it.
-- All ships recover 0.5 energy per second and gain 1 per enemy destroyed. Alien Ships extend and retract wall-anchored tendrils with **E** and **Q**. Extending costs 30 energy, and each anchor draws 1 per second. Captured enemies are held for four seconds and award 1 energy after two seconds. The Lightning Beacon uses **F** or right-click. Change the keys in Settings. Select Alien Serum under Inventory → Items → Event and choose **Use on equipped Alien Ship** to unlock mind control permanently.
-- Supernova is sold for Star Gems in Shop → Spaceships. It can be purchased again after an hour, at double the previous price.
+- All ships recover 0.5 energy per second and gain 1 per enemy destroyed until full. An eligible ship enters Overdrive automatically at full energy. It drains 1% of capacity every quarter second and suspends energy gain until it ends. Alien variants inherit the original ship’s energy capacity. Alien Ships extend and retract wall-anchored tendrils with **E** and **Q**. Extending costs 30 energy, and each anchor draws 1 per second. Captured enemies are held for four seconds and award 1 energy after two seconds. The Lightning Beacon uses **F** or right-click. Change the keys in Settings. Select Alien Serum under Inventory → Items → Event and choose **Use on equipped Alien Ship** to unlock mind control permanently.
+- Supernova is sold for Star Gems in Shop → Premium Shop. It can be purchased again after an hour, at double the previous price.
 
 ## Loot crates
 

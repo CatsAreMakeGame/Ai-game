@@ -533,3 +533,19 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 @media (prefers-reduced-motion: reduce) { #merchant-open { transition: none; } }
 
 @media (max-width: 620px) { .brand .mark { display: grid; width: 21px; height: 21px; margin-right: 3px; flex: 0 0 21px; } }
+
+.hud > .health-hud { flex: 0 1 clamp(92px, 19%, 178px); }
+.health-meter { display: grid; min-width: 0; position: relative; width: 100%; }
+.health-meter progress { height: 18px; background: #251e29; border: 1px solid #3f6553; border-radius: 4px; }
+.health-meter progress::-webkit-progress-bar { background: #251e29; }
+.health-meter #hull::-webkit-progress-value { background: #48c874; border-radius: 3px; }
+.health-meter #hull::-moz-progress-bar { background: #48c874; border-radius: 3px; }
+.health-meter #hull-value { position: absolute; inset: 0; display: grid; place-content: center; color: #fff;
+  font-size: .72rem; text-shadow: 0 1px 3px #071017, 0 0 3px #071017; line-height: 1; }
+.mind-countdown { display: grid; align-content: center; padding: 3px 8px; color: #d2ffad; font-size: .78rem; }
+#overdrive-toggle[aria-pressed=true] { color: #cbffa2; border-color: #aae968; box-shadow: 0 0 7px #a6f17450; }
+@media (max-width: 620px) {
+  .hud > .health-hud { flex: 0 1 clamp(54px, 25%, 100px); }
+  .health-meter progress { height: 14px; }
+  .health-meter #hull-value { font-size: .57rem; }
+}

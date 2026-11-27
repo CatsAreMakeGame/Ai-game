@@ -111,7 +111,7 @@
         stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisShield: 0, smoke: [], smokeIn: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
-        missiles: [], missileIn: 0, targetMode: 'nearest', energy: 0, energyCap: AG.energyCapacity(ship),
+        missiles: [], missileIn: 0, targetMode: 'nearest', energy: 0, energyCap: AG.energyCapacity(ship), energyOverdrive: false, overdriveTick: 0, overdriveSuppressed: false,
         laser: { held: false, toggled: false, tick: 0, aim: null }
       };
       this.beginWave(1);
@@ -601,7 +601,7 @@
       player.invulnerable -= dt;
       if (this.laserActive()) return;
       const effects = this.upgradeEffects();
-      const speed = this.run.ship.speed * effects.speed * (1 + .4 * this.boostCount('overdrive'));
+      const speed = this.run.ship.speed * effects.speed * (1 + .4 * this.overdriveStacks());
       const vertical = effects.vertical;
       const verticalBoost = 1 + Math.max(0, effects.vectors - 1) * .2;
       let x = 0;
@@ -664,7 +664,7 @@
         const damage = this.shotDamage();
         run.shots.push({ x: player.x, y: player.y - 20, vx: 0, vy: -720, size: 5, damage, color: ship.color });
         player.fireIn = Math.max(.055,
-          ship.delay * .52 ** this.boostCount('rapidFire') * .68 ** this.boostCount('overdrive'));
+          ship.delay * .52 ** this.boostCount('rapidFire') * .68 ** this.overdriveStacks());
         this.notify('fire');
       }
 
@@ -1001,7 +1001,7 @@
       this.rewardAlien(enemy);
       const score = ENEMIES[enemy.type].score;
       run.score += score;
-      run.energy = Math.min(run.energyCap, run.energy + 1);
+      this.gainEnergy(1);
       this.notify('destroy', enemy);
       this.dropItem('credit', enemy.x, enemy.y, boss ? 95 + boss.tier * 25 : Math.max(4, Math.ceil(score / 3)));
       if (boss) this.dropItem('gem', enemy.x + 12, enemy.y, 1);

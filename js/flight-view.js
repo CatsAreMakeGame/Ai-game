@@ -366,7 +366,11 @@
         disc(ctx, puff.x, puff.y, puff.size, haze);
         ctx.restore();
       }
-      for (const shots of [run.shots, run.hostile, run.allyShots]) {
+      for (const shot of run.hostile) {
+        disc(ctx, shot.x, shot.y, 7, '#e1516355');
+        disc(ctx, shot.x, shot.y, 4, '#ffa280');
+      }
+      for (const shots of [run.shots, run.allyShots]) {
         for (const shot of shots) {
           ctx.save();
           ctx.translate(shot.x, shot.y);
@@ -379,30 +383,55 @@
         }
       }
       for (const tendril of run.tendrils) {
-        const { player } = run;
-        ctx.save();
-        ctx.strokeStyle = '#7cf766';
-        ctx.shadowColor = '#5dfa9e';
-        ctx.shadowBlur = 10;
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.moveTo(player.x, player.y);
-        ctx.lineTo(tendril.anchorX, tendril.anchorY);
-        ctx.stroke();
-        ctx.strokeStyle = '#d3ffbd';
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-        disc(ctx, tendril.anchorX === 0 ? 4 : WIDTH - 4, tendril.anchorY, 5, '#a8ff93');
-        ctx.strokeStyle = '#7cf766';
-        ctx.lineWidth = 3;
-        const dx = player.x - tendril.anchorX;
-        const dy = player.y - tendril.anchorY;
-        const length = dx * dx + dy * dy;
-        for (const enemy of tendril.captures.keys()) {
-          const t = AG.clamp(((enemy.x - tendril.anchorX) * dx + (enemy.y - tendril.anchorY) * dy) / length, 0, 1);
+        const dx = run.player.x - tendril.anchorX;
+        const dy = run.player.y - tendril.anchorY;
+        const length = Math.hypot(dx, dy);
+        if (!length) continue;
+        const nx = -dy / length;
+        const ny = dx / length;
+        const segments = Math.max(8, Math.ceil(length / 20));
+        const point = (t, shift = 0) => {
+          const twist = Math.sin(t * 28 - this.time * 7 + shift) * Math.sin(Math.PI * t) * 3;
+          return [tendril.anchorX + dx * t + nx * twist, tendril.anchorY + dy * t + ny * twist];
+        };
+        const strand = (shift, color, width) => {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = width;
           ctx.beginPath();
-          ctx.moveTo(tendril.anchorX + dx * t, tendril.anchorY + dy * t);
+          ctx.moveTo(tendril.anchorX, tendril.anchorY);
+          for (let i = 1; i <= segments; i++) ctx.lineTo(...point(i / segments, shift));
+          ctx.stroke();
+        };
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.shadowColor = '#57ed98';
+        ctx.shadowBlur = 10;
+        strand(0, '#236b4e', 10);
+        ctx.shadowBlur = 2;
+        strand(0, '#86ec7a', 4);
+        strand(Math.PI, '#cfed87', 1.35);
+        for (let i = 1; i < segments; i += 3) {
+          const [x, y] = point(i / segments);
+          const direction = i % 2 ? 1 : -1;
+          ctx.strokeStyle = '#8df597aa';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.quadraticCurveTo(x + nx * 10 * direction, y + ny * 10 * direction,
+            x + nx * 7 * direction + dx / length * 7, y + ny * 7 * direction + dy / length * 7);
+          ctx.stroke();
+        }
+        const anchorX = tendril.anchorX === 0 ? 4 : WIDTH - 4;
+        disc(ctx, anchorX, tendril.anchorY, 8, '#28694f');
+        disc(ctx, anchorX, tendril.anchorY, 4, '#c9ff9c');
+        for (const enemy of tendril.captures.keys()) {
+          const t = AG.clamp(((enemy.x - tendril.anchorX) * dx + (enemy.y - tendril.anchorY) * dy) / (length * length), 0, 1);
+          ctx.strokeStyle = '#98fca9';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(...point(t));
           ctx.lineTo(enemy.x, enemy.y);
+          ctx.arc(enemy.x, enemy.y, enemy.size + 3, 0, Math.PI * 2);
           ctx.stroke();
         }
         ctx.restore();
@@ -473,7 +502,7 @@
       }
       if (run.aegisShield > 0) {
         ctx.save();
-        const strength = run.aegisShield / 15;
+        const strength = run.aegisShield / run.ship.ability.capacity;
         const glow = ctx.createLinearGradient(player.x - 32, player.y - 30, player.x + 32, player.y + 30);
         glow.addColorStop(0, '#9d66ff');
         glow.addColorStop(.5, '#e6c6ff');

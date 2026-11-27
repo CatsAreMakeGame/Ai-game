@@ -47,7 +47,7 @@
     ITEMS[id].glyph ??= '◆';
   }
   const clone = value => JSON.parse(JSON.stringify(value));
-  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostRelayOn', 'cleared', 'loadout'];
+  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostRelayOn', 'cleared', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
   const mainBoss = wave => wave >= 10 && wave % 10 === 0 ? Object.keys(BOSSES)[Math.min(wave / 10 - 1, 4)] : null;
 
@@ -72,7 +72,7 @@
     const hull = Number((donor.hull * 1.1).toFixed(2));
     const damage = Number((donor.damage * 1.1).toFixed(3));
     return { name, hull, damage, speed: donor.speed * 1.1, delay: donor.delay / 1.1,
-      energyCapacity: Math.round(AG.energyCapacity(donor) * 1.1), engines: donor.engines, frame: donor.frame, color: '#8ae86c', rarity: 'mythical', alien: true,
+      energyCapacity: AG.energyCapacity(donor), engines: donor.engines, frame: donor.frame, color: '#8ae86c', rarity: 'mythical', alien: true,
       donor: donor.name, donorRarity: donor.donorRarity ?? donor.rarity, donorDamage: donor.donorDamage ?? donor.damage,
       description: hull + ' hull · ' + Math.round(donor.speed * 1.1) + ' speed · ' + damage + ' damage · ' + donor.engines + (donor.engines === 1 ? ' engine' : ' engines') };
   }
@@ -253,9 +253,64 @@
       return true;
     },
 
+    canEnergyOverdrive() {
+      return !!this.run && !this.run.ship.alien && !this.upgradeEffects().laser;
+    },
+
+    overdriveStacks() {
+      return this.boostCount('overdrive') + Number(this.run.energyOverdrive && this.canEnergyOverdrive());
+    },
+
+    gainEnergy(amount) {
+      const run = this.run;
+      if (run.energyOverdrive) return;
+      run.energy = Math.min(run.energyCap, run.energy + amount);
+      this.tryEnergyOverdrive();
+    },
+
+    tryEnergyOverdrive() {
+      const run = this.run;
+      if (!this.canEnergyOverdrive() || run.energyOverdrive || run.overdriveSuppressed ||
+          run.energy + 1e-8 < run.energyCap) return false;
+      run.energyOverdrive = true;
+      run.overdriveTick = 0;
+      this.notify('upgrade', 'Energy Overdrive active');
+      return true;
+    },
+
+    toggleEnergyOverdrive() {
+      if (!['playing', 'intermission'].includes(this.state) || !this.canEnergyOverdrive()) return false;
+      const run = this.run;
+      if (run.energyOverdrive) {
+        run.energyOverdrive = false;
+        run.overdriveTick = 0;
+        run.overdriveSuppressed = run.energy >= run.energyCap;
+        return true;
+      }
+      run.overdriveSuppressed = false;
+      return this.tryEnergyOverdrive();
+    },
+
     updateEnergy(dt) {
       const run = this.run;
-      run.energy = clamp(run.energy + (.5 - run.tendrils.length) * dt, 0, run.energyCap);
+      if (!this.canEnergyOverdrive()) run.energyOverdrive = false;
+      if (run.energyOverdrive) {
+        run.overdriveTick += dt;
+        const intervals = Math.floor((run.overdriveTick + 1e-9) / .25);
+        if (intervals) {
+          run.overdriveTick -= intervals * .25;
+          run.energy = Math.max(0, run.energy - intervals * run.energyCap * .01);
+          if (run.energy < 1e-8) {
+            run.energy = 0;
+            run.energyOverdrive = false;
+            run.overdriveTick = 0;
+          }
+        }
+      } else {
+        if (run.energy < run.energyCap) run.overdriveSuppressed = false;
+        if (run.tendrils.length) run.energy = Math.max(0, run.energy + (.5 - run.tendrils.length) * dt);
+        else this.gainEnergy(.5 * dt);
+      }
       if (run.energy <= 1e-8 && run.tendrils.length) while (this.retractTendril()) {}
       if (run.ship.alien && this.profile.serumUsed && run.mindCooldown > 0) {
         run.mindCooldown = Math.max(0, run.mindCooldown - dt);
@@ -289,7 +344,7 @@
           capture.time += dt;
           if (capture.ticks < 8 && capture.time + 1e-8 >= (capture.ticks + 1) * .5) {
             capture.ticks++;
-            if (capture.ticks === 4) run.energy = Math.min(run.energyCap, run.energy + 1);
+            if (capture.ticks === 4) this.gainEnergy(1);
             capture.drained += Math.min(enemy.hp, 1);
             this.hitEnemy(index, 1, 'tendril');
           }

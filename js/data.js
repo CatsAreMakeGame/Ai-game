@@ -34,7 +34,7 @@ window.AG = (() => {
   }));
   Object.assign(SHIPS.supernova, {
     gemPrice: 100,
-    ability: { name: 'Nova Aegis', interval: 24, capacity: 15 }
+    ability: { name: 'Nova Aegis', interval: 24, capacity: 50 }
   });
   const BOSSES = {
     boss: { name: 'Mothership', hp: 95, size: 49, color: '#ff7894', score: 600, tier: 0, shots: 5, spread: .18, cadence: 2.2 },
@@ -252,9 +252,9 @@ window.AG = (() => {
   }
 
   function energyCapacity(ship) {
-    if (ship.alien) return ship.energyCapacity ?? Math.round(1.1 * energyCapacity(
+    if (ship.alien) return energyCapacity(
       Object.values(SHIPS).find(base => !base.alien && base.name === ship.donor?.replace(/^Alien /, '')) ??
-      { rarity: ship.donorRarity ?? 'mythical' }));
+      { rarity: ship.donorRarity ?? 'mythical' });
     if (ship.name === 'Supernova') return 110;
     return { common: 40, rare: 60, epic: 80, legendary: 100, mythical: 115, godly: 110 }[ship.rarity] ?? 40;
   }
@@ -267,6 +267,13 @@ window.AG = (() => {
     return tier[0] + ' ' + (style === 'roman' ? ['I','II','III','IV'][tier[1] - 1] : tier[1]);
   }
 
-  return { energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  function formatCurrency(amount) {
+    for (const [value, suffix] of [[1e12, 't'], [1e9, 'b'], [1e6, 'm'], [1e3, 'k']]) {
+      if (Math.abs(amount) >= value) return Number((amount / value).toFixed(2)).toString() + suffix;
+    }
+    return String(amount);
+  }
+
+  return { formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

@@ -99,7 +99,7 @@
       }
       entry.amount += amount;
       entry.until = now + 2800;
-      setText(entry.count, '×' + entry.amount);
+      setText(entry.count, '×' + (id === 'credit' || id === 'gem' ? AG.formatCurrency(entry.amount) : entry.amount));
     }
     if (type === 'wave') {
       setText(banner, value);
@@ -159,7 +159,7 @@
       setText($('ship-ability'), run.ship.ability.name + ' · ' + state);
     }
     if (run.ship.alien) setText($('ship-ability'), run.tendrils.length + ' tendrils' + (game.profile.serumUsed ? ' · Mind control ' + (run.mindCooldown > 0 ? Math.ceil(run.mindCooldown) + 's' : 'ready') : ''));
-    if (now >= rewardUntil && now < creditUntil) setText(alert, '+' + creditBatch + ' credits');
+    if (now >= rewardUntil && now < creditUntil) setText(alert, '+' + AG.formatCurrency(creditBatch) + ' credits');
     if (boss) {
       setText($('boss-name'), AG.BOSSES[boss.type].name);
       setText($('boss-hp'), boss.hp.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' / ' + boss.maxHp.toLocaleString() + ' HP');
@@ -187,8 +187,13 @@
     relay.title = 'Toggle with ' + game.profile.bindings.relay.toUpperCase();
     setText(relay, 'Auto · ' + (run.boostRelayOn ? 'On' : 'Off'));
     $('alien-actions').hidden = !run.ship.alien;
-    $('tendril-extend').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy + 1e-8 < 30;
-    $('tendril-retract').disabled = Boolean(panelKind) || !run.tendrils.length;
+    setText($('mind-countdown'), !game.profile.serumUsed ? 'Mind control locked' :
+      run.mindCooldown > 0 ? 'Mind control · ' + Math.ceil(run.mindCooldown) + 's' : 'Mind control · Ready');
+    const overdrive = $('overdrive-toggle');
+    overdrive.hidden = !game.canEnergyOverdrive();
+    overdrive.disabled = !!panelKind || (!run.energyOverdrive && run.energy + 1e-8 < run.energyCap);
+    overdrive.setAttribute('aria-pressed', String(run.energyOverdrive));
+    setText(overdrive, run.energyOverdrive ? 'Overdrive · On' : 'Overdrive · Off');
     $('mind-toggle').hidden = !game.profile.serumUsed || run.mindCooldown > 0;
     $('mind-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.mindCooldown > 0;
     $('mind-toggle').setAttribute('aria-pressed', String(mindAim));
@@ -214,16 +219,19 @@
     const health = run.player.hp / run.ship.hull;
     const rim = $('combat-rim');
     rim.style.setProperty('--hurt', health <= .3 ? Math.max(.32, 1 - health * 2) : 0);
-    rim.style.setProperty('--shield', run.aegisShield > 0 ? Math.max(.17, run.aegisShield / 15) :
+    rim.style.setProperty('--shield', run.aegisShield > 0 ? Math.max(.17, run.aegisShield / run.ship.ability.capacity) :
       run.boosts.shield || run.boosts.fortress ? .65 : 0);
     rim.classList.toggle('nova-rim', run.aegisShield > 0);
     rim.classList.toggle('critical-health', health < .1);
     setText($('hull-value'), Number(run.player.hp.toFixed(1)) + '/' + run.ship.hull);
     setText($('level'), 'LV ' + run.level);
     setText($('score'), run.score.toLocaleString());
-    setText($('credits'), game.credits.toLocaleString());
-    setText($('gems'), game.profile.gems);
-    $('hull').value = 100 * run.player.hp / run.ship.hull;
+    setText($('credits'), AG.formatCurrency(game.credits));
+    $('credits').title = game.credits.toLocaleString() + ' Credits';
+    setText($('gems'), AG.formatCurrency(game.profile.gems));
+    $('gems').title = game.profile.gems.toLocaleString() + ' Star Gems';
+    $('hull').max = run.ship.hull;
+    $('hull').value = run.player.hp;
     $('xp').value = run.level === 50 ? 100 : 100 * run.xp / AG.xpForLevel(run.level);
     const percent = Math.round(100 * run.resolved / run.total);
     $('completion').value = percent;
@@ -554,7 +562,7 @@
         inventory: () => { if (game.canVisitBase()) navigate('inventory'); } });
     } else if (panelKind === 'supplies') {
       setText(title, 'Flight supplies');
-      setText(note, 'Credits available  ·  ' + game.credits);
+      setText(note, 'Credits available  ·  ' + AG.formatCurrency(game.credits));
       note.hidden = false;
       const cards = element('div', '', 'cards');
       for (const [type, supply] of Object.entries(AG.SUPPLIES)) {
@@ -577,7 +585,7 @@
         const bosses = Object.entries(stats.bossKills).map(([id, count]) => AG.BOSSES[id].name + ' ×' + count).join(' · ');
         const summary = element('ul', '', 'run-summary');
         for (const entry of [game.state === 'gameover' ? 'Final hit · ' + (stats.lastHit || 'Unknown') : '',
-          'Bosses defeated · ' + (bosses || 'None'), 'Star Gems collected · ' + stats.gems,
+          'Bosses defeated · ' + (bosses || 'None'), 'Star Gems collected · ' + AG.formatCurrency(stats.gems),
           'Rarest pickup · ' + (stats.rarest ? AG.itemName(stats.rarest) : 'None')]) if (entry) summary.append(element('li', entry));
         body.append(summary);
         actions.append(button('Launch again', () => navigate('launchMode'), { primary: true }));
@@ -659,8 +667,7 @@
     if (game.state === 'intermission' && game.run.level >= AG.SUPPLY_LEVEL) open('supplies');
   });
   $('pause').addEventListener('click', pause);
-  $('tendril-extend').addEventListener('click', () => { if (!panelKind) game.extendTendril(); });
-  $('tendril-retract').addEventListener('click', () => { if (!panelKind) game.retractTendril(); });
+  $('overdrive-toggle').addEventListener('click', () => { if (!panelKind) game.toggleEnergyOverdrive(); });
   $('mind-toggle').addEventListener('click', () => { mindAim = !mindAim; });
   for (let i = 0; i < 3; i++) $('flight-boost-' + i).addEventListener('click', () => {
     const id = game.profile.boostSlots[i];

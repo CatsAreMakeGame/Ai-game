@@ -419,7 +419,7 @@
       body.append(list);
       footer();
     } else if (kind === 'merchant') {
-      body.append(element('p', game.credits.toLocaleString() + ' Credits available', 'panel-note'));
+      body.append(element('p', AG.formatCurrency(game.credits) + ' Credits available', 'panel-note'));
       const stock = game.merchantStock();
       const clock = element('p', '', 'panel-note');
       const updateStockClock = () => {
@@ -435,7 +435,7 @@
       }, 1000);
       for (const id of stock.ids) {
         const price = AG.MERCHANT[id];
-        card(id, ITEMS[id].description, button(price.toLocaleString() + ' Credits', () => {
+        card(id, ITEMS[id].description, button(AG.formatCurrency(price) + ' Credits', () => {
           if (game.buyMerchant(id)) state.result = ITEMS[id].name + ' purchased.';
           refresh();
         }, { disabled: !base || game.credits < price }));
@@ -469,23 +469,24 @@
       footer();
     } else if (kind === 'shop') {
       const options = element('div', '', 'inventory-tabs');
-      for (const [id, name] of [['ships', 'Spaceships'], ['crates', 'Star Gem crates']]) {
+      for (const [id, name] of [['ships', 'Spaceships'], ['crates', 'Star Gem crates'], ['flagship', 'Premium Shop']]) {
         const tab = menuIcon(button(name, () => { state.shopTab = id; refresh(); }), id);
         tab.setAttribute('aria-pressed', String(state.shopTab === id));
         options.append(tab);
       }
-      body.append(options, element('p', game.credits.toLocaleString() + ' Credits · ' + profile.gems + ' Star Gems', 'panel-note'));
+      body.append(options, element('p', AG.formatCurrency(game.credits) + ' Credits · ' + AG.formatCurrency(profile.gems) + ' Star Gems', 'panel-note'));
       if (state.shopTab === 'ships') {
         for (const id of Object.keys(AG.BASE_SHIPS).filter(id => Number.isFinite(SHIPS[id].price)).sort((a, b) => shipRank(b) - shipRank(a))) {
           const ship = SHIPS[id];
           if (!ship.price && game.shipCount(id)) continue;
           const owned = profile.unlocked.includes(id);
-          card(id, ship.description, button(owned ? 'Owned' : ship.price ? ship.price.toLocaleString() + ' Credits' : 'Reclaim Scout', () => {
+          card(id, ship.description, button(owned ? 'Owned' : ship.price ? AG.formatCurrency(ship.price) + ' Credits' : 'Reclaim Scout', () => {
             game.unlockShip(id);
             refresh();
           }, { disabled: !game.canUnlockShip(id) }));
         }
         body.append(cards);
+      } else if (state.shopTab === 'flagship') {
         const shipGroup = element('section', '', 'supernova-shop');
         const ship = SHIPS.supernova;
         const ability = ship.ability;
@@ -505,14 +506,14 @@
         savings.max = Number.isSafeInteger(price) ? price : 100;
         savings.value = Math.min(profile.gems, savings.max);
         savings.setAttribute('aria-label', 'Star Gems saved toward next Supernova');
-        const buy = button('Buy for ' + (Number.isSafeInteger(price) ? price.toLocaleString() + ' Star Gems' : 'maximum price'), () => {
+        const buy = button('Buy for ' + (Number.isSafeInteger(price) ? AG.formatCurrency(price) + ' Star Gems' : 'maximum price'), () => {
           if (game.unlockFlagship('supernova')) state.result = 'Supernova acquired. Equip it in the Hangar.';
           refresh();
         }, { primary: true, disabled: !game.canUnlockFlagship('supernova') });
         const wait = element('p');
         const status = () => {
           const seconds = Math.ceil(game.flagshipWait() / 1000);
-          wait.textContent = seconds ? 'Next purchase in ' + Math.floor(seconds / 60) + 'm ' + seconds % 60 + 's' : 'Purchase cooldown ready';
+          wait.textContent = seconds ? 'Next purchase in ' + Math.floor(seconds / 60) + 'm ' + seconds % 60 + 's' : 'Available to purchase';
           buy.disabled = !game.canUnlockFlagship('supernova');
           return seconds;
         };
@@ -523,7 +524,7 @@
         }
         details.append(element('span', 'Godly', 'flagship-rarity'), element('h3', ship.name), stats,
           element('h4', ability.name), element('p', 'Absorbs up to ' + ability.capacity + ' damage. Recharges ' + ability.interval + ' seconds after the shield breaks.'),
-          element('p', 'Owned ×' + game.shipCount('supernova') + ' · ' + profile.gems.toLocaleString() + ' Star Gems saved'),
+          element('p', 'Owned ×' + game.shipCount('supernova') + ' · ' + AG.formatCurrency(profile.gems) + ' Star Gems saved'),
           savings, wait, buy);
         featured.append(visual, details);
         shipGroup.append(featured);
@@ -551,7 +552,7 @@
             const valid = Number.isSafeInteger(count) && count >= 1 && count <= limit;
             buy.disabled = !valid;
             if (limit < 1) buy.textContent = 'Need ' + crate.price + ' Star Gems';
-            else if (valid) buy.textContent = 'Buy · ' + (count * crate.price).toLocaleString() + ' Star Gems';
+            else if (valid) buy.textContent = 'Buy · ' + AG.formatCurrency(count * crate.price) + ' Star Gems';
             else buy.textContent = 'Choose 1–' + limit.toLocaleString();
           }
           quantity.addEventListener('input', updateTotal);

@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A browser-based alien shooter with 50 escalating waves, Mothership bosses, pilot upgrades and unlockable ships.">
   <title>Alien Shooter</title>
-  <link rel="stylesheet" href="css/style.css?v=wall-tendrils">
-  <script defer src="js/data.js?v=wall-tendrils"></script>
-  <script defer src="js/game.js?v=wall-tendrils"></script>
-  <script defer src="js/expansion.js?v=wall-tendrils"></script>
-  <script defer src="js/flight-view.js?v=wall-tendrils"></script>
-  <script defer src="js/admin.js?v=wall-tendrils"></script>
-  <script defer src="js/armory.js?v=wall-tendrils"></script>
-  <script defer src="js/main.js?v=wall-tendrils"></script>
+  <link rel="stylesheet" href="css/style.css?v=energy-overdrive">
+  <script defer src="js/data.js?v=energy-overdrive"></script>
+  <script defer src="js/game.js?v=energy-overdrive"></script>
+  <script defer src="js/expansion.js?v=energy-overdrive"></script>
+  <script defer src="js/flight-view.js?v=energy-overdrive"></script>
+  <script defer src="js/admin.js?v=energy-overdrive"></script>
+  <script defer src="js/armory.js?v=energy-overdrive"></script>
+  <script defer src="js/main.js?v=energy-overdrive"></script>
 </head>
 <body>
   <main class="console">
@@ -33,8 +33,10 @@
         <button id="auto" type="button" aria-label="Auto Skip" aria-pressed="false"><span aria-hidden="true">⟳</span></button>
       </div>
       <div id="hud" class="hud" hidden>
+        <div class="health-hud"><span class="label">HEALTH</span>
+          <div class="health-meter"><progress id="hull" aria-label="Health" max="100"></progress><strong id="hull-value"></strong></div>
+        </div>
         <div><span class="label">WAVE</span><strong id="wave"></strong></div>
-        <div><span class="label">HEALTH <span id="hull-value"></span></span><progress id="hull" aria-label="Health" max="100"></progress></div>
         <div><span class="label">PILOT <span id="level"></span></span><progress id="xp" aria-label="Pilot experience" max="100"></progress></div>
         <div id="energy-hud" class="energy"><span class="label">ENERGY <span id="energy-value">0%</span></span><progress id="energy" aria-label="Ship energy" max="100"></progress></div>
         <div><span class="label">SCORE</span><strong id="score"></strong></div>
@@ -94,10 +96,10 @@
         <option value="nearest">Closest to ship</option><option value="bottom">Closest to bottom</option>
         <option value="strongest">Strongest</option><option value="weakest">Weakest</option>
       </select></label>
+      <button id="overdrive-toggle" type="button" aria-pressed="false" hidden>Overdrive</button>
       <button id="laser-toggle" type="button" aria-pressed="false" hidden>Laser</button>
       <div id="alien-actions" class="flight-actions" hidden>
-        <button id="tendril-extend" type="button">Extend tendril</button>
-        <button id="tendril-retract" type="button">Retract tendril</button>
+        <span id="mind-countdown" class="mind-countdown"></span>
         <button id="mind-toggle" type="button" aria-pressed="false" hidden>Mind control</button>
       </div>
       <button id="pause">Pause</button>
