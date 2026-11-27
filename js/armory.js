@@ -435,6 +435,116 @@
     return (rank < 0 ? AG.SHIP_ORDER.length : rank) - (ship.alien ? .25 : 0);
   }
 
+  function renderCrateShop(game, state, element, button, refresh) {
+    const shelf = element('div', '', 'shop-crates');
+    const flash = state.crateFlash;
+    state.crateFlash = '';
+    for (const [id, crate] of Object.entries(CRATES)) {
+      if (!crate.price || !AG.itemAvailable(id)) continue;
+      const limit = game.cratePurchaseLimit(id);
+      const card = element('article', '', 'shop-crate');
+      card.style.setProperty('--rarity', RARITIES[crate.rarity]);
+      if (flash === id) card.classList.add('crate-purchased');
+      const art = element('div', '', 'shop-crate-art');
+      const icon = graphic(id);
+      icon.tabIndex = 0;
+      icon.removeAttribute('aria-hidden');
+      icon.setAttribute('aria-label', crate.name + ' drop rates');
+      art.append(icon);
+      const info = element('div', '', 'shop-crate-info');
+      const title = element('h3', crate.name);
+      const pricing = element('p', crate.price + ' Star Gems each · ' + game.itemCount(id).toLocaleString() + ' owned', 'panel-note');
+      const quick = element('div', '', 'crate-quick-buy');
+      function purchase(count) {
+        if (!game.buyCrates(id, count)) return;
+        state.result = count.toLocaleString() + (count === 1 ? ' crate saved in Inventory.' : ' crates saved in Inventory.');
+        state.crateFlash = id;
+        refresh();
+      }
+      for (const count of AG.CRATE_BUY_AMOUNTS) {
+        const choice = button('Buy ' + count, () => purchase(count), { disabled: count > limit });
+        choice.append(element('small', (count * crate.price) + ' Gems'));
+        choice.setAttribute('aria-label', 'Buy ' + count + ' ' + crate.name + (count === 1 ? '' : 's') + ' for ' + count * crate.price + ' Star Gems');
+        quick.append(choice);
+      }
+      info.append(title, pricing, quick);
+      if (game.canBuyCustomCrateAmount) {
+        const controls = element('form', '', 'crate-batch-controls crate-admin-buy');
+        const quantity = element('input');
+        quantity.type = 'number';
+        quantity.min = '1';
+        quantity.max = String(Math.max(1, limit));
+        quantity.step = '1';
+        quantity.value = '1';
+        quantity.disabled = limit < 1;
+        quantity.setAttribute('aria-label', crate.name + ' custom purchase quantity');
+        const buy = button('Buy custom', () => purchase(quantity.valueAsNumber), { disabled: limit < 1 });
+        buy.type = 'button';
+        function updateTotal() {
+          const count = quantity.valueAsNumber;
+          buy.disabled = !Number.isSafeInteger(count) || count < 1 || count > limit;
+          buy.textContent = buy.disabled ? 'Buy custom' : 'Buy custom · ' + AG.formatCurrency(count * crate.price) + ' Gems';
+        }
+        controls.addEventListener('submit', event => {
+          event.preventDefault();
+          if (!buy.disabled) purchase(quantity.valueAsNumber);
+        });
+        quantity.addEventListener('input', updateTotal);
+        updateTotal();
+        controls.append(quantity, buy);
+        info.append(controls);
+      }
+      card.append(art, info);
+      shelf.append(card);
+    }
+    return shelf;
+  }
+
+  function renderUpdateGifts(game, state, element, button, refresh) {
+    const section = element('section', '', 'update-gifts');
+    section.setAttribute('aria-label', 'Free update gifts');
+    section.append(element('h3', 'Free update gifts'));
+    const steps = element('ol', '', 'gift-steps');
+    const { claimed, nextAt } = game.profile.updateGifts;
+    AG.UPDATE_GIFTS.forEach(({ wait, rewards }, index) => {
+      const step = element('li', '', 'gift-step');
+      if (index === claimed) step.classList.add('gift-current');
+      const items = element('ul', '', 'gift-items');
+      for (const [id, count] of Object.entries(rewards)) {
+        const row = element('li');
+        row.append(graphic(id), element('span', count.toLocaleString() + ' × ' + AG.itemName(id)));
+        items.append(row);
+      }
+      step.append(element('h4', 'Gift ' + (index + 1)), items);
+      if (index === claimed) {
+        const claim = button('Claim free gift', () => {
+          if (!game.claimUpdateGift()) return;
+          state.result = 'Update gift claimed.';
+          refresh();
+        }, { primary: true });
+        const update = () => {
+          const remaining = Math.max(0, Math.ceil((nextAt - Date.now()) / 1000));
+          const text = remaining ? 'Ready in ' + Math.floor(remaining / 60) + ':' + String(remaining % 60).padStart(2, '0') : 'Claim free gift';
+          if (claim.textContent !== text) claim.textContent = text;
+          claim.disabled = remaining > 0 || !game.canVisitBase();
+          return remaining;
+        };
+        if (update()) {
+          const timer = setInterval(() => {
+            if (!claim.isConnected || !update()) clearInterval(timer);
+          }, 250);
+        }
+        step.append(claim);
+      } else {
+        const status = index < claimed ? 'Claimed' : 'Unlocks ' + wait / 60000 + ' min after Gift ' + index;
+        step.append(element('p', status, 'gift-status'));
+      }
+      steps.append(step);
+    });
+    section.append(steps);
+    return section;
+  }
+
   function renderArmory({ kind, state, game, body, button, element, open, dismiss, refresh }) {
     const profile = game.profile;
     const base = game.canVisitBase();
@@ -636,8 +746,10 @@
             if (game.buyPremiumUpgrade(id)) state.result = item.name + ' purchased.';
             refresh();
           }, { disabled: !base || profile.gems < item.premium }));
-          body.append(cards);
+          body.append(cards, renderUpdateGifts(game, state, element, button, refresh));
         }
+      } else if (AG.contentActive()) {
+        body.append(renderCrateShop(game, state, element, button, refresh));
       } else {
         for (const [id, crate] of Object.entries(CRATES)) {
           if (!crate.price || !AG.itemAvailable(id)) continue;
@@ -672,7 +784,7 @@
         }
         body.append(element('p', 'Duplicate ships and upgrades add to the copies you own.', 'panel-note'));
       }
-      if (state.shopTab === 'crates') body.append(cards);
+      if (state.shopTab === 'crates' && !AG.contentActive()) body.append(cards);
       footer();
     } else if (kind === 'inventory' || kind === 'hangar') {
       const inventory = kind === 'inventory';

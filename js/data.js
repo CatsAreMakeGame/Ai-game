@@ -176,6 +176,12 @@ window.AG = (() => {
   const BOOST_LOCK = 'new-icons/vector-icon-pack/General/Lock/Lock 256.png';
   const CONTENT_START = Date.parse('2026-11-28T11:15:00+10:00');
   const contentActive = (now = Date.now()) => now >= CONTENT_START;
+  const CRATE_BUY_AMOUNTS = [1, 4, 10];
+  const UPDATE_GIFTS = [
+    { wait: 0, rewards: { credit: 100, gem: 1 } },
+    { wait: 180000, rewards: { upgradeBundle: 1, boostBundle: 1 } },
+    { wait: 300000, rewards: { shipCrate: 2, upgradeCrate: 2, enemyCrate: 2 } }
+  ];
   function liveCrate(id) {
     const crate = CRATES[id];
     if (contentActive() || !crate) return crate;
@@ -305,6 +311,10 @@ window.AG = (() => {
       materials,
       copies: counts('copies', catalog), flagshipPurchases: Math.max(0, readNumber('flagshipPurchases') || Number(unlocked.includes('supernova'))),
       flagshipTime: readNumber('flagshipTime'), serumUsed: saved?.serumUsed === true, mindControlPerShip: true,
+      updateGifts: {
+        claimed: Number.isSafeInteger(saved?.updateGifts?.claimed) ? Math.min(UPDATE_GIFTS.length, Math.max(0, saved.updateGifts.claimed)) : 0,
+        nextAt: Number.isSafeInteger(saved?.updateGifts?.nextAt) ? Math.max(0, saved.updateGifts.nextAt) : 0
+      },
       allowRareCrateSkip: saved?.allowRareCrateSkip === true,
       bounties: (Array.isArray(saved?.bounties) ? saved.bounties : []).filter(id => Object.hasOwn(BOSSES, id)),
       boostSlots: Array.from({ length: 3 }, (_, i) => {
@@ -358,6 +368,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { CONTENT_START, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

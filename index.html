@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A browser-based alien shooter with 50 escalating waves, Mothership bosses, pilot upgrades and unlockable ships.">
   <title>Alien Shooter</title>
-  <link rel="stylesheet" href="css/style.css?v=asteroid-update">
-  <script defer src="js/data.js?v=asteroid-update"></script>
-  <script defer src="js/game.js?v=asteroid-update"></script>
-  <script defer src="js/expansion.js?v=asteroid-update"></script>
-  <script defer src="js/flight-view.js?v=asteroid-update"></script>
-  <script defer src="js/admin.js?v=asteroid-update"></script>
-  <script defer src="js/armory.js?v=asteroid-update"></script>
-  <script defer src="js/main.js?v=asteroid-update"></script>
+  <link rel="stylesheet" href="css/style.css?v=asteroid-gifts">
+  <script defer src="js/data.js?v=asteroid-gifts"></script>
+  <script defer src="js/game.js?v=asteroid-gifts"></script>
+  <script defer src="js/expansion.js?v=asteroid-gifts"></script>
+  <script defer src="js/flight-view.js?v=asteroid-gifts"></script>
+  <script defer src="js/admin.js?v=asteroid-gifts"></script>
+  <script defer src="js/armory.js?v=asteroid-gifts"></script>
+  <script defer src="js/main.js?v=asteroid-gifts"></script>
 </head>
 <body>
   <main class="console">
@@ -56,6 +56,10 @@
       <div id="wave-message" class="wave-message" hidden></div>
       <div id="overlay" class="overlay">
         <section id="home" class="screen home" aria-labelledby="title">
+          <aside class="update-banner" aria-label="Asteroid update">
+            <img class="menu-icon" src="new-icons/vector-icon-pack/Currency/Gem/Gem%20Green%20256.png" alt="">
+            <div><strong>Asteroid update</strong><time id="update-time" datetime="2026-11-28T11:15:00+10:00">11:15 a.m. AEST</time></div>
+          </aside>
           <aside class="event-banner"><strong><img class="menu-icon" src="new-icons/vector-icon-pack/Transport/UFO/UFO%20256.png" alt="">Alien Event</strong><span id="event-time"></span></aside>
           <h1 id="title">ALIEN<br><em>SHOOTER</em></h1>
           <div class="launch-options">

@@ -675,10 +675,32 @@
         Number.MAX_SAFE_INTEGER - (this.profile.crates[type] ?? 0));
     }
 
+    get canBuyCustomCrateAmount() {
+      return !AG.contentActive() || this.testing || this.adminUnlocked;
+    }
+
     buyCrates(type, count) {
-      if (!Number.isSafeInteger(count) || count < 1 || count > this.cratePurchaseLimit(type)) return false;
+      if (!Number.isSafeInteger(count) || count < 1 || count > this.cratePurchaseLimit(type) ||
+          (!this.canBuyCustomCrateAmount && !AG.CRATE_BUY_AMOUNTS.includes(count))) return false;
       this.profile.gems -= CRATES[type].price * count;
       this.grantItem(type, count);
+      return true;
+    }
+
+    claimUpdateGift() {
+      if (!AG.contentActive() || !this.canVisitBase()) return false;
+      const now = Date.now();
+      const progress = this.profile.updateGifts;
+      const gift = AG.UPDATE_GIFTS[progress.claimed];
+      if (!gift || now < progress.nextAt) return false;
+      const rewards = Object.entries(gift.rewards);
+      if (rewards.some(([id, count]) => !Number.isSafeInteger(this.itemCount(id) + count))) return false;
+      progress.claimed++;
+      progress.nextAt = now + (AG.UPDATE_GIFTS[progress.claimed]?.wait ?? 0);
+      for (const [id, count] of rewards) this.addItem(id, count);
+      for (const [id] of rewards) this.discoverItem(id);
+      this.save();
+      for (const [type, amount] of rewards) this.notify('loot', { type, amount });
       return true;
     }
 

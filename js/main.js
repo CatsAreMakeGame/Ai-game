@@ -133,6 +133,12 @@
   function renderHUD(now) {
     while (sideNotices.length && sideNotices[0].until <= now) sideNotices.shift().node.remove();
     if (!$('home').hidden) {
+      const release = $('update-time');
+      const left = Math.max(0, Math.ceil((AG.CONTENT_START - Date.now()) / 1000));
+      const hours = Math.floor(left / 3600);
+      const minutes = Math.floor(left / 60) % 60;
+      const clock = String(minutes).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
+      setText(release, AG.contentActive() ? 'Live now' : 'Launches in ' + hours + ':' + clock);
       const seconds = Math.max(0, Math.ceil((AG.EVENT_END - game.now()) / 1000));
       const time = [Math.floor(seconds / 86400) + 'd', Math.floor(seconds / 3600) % 24 + 'h',
         Math.floor(seconds / 60) % 60 + 'm', seconds % 60 + 's'].join(' ');
