@@ -72,6 +72,7 @@
       const current = game.run;
       current.enemies = [];
       current.drops = [];
+      current.unlimitedTest = number > AG.MODES[current.mode];
       game.beginWave(number);
       resumeFlight();
     }
@@ -247,19 +248,19 @@
       damage.append(damageStatus);
 
       const energy = group('Ship energy');
-      const energyLabel = element('label', 'Energy percent');
+      const energyLabel = element('label', 'Custom energy percentage');
       const energyInput = element('input');
       energyInput.type = 'number';
       energyInput.min = '0';
       energyInput.max = String(run.energyCap);
-      energyInput.step = '1';
+      energyInput.step = 'any';
       energyInput.value = String(run.energy);
       energyLabel.append(energyInput);
       energy.append(energyLabel);
-      actions(energy, button('Set energy', () => {
+      actions(energy, button('Set custom energy', () => {
         const value = energyInput.valueAsNumber;
-        if (!Number.isInteger(value) || value < 0 || value > run.energyCap) {
-          status.textContent = 'Enter a whole energy percentage from 0 to ' + run.energyCap + '.';
+        if (!Number.isFinite(value) || value < 0 || value > run.energyCap) {
+          status.textContent = 'Enter an energy percentage from 0 to ' + run.energyCap + '.';
           energyInput.focus();
           return;
         }

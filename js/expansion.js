@@ -49,7 +49,7 @@
     ITEMS[id].glyph ??= '◆';
   }
   const clone = value => JSON.parse(JSON.stringify(value));
-  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostRelayOn', 'cleared', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence'];
+  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
   const mainBoss = wave => wave >= 10 && wave % 10 === 0 ? Object.keys(BOSSES)[Math.min(wave / 10 - 1, 4)] : null;
 
@@ -95,7 +95,7 @@
     canContinue() {
       const saved = this.profile.checkpoint;
       return !this.testing && Boolean(saved && Object.hasOwn(MODES, saved.mode) && Number.isInteger(saved.wave) &&
-        saved.wave > 0 && saved.wave < MODES[saved.mode] && this.profile.unlocked.includes(saved.shipId) &&
+        saved.wave >= 1 && saved.wave < MODES[saved.mode] && this.profile.unlocked.includes(saved.shipId) &&
         saved.player?.hp > 0 && saved.stats?.bossKills && Array.isArray(saved.drops) && Array.isArray(saved.allies));
     },
 

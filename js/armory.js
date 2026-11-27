@@ -435,21 +435,26 @@
     const tileChoices = new Map();
 
     details.hidden = true;
-    function selectTile(id) {
+    function selectTile(id, toggle = false) {
       const choice = tileChoices.get(id);
       if (!choice) return;
       hideTooltip();
-      state.selectedItem = id;
-      state.showItemDetails = Boolean(choice.action);
-      details.hidden = !choice.action;
-      for (const [key, entry] of tileChoices) entry.tile.setAttribute('aria-pressed', String(key === id));
-      details.replaceChildren(...(choice.action ? [choice.action] : []));
+      const closing = toggle && Object.hasOwn(CRATES, id) && state.selectedItem === id && state.showItemDetails;
+      state.selectedItem = closing ? null : id;
+      state.showItemDetails = Boolean(choice.action) && !closing;
+      details.hidden = !state.showItemDetails;
+      for (const [key, entry] of tileChoices) {
+        entry.tile.setAttribute('aria-pressed', String(key === state.selectedItem));
+        if (Object.hasOwn(CRATES, key)) entry.tile.setAttribute('aria-expanded', String(key === id && state.showItemDetails));
+      }
+      details.replaceChildren(...(state.showItemDetails ? [choice.action] : []));
     }
 
     function tileCard(id, action, count) {
       const item = ITEMS[id];
       const rarity = item.rarity ?? 'common';
-      const tile = button('', () => selectTile(id));
+      const tile = button('', () => selectTile(id, true));
+      if (Object.hasOwn(CRATES, id)) tile.setAttribute('aria-expanded', 'false');
       tile.className = 'inventory-tile';
       tile.style.setProperty('--rarity', RARITIES[rarity]);
       decorateRarity(tile, item);
@@ -516,10 +521,11 @@
       }, 1000);
       for (const id of stock.ids) {
         const price = AG.MERCHANT[id];
-        card(id, ITEMS[id].description, button(AG.formatCurrency(price) + ' Credits', () => {
+        const sold = stock.sold.includes(id);
+        card(id, ITEMS[id].description, button(sold ? 'Out of stock' : AG.formatCurrency(price) + ' Credits', () => {
           if (game.buyMerchant(id)) state.result = ITEMS[id].name + ' purchased.';
           refresh();
-        }, { disabled: !base || game.credits < price }));
+        }, { disabled: sold || !base || game.credits < price }));
       }
       body.append(cards);
       footer();
@@ -532,7 +538,7 @@
       }
       const reserve = element('section', '', 'reserve-grid');
       const types = Object.keys(profile.boostReserve).length;
-      reserve.append(element('p', types + '/5 boost types · up to 5 copies per type', 'panel-note'));
+      reserve.append(element('p', types + '/3 boost types · up to 15 copies per type', 'panel-note'));
       for (const [id, boost] of Object.entries(BOOSTS)) {
         const available = profile.boosts[id] ?? 0;
         const stored = profile.boostReserve[id] ?? 0;
@@ -541,8 +547,8 @@
         const row = element('div', '', 'reserve-row');
         const action = button(unloading ? 'Unload' : 'Load', () => {
           if (game.adjustBoostReserve(id, unloading ? -1 : 1)) refresh();
-        }, { disabled: !unloading && (stored >= 5 || (!stored && types >= 5)) });
-        row.append(graphic(id), element('span', boost.name + ' · ' + stored + '/5 loaded'), action);
+        }, { disabled: !unloading && (stored >= 15 || (!stored && types >= 3)) });
+        row.append(graphic(id), element('span', boost.name + ' · ' + stored + '/15 loaded'), action);
         reserve.append(row);
       }
       if (reserve.children.length === 1) reserve.append(element('p', 'No boosts here yet.'));
@@ -806,7 +812,7 @@
           ' · ' + Number((spec.damage + effects.damage).toFixed(3)) + ' damage' +
           (effects.missile ? ' · ' + (effects.missile === 'homing' ? 'Heat-Seeking Missile' : 'Blast Missile') : '') +
           (effects.laser ? ' · Lightning Beacon' : '') + (effects.magnet ? ' · Loot Magnet' : '') +
-          (effects.boostRelay ? ' · Auto Boost' : '');
+          (effects.boostRelay ? ' · Boost Cycle' : '');
       };
       preview.textContent = describe(current);
       const indicators = [];
@@ -875,7 +881,7 @@
       }
       if (!parts.children.length) parts.append(element('p', 'Collect upgrades in flight or open an Upgrade Crate.', 'panel-note'));
       body.append(element('h3', AG.itemName(ship)));
-      if (Object.values(crafts).includes('boostRelay')) body.append(button('Configure Auto Boost', () => open('autoBoost', { ship })));
+      if (Object.values(crafts).includes('boostRelay')) body.append(button('Configure Boost Cycle', () => open('autoBoost', { ship })));
       const presets = element('div', '', 'loadout-presets');
       for (let i = 0; i < profile.presets.length; i++) {
         const row = element('div');

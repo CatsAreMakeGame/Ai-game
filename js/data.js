@@ -91,11 +91,11 @@ window.AG = (() => {
     smokeBomb: { name: 'Smoke Bomb', slot: 'Engine', rarity: 'rare', glyph: '☁', smoke: true, chance: .018,
       description: 'Leaves a four-second smoke trail that deals 1 damage per second to enemies inside it.' },
     beacon: { name: 'Lightning Beacon', slot: 'Special', rarity: 'godly', glyph: '⚡', laser: true,
-      description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold the Lightning Beacon key. Each pulse costs 3% and deals double shot damage.' },
+      description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold the Lightning Beacon key. Each 0.1-second pulse uses 1% energy and deals shot damage divided by 2.75.' },
     magnet: { name: 'Loot Magnet', slot: 'Ability', rarity: 'legendary', glyph: '∪', magnet: true,
       description: 'Pulls enemy loot to your ship and collects it when it arrives.' },
-    boostRelay: { name: 'Auto Boost', slot: 'Ability', rarity: 'epic', glyph: '▣', boostRelay: true,
-      description: 'Holds up to five copies each of five boost types. Right-click its equipped slot in Ship Loadout to configure it.' }
+    boostRelay: { name: 'Boost Cycle', slot: 'Ability', rarity: 'epic', glyph: '▣', boostRelay: true,
+      description: 'Holds up to 15 each of three boost types, with two seconds between activations. Right-click its equipped slot in Ship Loadout to configure it. Switch it on manually during flight.' }
   };
   const CRATES = {
     shipCrate: { name: 'Spaceship Crate', rarity: 'epic', glyph: '▣', price: 3, outcomes: [
@@ -217,8 +217,13 @@ window.AG = (() => {
     }
     if (saved?.credits > 0) discoveries.add('credit');
     if (saved?.gems > 0) discoveries.add('gem');
-    const reserve = Object.fromEntries(Object.entries(counts('boostReserve', BOOSTS)).slice(0, 5)
-      .map(([id, count]) => [id, Math.min(count, 5)]));
+    const reserve = {};
+    const boostStock = counts('boosts', BOOSTS);
+    for (const [id, count] of Object.entries(counts('boostReserve', BOOSTS))) {
+      const loaded = Object.keys(reserve).length < 3 ? Math.min(count, 15) : 0;
+      if (loaded) reserve[id] = loaded;
+      if (count > loaded) boostStock[id] = Math.min(Number.MAX_SAFE_INTEGER, (boostStock[id] ?? 0) + count - loaded);
+    }
     const bindings = { extend: saved?.bindings?.extend || 'e', retract: saved?.bindings?.retract || 'q', laser: saved?.bindings?.laser || 'f' };
     const usedKeys = Object.values(bindings);
     const relayKey = saved?.bindings?.relay;
@@ -252,7 +257,7 @@ window.AG = (() => {
       mode: Object.hasOwn(window.AG?.MODES ?? {}, saved?.mode) ? saved.mode : 'hard',
       checkpoint, modeRecords: saved?.modeRecords ?? {},
       credits: readNumber('credits'), gems: readNumber('gems'), upgrades, loadouts,
-      boosts: counts('boosts', BOOSTS), crates: counts('crates', CRATES), bestScore: readNumber('bestScore'),
+      boosts: boostStock, crates: counts('crates', CRATES), bestScore: readNumber('bestScore'),
       bestWave: Math.min(LAST_WAVE, readNumber('bestWave')),
       tutorialSeen: saved?.tutorialSeen === true,
       sound: saved?.sound === true, auto: saved?.auto === true

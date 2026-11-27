@@ -185,15 +185,15 @@
     $('target-mode').disabled = Boolean(panelKind);
     if ($('target-mode').value !== run.targetMode) $('target-mode').value = run.targetMode;
     $('laser-toggle').hidden = !effects.laser;
-    $('laser-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy + 1e-8 < 3;
+    $('laser-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy + 1e-8 < 1;
     $('laser-toggle').setAttribute('aria-pressed', String(game.laserActive()));
     $('laser-toggle').title = 'Right-click or hold ' + game.profile.bindings.laser.toUpperCase();
     const relay = $('relay-toggle');
     relay.hidden = !effects.boostRelay || !!run.practice;
     relay.disabled = Boolean(panelKind) || !['playing', 'intermission'].includes(game.state);
-    relay.setAttribute('aria-pressed', String(run.boostRelayOn));
+    relay.setAttribute('aria-pressed', String(run.boostCycleOn));
     relay.title = 'Toggle with ' + game.profile.bindings.relay.toUpperCase();
-    setText(relay, 'Auto · ' + (run.boostRelayOn ? 'On' : 'Off'));
+    setText(relay, 'Auto · ' + (run.boostCycleOn ? 'On' : 'Off'));
     $('alien-actions').hidden = !run.ship.alien;
     setText($('mind-countdown'), !run.ship.mindControl ? 'Mind control locked' :
       run.mindCooldown > 0 ? 'Mind control · ' + Math.ceil(run.mindCooldown) + 's' : 'Mind control · Ready');
@@ -289,7 +289,11 @@
     const wave = game.profile.modeRecords[game.profile.mode] ?? (game.profile.mode === 'hard' ? game.profile.bestWave : 0);
     $('record').hidden = !wave;
     $('continue').hidden = !game.canContinue();
-    if (!$('continue').hidden) setText($('continue'), 'Continue · Wave ' + (game.profile.checkpoint.wave + 1).toLocaleString());
+    if (!$('continue').hidden) {
+      const saved = game.profile.checkpoint;
+      setText($('continue'), 'Continue saved run');
+      $('continue').title = saved.mode[0].toUpperCase() + saved.mode.slice(1) + ' · Next wave ' + (saved.wave + 1).toLocaleString();
+    }
     setText($('record'), 'BEST WAVE ' + wave.toLocaleString() + '  ·  HIGH SCORE ' + game.profile.bestScore.toLocaleString());
   }
 
@@ -500,7 +504,7 @@
           () => tutorialIndex === tutorial.length - 1 ? dismiss() : showSlide(tutorialIndex + 1), { primary: true }));
       body.append(slide, nav);
     } else if (armoryPanels.includes(panelKind)) {
-      const titles = { hangar: 'Hangar', shop: 'Shop', inventory: 'Inventory', outfit: 'Ship Loadout', craft: 'Crafting', recipes: 'Recipes', shipPicker: 'Select a ship', merchant: 'Merchant', autoBoost: 'Auto Boost' };
+      const titles = { hangar: 'Hangar', shop: 'Shop', inventory: 'Inventory', outfit: 'Ship Loadout', craft: 'Crafting', recipes: 'Recipes', shipPicker: 'Select a ship', merchant: 'Merchant', autoBoost: 'Boost Cycle' };
       setText(title, titles[panelKind]);
       AG.renderArmory({ kind: panelKind, state: armory, game, body, button, element, dismiss,
         open: navigate, refresh: () => drawPanel(true) });
@@ -581,7 +585,7 @@
       }
       for (const [name, bindings] of [
         ['Alien Spaceship', [['extend', 'Extend tendril'], ['retract', 'Release controlled ship or retract tendril']]],
-        ['Equipment', [['laser', 'Lightning Beacon'], ['relay', 'Toggle Auto Boost']]]
+        ['Equipment', [['laser', 'Lightning Beacon'], ['relay', 'Toggle Boost Cycle']]]
       ]) {
         const section = element('section', '', 'keybind-section');
         const grid = element('div', '', 'settings-grid');
@@ -614,7 +618,7 @@
       setText(note, 'Wave ' + game.waveLabel + '  ·  Score ' + game.run.score.toLocaleString());
       note.hidden = false;
       const actions = element('div', '', 'home-actions');
-      if (paused) actions.append(button('Resume', dismiss, { primary: true }), button('Admin', openAdmin));
+      if (paused) actions.append(button('Resume', dismiss, { primary: true }), button('Settings', () => navigate('settings')), button('Admin', openAdmin));
       else {
         const stats = game.run.stats;
         const bosses = Object.entries(stats.bossKills).map(([id, count]) => AG.BOSSES[id].name + ' ×' + count).join(' · ');
@@ -658,6 +662,11 @@
 
   $('launch').addEventListener('click', () => open('launchMode'));
   $('continue').addEventListener('click', () => { if (game.continueRun()) resumeFlight(); });
+  $('settings').addEventListener('click', () => {
+    if (panelKind === 'settings') dismiss();
+    else if (panelKind) navigate('settings');
+    else open('settings');
+  });
   $('merchant-open').addEventListener('click', () => { if (game.canVisitBase()) open('merchant'); });
   $('hud-toggle').addEventListener('click', () => { hideTopMenu = !hideTopMenu; });
   $('outfit-open').addEventListener('click', () => open('shipPicker'));

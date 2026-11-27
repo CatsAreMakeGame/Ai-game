@@ -44,11 +44,10 @@
     }
 
     get credits() { return this.profile.credits; }
-    get waveLimit() { return this.testing ? MAX_WAVE : AG.MODES[this.run?.mode ?? this.profile.mode]; }
+    get waveLimit() { return this.testing && this.run?.unlimitedTest ? MAX_WAVE : AG.MODES[this.run?.mode ?? this.profile.mode] ?? LAST_WAVE; }
     get waveLabel() {
       const wave = this.run.wave;
-      const limit = this.testing ? (wave === MAX_WAVE ? MAX_WAVE : LAST_WAVE) :
-        this.run.mode === 'endless' ? '∞' : this.waveLimit;
+      const limit = this.run.mode === 'endless' ? '∞' : this.waveLimit;
       return wave.toLocaleString() + ' / ' + limit.toLocaleString();
     }
 
@@ -107,7 +106,7 @@
       const ship = SHIPS[shipId];
       this.releaseInput();
       this.run = {
-        wave: 0, level: this.profile.bestPilotLevel, xp: this.profile.pilotXp, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostRelayOn: true, ship, shipId, mode, mindCooldown: 30, controlSequence: 0, tendrils: [],
+        wave: 0, level: this.profile.bestPilotLevel, xp: this.profile.pilotXp, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostCycleOn: false, boostCycleDelay: 0, ship, shipId, mode, mindCooldown: 30, controlSequence: 0, tendrils: [],
         stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisShield: 0, smoke: [], smokeIn: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
@@ -168,7 +167,7 @@
       const repaired = run.player.hp - before;
       this.notify('reward', '+' + credits + ' credits' + (repaired ? ' · +' + repaired + ' hull' : ''));
       this.laserInput('off');
-      run.breakTime = run.wave === this.waveLimit ? 7 : 4.8;
+      run.breakTime = run.wave >= this.waveLimit ? 7 : 4.8;
       run.hostile = [];
       this.state = 'intermission';
       run.allyShots = [];
@@ -384,11 +383,14 @@
       const saved = this.profile.merchant;
       const ids = Object.keys(AG.MERCHANT);
       if (saved?.until > now && Array.isArray(saved.ids) && saved.ids.length === 2 && new Set(saved.ids).size === 2 &&
-          saved.ids.every(id => ids.includes(id))) return saved;
+          saved.ids.every(id => ids.includes(id))) {
+        if (!Array.isArray(saved.sold)) saved.sold = [];
+        return saved;
+      }
       const first = ids.splice(Math.floor(this.random() * ids.length), 1)[0];
       const second = ids[Math.floor(this.random() * ids.length)];
       const stock = { ids: [first, second].sort((a, b) => Object.keys(AG.MERCHANT).indexOf(a) - Object.keys(AG.MERCHANT).indexOf(b)),
-        until: now + 300000 };
+        until: now + 300000, sold: [] };
       this.profile.merchant = stock;
       this.save();
       return stock;
@@ -402,8 +404,11 @@
 
     buyMerchant(id) {
       const price = AG.MERCHANT[id];
-      if (!this.canVisitBase() || !Number.isInteger(price) || this.credits < price || !this.merchantStock().ids.includes(id) ||
+      if (!this.canVisitBase() || !Number.isInteger(price) || this.credits < price ||
           !Number.isSafeInteger(this.itemCount(id) + 1)) return false;
+      const stock = this.merchantStock();
+      if (!stock.ids.includes(id) || stock.sold.includes(id)) return false;
+      stock.sold.push(id);
       this.profile.credits -= price;
       return this.grantItem(id);
     }
@@ -454,7 +459,7 @@
       const { boostReserve, boosts } = this.profile;
       const stored = boostReserve[type] ?? 0;
       const available = boosts[type] ?? 0;
-      if (amount > 0 && (!available || stored >= 5 || (!stored && Object.keys(boostReserve).length >= 5))) return false;
+      if (amount > 0 && (!available || stored >= 15 || (!stored && Object.keys(boostReserve).length >= 3))) return false;
       if (amount < 0 && (!stored || !Number.isSafeInteger(available + 1))) return false;
       if (stored + amount === 0) delete boostReserve[type];
       else boostReserve[type] = stored + amount;
@@ -466,15 +471,15 @@
     toggleBoostRelay() {
       if (!this.run || this.run.practice || !['playing', 'intermission'].includes(this.state) ||
           !this.upgradeEffects().boostRelay) return false;
-      this.run.boostRelayOn = !this.run.boostRelayOn;
+      this.run.boostCycleOn = !this.run.boostCycleOn;
       return true;
     }
 
-    updateBoostRelay() {
+    updateBoostRelay(dt) {
       const run = this.run;
-      if (!run.boostRelayOn || run.practice || !this.upgradeEffects().boostRelay ||
+      run.boostCycleDelay = Math.max(0, run.boostCycleDelay - dt);
+      if (!run.boostCycleOn || run.boostCycleDelay > 1e-8 || run.practice || !this.upgradeEffects().boostRelay ||
           !run.enemies.some(enemy => !enemy.allied && enemy.y > 0)) return;
-      let changed = false;
       for (const [type, count] of Object.entries(this.profile.boostReserve)) {
         const boost = BOOSTS[type];
         const shield = type === 'shield' || type === 'fortress';
@@ -483,9 +488,10 @@
         if (count === 1) delete this.profile.boostReserve[type];
         else this.profile.boostReserve[type]--;
         this.applyBoost(type);
-        changed = true;
+        run.boostCycleDelay = 2;
+        this.save();
+        break;
       }
-      if (changed) this.save();
     }
 
     canUseBoost(type) {
@@ -672,14 +678,14 @@
         this.collectDrops(dt);
         run.breakTime -= dt;
         if (run.breakTime <= 0) {
-          if (run.wave === this.waveLimit) this.finish('victory');
+          if (run.wave >= this.waveLimit) this.finish('victory');
           else this.beginWave(run.wave + 1);
         }
         return;
       }
 
       this.tickBoosts(dt);
-      this.updateBoostRelay();
+      this.updateBoostRelay(dt);
       run.spawnIn = Math.max(0, run.spawnIn - dt);
       if (run.pending.length && run.spawnIn === 0 &&
         (!BOSSES[run.pending[0]] || run.enemies.filter(enemy => BOSSES[enemy.type]).length < 5)) {
@@ -879,7 +885,7 @@
         return;
       }
       if (mode === 'release') laser.held = false;
-      else if (this.state === 'playing' && this.run.energy + 1e-8 >= 3 && this.upgradeEffects().laser) {
+      else if (this.state === 'playing' && this.run.energy + 1e-8 >= 1 && this.upgradeEffects().laser) {
         if (mode === 'hold') {
           laser.held = true;
           laser.toggled = false;
@@ -893,7 +899,7 @@
 
     laserActive() {
       const run = this.run;
-      return this.state === 'playing' && run.energy + 1e-8 >= 3 && this.upgradeEffects().laser &&
+      return this.state === 'playing' && run.energy + 1e-8 >= 1 && this.upgradeEffects().laser &&
         (run.laser.held || run.laser.toggled);
     }
 
@@ -914,18 +920,18 @@
       if (!this.laserActive()) return;
       const run = this.run;
       run.laser.tick += dt;
-      if (run.laser.tick + 1e-9 < .3) return;
-      run.laser.tick -= .3;
-      run.energy = Math.max(0, run.energy - 3);
+      if (run.laser.tick + 1e-9 < .1) return;
+      run.laser.tick -= .1;
+      run.energy = Math.max(0, run.energy - 1);
       const { x, y, ux, uy, reach } = this.laserRay();
-      const damage = this.shotDamage() * 2;
+      const damage = this.shotDamage() / 2.75;
       for (let index = run.enemies.length - 1; index >= 0; index--) {
         const enemy = run.enemies[index];
         const progress = (enemy.x - x) * ux + (enemy.y - y) * uy;
         const offset = Math.abs((enemy.x - x) * uy - (enemy.y - y) * ux);
         if (!enemy.allied && progress >= 0 && progress <= reach && offset <= enemy.size + 19) this.hitEnemy(index, damage, 'laser');
       }
-      if (run.energy < 3) this.laserInput('off');
+      if (run.energy + 1e-8 < 1) this.laserInput('off');
       if (run.energy === 0) while (this.retractTendril()) {}
     }
 

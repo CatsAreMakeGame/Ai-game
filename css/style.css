@@ -579,3 +579,6 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
   .wave-actions { right: 33px; }
   .stage:has(.wave-actions:not([hidden])) .hud { right: 91px; }
 }
+
+#merchant-open { display: inline-flex; align-items: center; }
+.home-actions { row-gap: 7px; }
