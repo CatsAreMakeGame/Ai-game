@@ -515,3 +515,21 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 @keyframes critical-breathe { 50% { opacity: .64; } }
 @media (prefers-reduced-motion: reduce) { .combat-rim.critical-health::after { animation: none; opacity: .32; } }
 @media (max-width: 620px) { .side-notices { top: 48px; right: 5px; font-size: .68rem; } }
+
+.mark { background: #d7fa75; color: #10221c; padding: 0; }
+.mark .ship-graphic { width: 82%; height: 82%; }
+.merchant-widget { position: absolute; z-index: 3; right: 0; top: 0; display: flex; flex-direction: row-reverse; align-items: center;
+  gap: 4px; max-width: 171px; overflow: hidden; }
+.merchant-widget button { min-height: 36px; white-space: nowrap; }
+#merchant-tab { border-color: #ac82ed; color: #e8d6ff; background: #25213c; display: grid; place-items: center; padding: 4px 8px; z-index: 1; }
+#merchant-tab img { width: 25px; height: 25px; object-fit: contain; }
+#merchant-open { transform: translateX(108%); transition: transform .18s ease, opacity .18s ease; opacity: 0; pointer-events: none; }
+.merchant-widget.expanded #merchant-open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+.supernova-shop { margin-top: 13px; }
+@media (max-width: 570px) {
+  .merchant-widget { top: -5px; }
+  .event-banner { margin-right: 47px; }
+}
+@media (prefers-reduced-motion: reduce) { #merchant-open { transition: none; } }
+
+@media (max-width: 620px) { .brand .mark { display: grid; width: 21px; height: 21px; margin-right: 3px; flex: 0 0 21px; } }

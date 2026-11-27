@@ -78,10 +78,9 @@
     if (type === 'blast') view.blast(value);
     if (type === 'enemy-damage') view.addDamageNumber(value);
     if (type === 'discovery') {
-      const item = AG.ITEMS[value];
       const category = AG.SHIPS[value] ? 'ship' : AG.UPGRADES[value] ? 'upgrade' :
         AG.CRATES[value] ? 'crate' : AG.BOOSTS[value] ? 'boost' : 'item';
-      sideNotice('New ' + category, item.name, AG.itemGraphic(value, false));
+      sideNotice('New ' + category, AG.itemName(value), AG.itemGraphic(value, false));
     }
     if (type === 'milestone') sideNotice('Wave milestone', value);
     if (type === 'loot') {
@@ -93,7 +92,7 @@
         const tile = element('div', '', 'loot-tile');
         tile.style.setProperty('--rarity', AG.RARITIES[item.rarity ?? 'common']);
         const count = element('strong');
-        tile.append(AG.itemGraphic(id), element('span', item.name), count);
+        tile.append(AG.itemGraphic(id), element('span', AG.itemName(id)), count);
         strip.append(tile);
         entry = { tile, count, amount: 0 };
         loot.set(id, entry);
@@ -131,7 +130,7 @@
   function renderHUD(now) {
     while (sideNotices.length && sideNotices[0].until <= now) sideNotices.shift().node.remove();
     if (!$('home').hidden) {
-      const seconds = Math.max(0, Math.ceil((AG.EVENT_END - Date.now()) / 1000));
+      const seconds = Math.max(0, Math.ceil((AG.EVENT_END - game.now()) / 1000));
       const time = [Math.floor(seconds / 86400) + 'd', Math.floor(seconds / 3600) % 24 + 'h',
         Math.floor(seconds / 60) % 60 + 'm', seconds % 60 + 's'].join(' ');
       setText($('event-time'), seconds ? time + ' left' : 'Event ended');
@@ -144,7 +143,7 @@
     const run = game.run;
     const active = ['playing', 'intermission', 'paused'].includes(game.state);
     hud.hidden = controls.hidden = $('wave-actions').hidden = $('boost-dock').hidden = !active;
-    $('merchant-open').hidden = !game.canVisitBase() || Boolean(panelKind);
+    $('merchant-widget').hidden = !game.canVisitBase() || Boolean(panelKind);
     $('flight-layout').classList.toggle('boost-left', game.profile.boostSide === 'left');
     $('combat-rim').hidden = !active;
     setText($('admin'), game.testing ? 'Admin · Testing' : 'Admin');
@@ -170,15 +169,15 @@
     }
     setText($('wave'), run.practice ? 'Practice' : game.waveLabel);
     const effects = game.upgradeEffects();
-    $('energy-hud').hidden = !effects.laser && !run.ship.alien;
+    $('energy').max = run.energyCap;
     $('energy').value = run.energy;
-    setText($('energy-value'), run.energy + '%');
-    $('energy-hud').classList.toggle('energy-full', run.energy === 100);
+    setText($('energy-value'), Number(run.energy.toFixed(1)) + '% / ' + run.energyCap + '%');
+    $('energy-hud').classList.toggle('energy-full', run.energy >= run.energyCap);
     $('target-control').hidden = !effects.missile;
     $('target-mode').disabled = Boolean(panelKind);
     if ($('target-mode').value !== run.targetMode) $('target-mode').value = run.targetMode;
     $('laser-toggle').hidden = !effects.laser;
-    $('laser-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy < 3;
+    $('laser-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy + 1e-8 < 3;
     $('laser-toggle').setAttribute('aria-pressed', String(game.laserActive()));
     $('laser-toggle').title = 'Right-click or hold ' + game.profile.bindings.laser.toUpperCase();
     const relay = $('relay-toggle');
@@ -188,12 +187,12 @@
     relay.title = 'Toggle with ' + game.profile.bindings.relay.toUpperCase();
     setText(relay, 'Auto · ' + (run.boostRelayOn ? 'On' : 'Off'));
     $('alien-actions').hidden = !run.ship.alien;
-    $('tendril-extend').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy < 1;
+    $('tendril-extend').disabled = Boolean(panelKind) || game.state !== 'playing' || run.energy + 1e-8 < 30;
     $('tendril-retract').disabled = Boolean(panelKind) || !run.tendrils.length;
-    $('mind-toggle').hidden = !game.profile.serumUsed;
+    $('mind-toggle').hidden = !game.profile.serumUsed || run.mindCooldown > 0;
     $('mind-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.mindCooldown > 0;
     $('mind-toggle').setAttribute('aria-pressed', String(mindAim));
-    setText($('mind-toggle'), mindAim ? 'Tap an enemy' : 'Mind control');
+    setText($('mind-toggle'), mindAim ? 'Tap an enemy' : 'Choose a target');
     for (let i = 0; i < 3; i++) {
       const id = game.profile.boostSlots[i];
       const slot = $('flight-boost-' + i);
@@ -343,7 +342,7 @@
     const kind = panelKind;
     mindAim = false;
     if (kind === 'craft') { armory.grid.fill(''); armory.ingredient = ''; }
-    if ((armoryPanels.includes(kind) || kind === 'settings' || kind === 'keybinds' || kind === 'launchMode') && panelHistory.length) {
+    if ((armoryPanels.includes(kind) || kind === 'settings' || kind === 'keybinds' || kind === 'uiSettings' || kind === 'launchMode') && panelHistory.length) {
       const parent = panelHistory.pop();
       resetPanelDraft();
       Object.assign(armory, { inventoryTab: parent.inventoryTab, shopTab: parent.shopTab, part: parent.part, ship: parent.ship });
@@ -495,17 +494,30 @@
     } else if (panelKind === 'settings') {
       setText(title, 'Settings');
       const actions = element('div', '', 'home-actions');
-      actions.append(AG.menuIcon(button('Keybinds', () => navigate('keybinds')), 'keybinds'), button('Back', dismiss));
-      const side = element('label', 'Flight boost slots ');
+      actions.append(AG.menuIcon(button('Keybinds', () => navigate('keybinds')), 'keybinds'),
+        button('UI Settings', () => navigate('uiSettings')), button('Back', dismiss));
+      body.append(actions);
+    } else if (panelKind === 'uiSettings') {
+      setText(title, 'UI Settings');
+      const side = element('label', 'In-game boost buttons ');
       const select = element('select');
-      for (const [id, text] of [['right', 'Right'], ['left', 'Left']]) {
-        const option = element('option', text);
+      for (const [id, name] of [['right', 'Right'], ['left', 'Left']]) {
+        const option = element('option', name);
         option.value = id;
         select.append(option);
       }
       select.value = game.profile.boostSide;
       select.addEventListener('change', () => { game.profile.boostSide = select.value; game.save(); });
       side.append(select);
+      const styles = { original: 'Original names', roman: 'Roman numerals', numeric: 'Numbers' };
+      const names = button('Upgrade names · ' + styles[game.profile.nameStyle], () => {
+        const ids = Object.keys(styles);
+        game.profile.nameStyle = ids[(ids.indexOf(game.profile.nameStyle) + 1) % ids.length];
+        game.save();
+        drawPanel(true);
+      });
+      const actions = element('div', '', 'home-actions');
+      actions.append(names, button('Back', dismiss));
       body.append(side, actions);
     } else if (panelKind === 'keybinds') {
       setText(title, 'Keybinds');
@@ -566,7 +578,7 @@
         const summary = element('ul', '', 'run-summary');
         for (const entry of [game.state === 'gameover' ? 'Final hit · ' + (stats.lastHit || 'Unknown') : '',
           'Bosses defeated · ' + (bosses || 'None'), 'Star Gems collected · ' + stats.gems,
-          'Rarest pickup · ' + (AG.ITEMS[stats.rarest]?.name ?? 'None')]) if (entry) summary.append(element('li', entry));
+          'Rarest pickup · ' + (stats.rarest ? AG.itemName(stats.rarest) : 'None')]) if (entry) summary.append(element('li', entry));
         body.append(summary);
         actions.append(button('Launch again', () => navigate('launchMode'), { primary: true }));
       }
@@ -599,7 +611,18 @@
 
   $('launch').addEventListener('click', () => open('launchMode'));
   $('continue').addEventListener('click', () => { if (game.continueRun()) resumeFlight(); });
-  $('merchant-open').addEventListener('click', () => { if (game.canVisitBase()) open('merchant'); });
+  function toggleMerchant(expanded) {
+    $('merchant-tab').setAttribute('aria-expanded', String(expanded));
+    $('merchant-widget').classList.toggle('expanded', expanded);
+    $('merchant-open').disabled = !expanded;
+  }
+  $('merchant-tab').addEventListener('click', () =>
+    toggleMerchant($('merchant-tab').getAttribute('aria-expanded') !== 'true'));
+  $('merchant-open').addEventListener('click', () => {
+    if (!game.canVisitBase()) return;
+    toggleMerchant(false);
+    open('merchant');
+  });
   $('settings').addEventListener('click', () => {
     if (panelKind === 'settings') dismiss();
     else if (panelKind) navigate('settings');
@@ -772,7 +795,7 @@
     previous = now;
     const wallTime = Date.now();
     if (wallTime >= nextMerchantCheck) {
-      game.merchantStock(wallTime);
+      game.merchantStock(game.now());
       nextMerchantCheck = wallTime + 1000;
     }
     if (!panelKind && ['playing', 'intermission'].includes(game.state)) flightSeconds += dt;
@@ -805,6 +828,7 @@
   }
 
   AG.game = game;
+  $('brand-ship').append(AG.shipGraphic('scout'));
   refreshRecord();
   syncAudio();
   if (!game.profile.tutorialSeen) {

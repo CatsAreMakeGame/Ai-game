@@ -4,7 +4,6 @@
   const { Game, SHIPS, BOSSES, BOOSTS, ITEMS, WIDTH, HEIGHT, MAX_WAVE, clamp } = AG;
   const MODES = { easy: 20, medium: 30, hard: 50, endless: MAX_WAVE };
   const EVENT_END = Date.parse('2026-12-01T00:00:00+11:00');
-  const EXCHANGE_RATE = 250;
   const MATERIALS = {
     alienCell: { name: 'Alien Cell', rarity: 'rare', description: 'Used in both Alien recipes.' },
     alienMind: { name: 'Alien Mind', rarity: 'legendary', description: 'Crafted with Alien Serum and eight Alien Cells. Place below the ship used in the recipe to craft an Alien Ship.' },
@@ -73,7 +72,7 @@
     const hull = Number((donor.hull * 1.1).toFixed(2));
     const damage = Number((donor.damage * 1.1).toFixed(3));
     return { name, hull, damage, speed: donor.speed * 1.1, delay: donor.delay / 1.1,
-      engines: donor.engines, frame: donor.frame, color: '#8ae86c', rarity: 'mythical', alien: true,
+      energyCapacity: Math.round(AG.energyCapacity(donor) * 1.1), engines: donor.engines, frame: donor.frame, color: '#8ae86c', rarity: 'mythical', alien: true,
       donor: donor.name, donorRarity: donor.donorRarity ?? donor.rarity, donorDamage: donor.donorDamage ?? donor.damage,
       description: hull + ' hull · ' + Math.round(donor.speed * 1.1) + ' speed · ' + damage + ' damage · ' + donor.engines + (donor.engines === 1 ? ' engine' : ' engines') };
   }
@@ -85,6 +84,7 @@
       this.profile.checkpoint = clone({
         wave: run.wave, mode: run.mode, shipId: run.shipId,
         player: { x: run.player.x, y: run.player.y, hp: run.player.hp },
+        anchors: run.tendrils.map(({ anchorX, anchorY }) => ({ anchorX, anchorY })),
         allies: run.enemies.filter(enemy => enemy.allied).map(({ grips, freed, ...enemy }) => enemy),
         ...Object.fromEntries(checkpointKeys.map(key => [key, run[key]]))
       });
@@ -104,6 +104,8 @@
       for (const key of checkpointKeys) if (Object.hasOwn(saved, key)) this.run[key] = saved[key];
       Object.assign(this.run.player, saved.player);
       this.run.enemies = saved.allies;
+      this.run.energy = clamp(this.run.energy, 0, this.run.energyCap);
+      this.run.tendrils = (saved.anchors ?? []).map(anchor => ({ ...anchor, captures: new Map() }));
       if (this.run.loadout.ability3 && !this.run.loadout.ability1) this.run.loadout.ability1 = this.run.loadout.ability3;
       else if (this.run.loadout.ability3 && !this.run.loadout.ability2) this.run.loadout.ability2 = this.run.loadout.ability3;
       delete this.run.loadout.ability3;
@@ -182,15 +184,7 @@
     },
 
     flagshipPrice(id) { return SHIPS[id]?.gemPrice * 2 ** this.profile.flagshipPurchases; },
-    flagshipWait() { return Math.max(0, this.profile.flagshipTime + 3600000 - Date.now()); },
-
-    exchangeGems(quantity) {
-      const credits = quantity * EXCHANGE_RATE;
-      if (!this.canVisitBase() || !Number.isSafeInteger(quantity) || quantity <= 0 ||
-          quantity > this.profile.gems || !Number.isSafeInteger(this.credits + credits)) return false;
-      this.profile.gems -= quantity;
-      return this.grantItem('credit', credits);
-    },
+    flagshipWait() { return Math.max(0, this.profile.flagshipTime + 3600000 - this.now()); },
 
     grantEverything() {
       if (!this.testing) return false;
@@ -218,7 +212,7 @@
     },
 
     alienHit(enemy, source, damage) {
-      if (!this.run.practice && eventActive() && BOSSES[enemy.type] && damage > 0 &&
+      if (!this.run.practice && eventActive(this.now()) && BOSSES[enemy.type] && damage > 0 &&
           source !== 'ally' && this.random() < .003) this.dropItem('alienCell', enemy.x, enemy.y);
     },
 
@@ -236,7 +230,7 @@
           this.notify('upgrade', boss.name + ' first defeat · +' + amount + ' Star Gems');
         }
       }
-      if (eventActive()) {
+      if (eventActive(this.now())) {
         if (this.random() < (boss ? .02 : .0005)) this.dropItem('alienCell', x, y);
         if (!boss) return;
         if (this.random() < .02) this.dropItem('alienMind', x - 20, y);
@@ -252,13 +246,21 @@
 
     extendTendril() {
       const run = this.run;
-      if (this.state !== 'playing' || !run?.ship.alien || run.energy < 1 || run.tendrils.length >= 103) return false;
+      if (this.state !== 'playing' || !run?.ship.alien || run.energy + 1e-8 < 30) return false;
       const { player, tendrils } = run;
-      const aim = run.laser.aim;
-      const x = aim && aim.y < player.y - 45 ? aim.x : player.x;
-      tendrils.push({ x: clamp(x + (-1) ** tendrils.length * (tendrils.length % 4) * 16, 32, WIDTH - 32),
-        y: player.y, top: Math.max(105, player.y - 320), captures: new Map() });
+      run.energy = Math.max(0, run.energy - 30);
+      tendrils.push({ anchorX: player.x <= WIDTH / 2 ? 0 : WIDTH, anchorY: player.y, captures: new Map() });
       return true;
+    },
+
+    updateEnergy(dt) {
+      const run = this.run;
+      run.energy = clamp(run.energy + (.5 - run.tendrils.length) * dt, 0, run.energyCap);
+      if (run.energy <= 1e-8 && run.tendrils.length) while (this.retractTendril()) {}
+      if (run.ship.alien && this.profile.serumUsed && run.mindCooldown > 0) {
+        run.mindCooldown = Math.max(0, run.mindCooldown - dt);
+        if (run.mindCooldown === 0) this.notify('upgrade', 'Mind control ready · select an enemy');
+      }
     },
 
     releaseCapture(tendril, enemy) {
@@ -277,37 +279,33 @@
 
     updateAlien(dt) {
       const run = this.run;
-      if (!run.ship.alien) return;
-      run.mindCooldown = Math.max(0, run.mindCooldown - dt);
-      run.alienTick += dt;
-      if (run.alienTick + 1e-9 >= 1) {
-        run.alienTick -= 1;
-        run.energy = clamp(run.energy + 3 - run.tendrils.length, 0, 100);
-      }
-      if (run.energy <= 0) {
-        while (this.retractTendril()) {}
-        return;
-      }
       for (const tendril of run.tendrils) {
         for (const [enemy, capture] of tendril.captures) {
-          if (!run.enemies.includes(enemy) || enemy.allied) {
+          const index = run.enemies.indexOf(enemy);
+          if (index < 0 || enemy.allied) {
             this.releaseCapture(tendril, enemy);
             continue;
           }
           capture.time += dt;
-          if (capture.ticks < 3 && capture.time + 1e-8 >= capture.ticks + 1) {
+          if (capture.ticks < 8 && capture.time + 1e-8 >= (capture.ticks + 1) * .5) {
             capture.ticks++;
+            if (capture.ticks === 4) run.energy = Math.min(run.energyCap, run.energy + 1);
             capture.drained += Math.min(enemy.hp, 1);
-            this.hitEnemy(run.enemies.indexOf(enemy), 1, 'tendril');
+            this.hitEnemy(index, 1, 'tendril');
           }
-          if (capture.ticks === 3 || enemy.hp <= 0) {
+          if (capture.ticks === 8 || enemy.hp <= 0) {
             (enemy.freed ??= new WeakSet()).add(tendril);
             this.releaseCapture(tendril, enemy);
           }
         }
+        const { anchorX, anchorY } = tendril;
+        const dx = run.player.x - anchorX;
+        const dy = run.player.y - anchorY;
+        const lengthSquared = dx * dx + dy * dy;
         for (const enemy of run.enemies) {
-          if (enemy.allied || tendril.captures.has(enemy) || enemy.freed?.has(tendril) ||
-              Math.abs(tendril.x - enemy.x) > enemy.size + 20 || enemy.y < tendril.top || enemy.y > tendril.y) continue;
+          if (enemy.allied || enemy.y < 0 || tendril.captures.has(enemy) || enemy.freed?.has(tendril)) continue;
+          const t = clamp(((enemy.x - anchorX) * dx + (enemy.y - anchorY) * dy) / lengthSquared, 0, 1);
+          if (Math.hypot(enemy.x - anchorX - dx * t, enemy.y - anchorY - dy * t) > enemy.size + 9) continue;
           enemy.grips = (enemy.grips ?? 0) + 1;
           tendril.captures.set(enemy, { time: 0, ticks: 0, drained: 0 });
         }
@@ -324,6 +322,7 @@
         this.notify('upgrade', 'The lead boss resists mind control');
         return true;
       }
+      enemy.joinedAtY = enemy.y;
       enemy.allied = true;
       enemy.alliedFor = BOSSES[enemy.type] ? 8 : null;
       if (enemy.bornWave === run.wave) run.resolved++;
@@ -338,10 +337,24 @@
         enemy.alliedFor -= dt;
         if (enemy.alliedFor <= 0) {
           enemy.allied = false;
+          enemy.x = enemy.origin;
+          enemy.y = enemy.joinedAtY ?? enemy.y;
           if (enemy.bornWave === run.wave) run.resolved--;
           return;
         }
       }
+
+      const allies = run.enemies.filter(entry => entry.allied);
+      const index = allies.indexOf(enemy);
+      const offset = (index % 2 === 0 ? -1 : 1) * (52 + 27 * Math.floor(index / 2));
+      const targetX = clamp(run.player.x + offset, enemy.size, WIDTH - enemy.size);
+      const targetY = clamp(run.player.y - 40, 85, HEIGHT - enemy.size);
+      const step = Math.min(1, dt * 5);
+      enemy.x += (targetX - enemy.x) * step;
+      enemy.y += (targetY - enemy.y) * step;
+
+      const boss = BOSSES[enemy.type];
+      if (!boss && !['shooter', 'tank'].includes(enemy.type)) return;
       enemy.fireIn -= dt;
       if (enemy.fireIn > 0) return;
       let target;
@@ -354,16 +367,22 @@
         target = candidate;
       }
       if (!target) return;
-      const angle = Math.atan2(target.y - enemy.y, target.x - enemy.x);
-      run.allyShots.push({ x: enemy.x, y: enemy.y, size: 6, vx: Math.cos(angle) * 300, vy: Math.sin(angle) * 300,
-        damage: run.ship.donorDamage });
-      enemy.fireIn = 1.35;
+      const speed = 425;
+      const lead = Math.min(.65, nearest / speed) * .7;
+      const aim = Math.atan2(target.y + (BOSSES[target.type] ? 0 : target.speed * lead) - enemy.y, target.x - enemy.x);
+      const count = boss?.shots ?? 1;
+      for (let shot = 0; shot < count; shot++) {
+        const angle = aim + (shot - (count - 1) / 2) * (boss?.spread ?? 0) * .65;
+        run.allyShots.push({ x: enemy.x, y: enemy.y, size: 5, vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed, damage: run.ship.donorDamage, color: AG.ENEMIES[enemy.type].color });
+      }
+      enemy.fireIn = boss?.cadence ?? 1.35;
     },
 
     fillPractice(kind) {
       const run = this.run;
       Object.assign(run, { practice: kind, enemies: [], shots: [], missiles: [], hostile: [], allyShots: [],
-        pending: [], energy: 100, spawned: 0, resolved: 0 });
+        pending: [], energy: run.energyCap, spawned: 0, resolved: 0 });
       run.player.hp = run.ship.hull;
       const types = kind === 'cluster' ? ['grunt', 'grunt', 'shooter', 'grunt', 'grunt'] : [kind === 'moving' ? 'diver' : 'boss'];
       run.total = types.length;
@@ -382,5 +401,5 @@
     }
   });
 
-  Object.assign(AG, { MODES, EVENT_END, EXCHANGE_RATE, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, syncShips });
+  Object.assign(AG, { MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, syncShips });
 })();

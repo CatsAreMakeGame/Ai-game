@@ -366,31 +366,42 @@
         disc(ctx, puff.x, puff.y, puff.size, haze);
         ctx.restore();
       }
-      for (const shot of run.shots) {
-        ctx.fillStyle = '#cafa90';
-        ctx.fillRect(shot.x - 2, shot.y - 10, 4, 19);
-        ctx.fillStyle = '#f5ffdd';
-        ctx.fillRect(shot.x - 1, shot.y - 11, 2, 12);
+      for (const shots of [run.shots, run.hostile, run.allyShots]) {
+        for (const shot of shots) {
+          ctx.save();
+          ctx.translate(shot.x, shot.y);
+          ctx.rotate(Math.atan2(shot.vy, shot.vx) + Math.PI / 2);
+          ctx.fillStyle = shot.color ?? run.ship.color;
+          ctx.shadowColor = ctx.fillStyle;
+          ctx.shadowBlur = 6;
+          ctx.fillRect(-2, -9, 4, 18);
+          ctx.restore();
+        }
       }
-      for (const shot of run.hostile) {
-        disc(ctx, shot.x, shot.y, 7, '#e1516355');
-        disc(ctx, shot.x, shot.y, 4, '#ffa280');
-      }
-      for (const shot of run.allyShots) disc(ctx, shot.x, shot.y, 5, '#a8ff71');
       for (const tendril of run.tendrils) {
+        const { player } = run;
         ctx.save();
         ctx.strokeStyle = '#7cf766';
         ctx.shadowColor = '#5dfa9e';
-        ctx.shadowBlur = 12;
-        ctx.lineWidth = 7;
+        ctx.shadowBlur = 10;
+        ctx.lineWidth = 6;
         ctx.beginPath();
-        ctx.moveTo(tendril.x, tendril.y);
-        ctx.bezierCurveTo(tendril.x - 42, tendril.y - 90, tendril.x + 40, tendril.top + 85, tendril.x, tendril.top);
+        ctx.moveTo(player.x, player.y);
+        ctx.lineTo(tendril.anchorX, tendril.anchorY);
         ctx.stroke();
+        ctx.strokeStyle = '#d3ffbd';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        disc(ctx, tendril.anchorX === 0 ? 4 : WIDTH - 4, tendril.anchorY, 5, '#a8ff93');
+        ctx.strokeStyle = '#7cf766';
         ctx.lineWidth = 3;
+        const dx = player.x - tendril.anchorX;
+        const dy = player.y - tendril.anchorY;
+        const length = dx * dx + dy * dy;
         for (const enemy of tendril.captures.keys()) {
+          const t = AG.clamp(((enemy.x - tendril.anchorX) * dx + (enemy.y - tendril.anchorY) * dy) / length, 0, 1);
           ctx.beginPath();
-          ctx.moveTo(tendril.x, enemy.y);
+          ctx.moveTo(tendril.anchorX + dx * t, tendril.anchorY + dy * t);
           ctx.lineTo(enemy.x, enemy.y);
           ctx.stroke();
         }

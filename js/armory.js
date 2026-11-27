@@ -65,8 +65,8 @@
   const tooltipText = id => {
     const item = ITEMS[id];
     if (item.alien) return item.hull + ' hull · ' + Math.round(item.speed) + ' speed · ' + item.damage +
-      ' damage · ' + item.engines + (item.engines === 1 ? ' engine' : ' engines');
-    return item.description ?? '';
+      ' damage · ' + item.engines + (item.engines === 1 ? ' engine' : ' engines') + ' · ' + AG.energyCapacity(item) + '% energy';
+    return SHIPS[id] ? item.description + ' · ' + AG.energyCapacity(item) + '% energy' : (item.description ?? '');
   };
 
   let tooltip;
@@ -88,7 +88,7 @@
       const tier = item.rarity ?? 'common';
       const crate = CRATES[id];
       const label = document.createElement('strong');
-      label.textContent = item.name + (item.alien ? ' · Alienated' : '');
+      label.textContent = AG.itemName(id) + (item.alien ? ' · Alienated' : '');
       const rarity = document.createElement('small');
       rarity.textContent = titleCase(tier);
       tooltip = document.createElement('aside');
@@ -107,7 +107,7 @@
         for (const outcome of crate.outcomes) for (const reward of outcome.items) {
           const row = document.createElement('li');
           const name = document.createElement('span');
-          name.textContent = ITEMS[reward].name;
+          name.textContent = AG.itemName(reward);
           const odds = document.createElement('b');
           odds.textContent = (outcome.weight / outcome.items.length).toLocaleString(undefined, { maximumFractionDigits: 2 }) + '%';
           row.append(graphic(reward, false), name, odds);
@@ -127,11 +127,14 @@
     tooltip.style.top = Math.max(4, Math.min(y + 13, maxY)) + 'px';
   }
 
-  function itemHover(node, id) {
-    node.addEventListener('pointerenter', event => showItemTooltip(node, id, event.clientX, event.clientY));
-    node.addEventListener('pointermove', event => showItemTooltip(node, id, event.clientX, event.clientY));
-    node.addEventListener('pointerleave', () => { if (tooltipOwner === node) hideTooltip(); });
+  function itemHover(node, id, pointer = true) {
+    if (pointer) {
+      node.addEventListener('pointerenter', event => showItemTooltip(node, id, event.clientX, event.clientY));
+      node.addEventListener('pointermove', event => showItemTooltip(node, id, event.clientX, event.clientY));
+      node.addEventListener('pointerleave', () => { if (tooltipOwner === node) hideTooltip(); });
+    }
     node.addEventListener('focus', () => {
+      if (!node.matches(':focus-visible')) return;
       const rect = node.getBoundingClientRect();
       showItemTooltip(node, id, rect.right, rect.top);
     });
@@ -176,7 +179,7 @@
       const spec = ITEMS[id];
       const tile = element('div', '', 'reel-tile');
       tile.style.setProperty('--rarity', RARITIES[spec.rarity ?? 'common']);
-      tile.append(graphic(id), element('span', spec.name));
+      tile.append(graphic(id), element('span', AG.itemName(id)));
       track.append(tile);
       if (winning) {
         winner = tile;
@@ -196,7 +199,7 @@
       track.style.transform = centered(winner);
       winner.classList.add('reel-winner');
       dialog.classList.add('reel-revealed');
-      message.textContent = item.name + ' ×' + result.amount.toLocaleString() + ' · ' + (item.rarity ?? 'common');
+      message.textContent = AG.itemName(result.type) + ' ×' + result.amount.toLocaleString() + ' · ' + (item.rarity ?? 'common');
       summary.hidden = false;
       next.textContent = 'Done';
     }
@@ -213,7 +216,7 @@
       const spec = ITEMS[reward.type];
       const tile = element('li', '', 'reel-reward-tile');
       tile.style.setProperty('--rarity', RARITIES[spec.rarity ?? 'common']);
-      tile.append(graphic(reward.type), element('span', spec.name), element('b', '×' + reward.amount.toLocaleString()));
+      tile.append(graphic(reward.type), element('span', AG.itemName(reward.type)), element('b', '×' + reward.amount.toLocaleString()));
       items.append(tile);
     }
     summary.append(items);
@@ -357,7 +360,7 @@
       const copy = element('div');
       const rarity = element('span', item.rarity ?? 'common', 'item-rarity');
       rarity.style.color = RARITIES[item.rarity ?? 'common'];
-      copy.append(element('strong', item.name), rarity, element('p', text));
+      copy.append(element('strong', AG.itemName(id)), rarity, element('p', text));
       details.replaceChildren(graphic(id), copy);
       if (action) details.append(action);
     }
@@ -369,9 +372,9 @@
       tile.className = 'inventory-tile';
       tile.style.setProperty('--rarity', RARITIES[rarity]);
       decorateRarity(tile, item);
-      itemHover(tile, id);
-      tile.setAttribute('aria-label', item.name + ', ' + rarity + ', quantity ' + (count || 1));
-      tile.append(graphic(id, false), element('b', '×' + (count || 1).toLocaleString(), 'inventory-count'));
+      itemHover(tile, id, false);
+      tile.setAttribute('aria-label', AG.itemName(id) + ', ' + rarity + ', quantity ' + (count || 1));
+      tile.append(graphic(id), element('b', '×' + (count || 1).toLocaleString(), 'inventory-count'));
       if (BOOSTS[id]) {
         tile.draggable = true;
         tile.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', id));
@@ -386,12 +389,12 @@
       const row = element('div', '', 'card item-card');
       if (SHIPS[id]) decorateRarity(row, item);
       const copy = element('div');
-      const header = element('strong', item.name + (count ? ' ×' + count : ''));
+      const header = element('strong', AG.itemName(id) + (count ? ' ×' + count : ''));
       const rarity = element('span', item.rarity ?? 'common', 'item-rarity');
       rarity.style.color = RARITIES[item.rarity ?? 'common'];
       copy.append(header, rarity, element('small', text));
-      itemHover(row, id);
-      row.append(graphic(id, false), copy);
+      
+      row.append(graphic(id), copy);
       if (action) row.append(action);
       cards.append(row);
     }
@@ -407,9 +410,9 @@
       for (const id of [...profile.unlocked].sort((a, b) => rarityRank(b) - rarityRank(a) || shipRank(a) - shipRank(b))) {
         const ship = SHIPS[id];
         const pick = button('', () => open('outfit', { ship: id, part: state.part }));
-        pick.append(graphic(id, false), element('strong', ship.name),
+        pick.append(graphic(id), element('strong', ship.name),
           element('small', ship.alien ? 'Alienated · ' + titleCase(ship.rarity) : titleCase(ship.rarity)));
-        itemHover(pick, id);
+        itemHover(pick, id, false);
         decorateRarity(pick, ship);
         list.append(pick);
       }
@@ -420,7 +423,7 @@
       const stock = game.merchantStock();
       const clock = element('p', '', 'panel-note');
       const updateStockClock = () => {
-        const seconds = Math.max(0, Math.ceil((stock.until - Date.now()) / 1000));
+        const seconds = Math.max(0, Math.ceil((stock.until - game.now()) / 1000));
         clock.textContent = 'Restock in ' + Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
         return seconds;
       };
@@ -466,7 +469,7 @@
       footer();
     } else if (kind === 'shop') {
       const options = element('div', '', 'inventory-tabs');
-      for (const [id, name] of [['ships', 'Credit ships'], ['crates', 'Star Gem crates'], ['flagship', 'Premium Store']]) {
+      for (const [id, name] of [['ships', 'Spaceships'], ['crates', 'Star Gem crates']]) {
         const tab = menuIcon(button(name, () => { state.shopTab = id; refresh(); }), id);
         tab.setAttribute('aria-pressed', String(state.shopTab === id));
         options.append(tab);
@@ -482,7 +485,8 @@
             refresh();
           }, { disabled: !game.canUnlockShip(id) }));
         }
-      } else if (state.shopTab === 'flagship') {
+        body.append(cards);
+        const shipGroup = element('section', '', 'supernova-shop');
         const ship = SHIPS.supernova;
         const ability = ship.ability;
         const featured = element('article', '', 'flagship');
@@ -517,32 +521,13 @@
             if (!wait.isConnected || !status()) clearInterval(timer);
           }, 1000);
         }
-        details.append(element('span', 'Flagship Store · Godly', 'flagship-rarity'), element('h3', ship.name), stats,
+        details.append(element('span', 'Godly', 'flagship-rarity'), element('h3', ship.name), stats,
           element('h4', ability.name), element('p', 'Absorbs up to ' + ability.capacity + ' damage. Recharges ' + ability.interval + ' seconds after the shield breaks.'),
           element('p', 'Owned ×' + game.shipCount('supernova') + ' · ' + profile.gems.toLocaleString() + ' Star Gems saved'),
           savings, wait, buy);
         featured.append(visual, details);
-        const exchange = element('section', '', 'store-exchange');
-        const quantity = element('input');
-        quantity.type = 'number';
-        quantity.min = '1';
-        quantity.max = String(profile.gems);
-        quantity.value = '1';
-        quantity.setAttribute('aria-label', 'Star Gems to exchange');
-        const convert = button('Exchange', () => {
-          if (game.exchangeGems(quantity.valueAsNumber)) state.result = 'Exchange complete.';
-          refresh();
-        });
-        function quote() {
-          const count = quantity.valueAsNumber;
-          const credits = count * AG.EXCHANGE_RATE;
-          convert.disabled = !Number.isSafeInteger(count) || count < 1 || count > profile.gems || !Number.isSafeInteger(profile.credits + credits);
-          convert.textContent = convert.disabled ? 'Exchange' : 'Receive ' + credits.toLocaleString() + ' Credits';
-        }
-        quantity.addEventListener('input', quote);
-        quote();
-        exchange.append(element('h3', 'Currency exchange'), element('p', '1 Star Gem → ' + AG.EXCHANGE_RATE + ' Credits'), quantity, convert);
-        body.append(featured, exchange);
+        shipGroup.append(featured);
+        body.append(shipGroup);
       } else {
         for (const [id, crate] of Object.entries(CRATES)) {
           const limit = game.cratePurchaseLimit(id);
@@ -576,7 +561,7 @@
         }
         body.append(element('p', 'Duplicate ships and upgrades add to the copies you own.', 'panel-note'));
       }
-      body.append(cards);
+      if (state.shopTab === 'crates') body.append(cards);
       footer();
     } else if (kind === 'inventory' || kind === 'hangar') {
       const inventory = kind === 'inventory';
@@ -728,7 +713,7 @@
       function place(slot, id) {
         if (!id) return;
         const ok = game.mountUpgrade(ship, slot, id);
-        state.result = ok ? ITEMS[id].name + ' fitted.' : 'Choose a matching mount and an available copy.';
+        state.result = ok ? AG.itemName(id) + ' fitted.' : 'Choose a matching mount and an available copy.';
         if (ok) state.part = '';
         refresh();
       }
@@ -754,7 +739,7 @@
           if (state.part) place(slot, state.part);
           else if (mounted) {
             game.mountUpgrade(ship, slot, null);
-            state.result = ITEMS[mounted].name + ' removed.';
+            state.result = AG.itemName(mounted) + ' removed.';
             refresh();
           }
         }, { disabled: locked });
@@ -778,7 +763,7 @@
           event.preventDefault(); open('autoBoost', { ship });
         });
         mount.append(element('small', locked ? 'Unavailable' :
-          mounted ? ITEMS[mounted].name : 'Empty'));
+          mounted ? AG.itemName(mounted) : 'Empty'));
         if (!locked) {
           mount.addEventListener('dragover', event => { if (compatible()) { event.preventDefault(); predict(); } });
           mount.addEventListener('drop', event => { event.preventDefault(); place(slot, event.dataTransfer.getData('text/plain')); });
@@ -795,9 +780,9 @@
         });
         choose.classList.toggle('spent-part', exhausted);
         if (exhausted) choose.setAttribute('aria-disabled', 'true');
-        choose.append(graphic(id, false), element('span', part.name));
+        choose.append(graphic(id), element('span', AG.itemName(id)));
         choose.style.setProperty('--rarity', RARITIES[part.rarity]);
-        itemHover(choose, id);
+        itemHover(choose, id, false);
         choose.draggable = !exhausted;
         choose.setAttribute('aria-pressed', String(state.part === id));
         choose.addEventListener('dragstart', event => {

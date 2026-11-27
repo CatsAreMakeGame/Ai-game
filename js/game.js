@@ -24,6 +24,15 @@
       this.liveSession = null;
       this.testProfile = null;
       this.testSpeed = 1;
+      this.testTimeOffset = 0;
+    }
+
+    now() { return Date.now() + (this.testing ? this.testTimeOffset : 0); }
+
+    advanceTestClock(milliseconds) {
+      if (!this.testing || !Number.isSafeInteger(milliseconds) || Math.abs(milliseconds) > 365 * 86400000) return false;
+      this.testTimeOffset += milliseconds;
+      return true;
     }
 
     get simulationSpeed() { return this.testing ? this.testSpeed : 1; }
@@ -81,6 +90,7 @@
       AG.syncShips(this.profile);
       this.testProfile = this.profile;
       this.testSpeed = 1;
+      this.testTimeOffset = 0;
       this.run = null;
       this.state = 'home';
       this.releaseInput();
@@ -97,11 +107,11 @@
       const ship = SHIPS[shipId];
       this.releaseInput();
       this.run = {
-        wave: 0, level: 1, xp: 0, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostRelayOn: true, ship, shipId, mode, mindCooldown: 0, alienTick: 0, tendrils: [],
+        wave: 0, level: 1, xp: 0, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostRelayOn: true, ship, shipId, mode, mindCooldown: 30, tendrils: [],
         stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisShield: 0, smoke: [], smokeIn: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
-        missiles: [], missileIn: 0, targetMode: 'nearest', energy: 0,
+        missiles: [], missileIn: 0, targetMode: 'nearest', energy: 0, energyCap: AG.energyCapacity(ship),
         laser: { held: false, toggled: false, tick: 0, aim: null }
       };
       this.beginWave(1);
@@ -162,7 +172,7 @@
       run.hostile = [];
       this.state = 'intermission';
       run.allyShots = [];
-      while (this.retractTendril()) {}
+      for (const tendril of run.tendrils) for (const enemy of tendril.captures.keys()) this.releaseCapture(tendril, enemy);
       run.cleared++;
       this.awardMilestone();
       this.save();
@@ -180,7 +190,7 @@
       this.grantItem('credit', 100 * tier);
       this.grantItem('gem', tier);
       this.grantItem(upgrades[tier - 1]);
-      if (AG.eventActive()) this.grantItem(count % 20 ? 'alienCell' : 'alienMind');
+      if (AG.eventActive(this.now())) this.grantItem(count % 20 ? 'alienCell' : 'alienMind');
       this.notify('milestone', count + ' waves cleared · Rewards stored');
     }
 
@@ -340,7 +350,7 @@
       return true;
     }
 
-    merchantStock(now = Date.now()) {
+    merchantStock(now = this.now()) {
       const saved = this.profile.merchant;
       const ids = Object.keys(AG.MERCHANT);
       if (saved?.until > now && Array.isArray(saved.ids) && saved.ids.length === 2 && new Set(saved.ids).size === 2 &&
@@ -547,7 +557,7 @@
       if (!copies) this.profile.unlocked.push(id);
       this.profile.copies[id] = copies + 1;
       this.profile.flagshipPurchases++;
-      this.profile.flagshipTime = Date.now();
+      this.profile.flagshipTime = this.now();
       this.discoverItem(id);
       this.save();
       this.notify('loot', { type: id, amount: 1 });
@@ -624,6 +634,7 @@
       const { x, y } = run.player;
       this.movePlayer(dt);
       this.updateSmoke(dt, x, y);
+      this.updateEnergy(dt);
       if (this.state === 'intermission') {
         this.updatePlayerShots(dt);
         this.updateMissiles(dt);
@@ -651,7 +662,7 @@
       player.fireIn -= dt;
       if (player.fireIn <= 0 && !this.laserActive()) {
         const damage = this.shotDamage();
-        run.shots.push({ x: player.x, y: player.y - 20, vx: 0, vy: -720, size: 5, damage });
+        run.shots.push({ x: player.x, y: player.y - 20, vx: 0, vy: -720, size: 5, damage, color: ship.color });
         player.fireIn = Math.max(.055,
           ship.delay * .52 ** this.boostCount('rapidFire') * .68 ** this.boostCount('overdrive'));
         this.notify('fire');
@@ -682,8 +693,8 @@
         enemy.flash -= dt;
         enemy.coreTime = Math.max(0, (enemy.coreTime ?? 0) - dt);
         enemy.ghostTime = Math.max(0, (enemy.ghostTime ?? 0) - dt);
-        if (enemy.grips > 0) continue;
         if (enemy.allied) { this.actAsAlly(enemy, dt); continue; }
+        if (enemy.grips > 0) continue;
         if (run.practice) {
           if (run.practice === 'moving') enemy.x = WIDTH / 2 + 245 * Math.sin(enemy.age * 1.6);
           continue;
@@ -750,7 +761,7 @@
           enemy.type === 'nexus' && index % 2 ? speed * .72 : speed;
         hostile.push({ x: enemy.x, y: enemy.y + 4, size: 6, vx: Math.cos(angle) * shotSpeed,
           vy: Math.sin(angle) * shotSpeed, damage: boss ? 12 + boss.tier : 9,
-          source: (boss?.name ?? enemy.type) + ' fire', splitIn: enemy.type === 'prism' && index % 2 === 0 ? .53 : null });
+          color: ENEMIES[enemy.type].color, source: (boss?.name ?? enemy.type) + ' fire', splitIn: enemy.type === 'prism' && index % 2 === 0 ? .53 : null });
       }
     }
 
@@ -837,7 +848,7 @@
         return;
       }
       if (mode === 'release') laser.held = false;
-      else if (this.state === 'playing' && this.run.energy >= 3 && this.upgradeEffects().laser) {
+      else if (this.state === 'playing' && this.run.energy + 1e-8 >= 3 && this.upgradeEffects().laser) {
         if (mode === 'hold') {
           laser.held = true;
           laser.toggled = false;
@@ -851,7 +862,7 @@
 
     laserActive() {
       const run = this.run;
-      return this.state === 'playing' && run.energy >= 3 && this.upgradeEffects().laser &&
+      return this.state === 'playing' && run.energy + 1e-8 >= 3 && this.upgradeEffects().laser &&
         (run.laser.held || run.laser.toggled);
     }
 
@@ -874,7 +885,7 @@
       run.laser.tick += dt;
       if (run.laser.tick + 1e-9 < .3) return;
       run.laser.tick -= .3;
-      run.energy -= 3;
+      run.energy = Math.max(0, run.energy - 3);
       const { x, y, ux, uy, reach } = this.laserRay();
       const damage = this.shotDamage() * 2;
       for (let index = run.enemies.length - 1; index >= 0; index--) {
@@ -984,13 +995,13 @@
       const boss = BOSSES[enemy.type];
       if (run.practice) {
         this.notify('destroy', enemy);
-        run.energy = 100;
+        run.energy = run.energyCap;
         return;
       }
       this.rewardAlien(enemy);
       const score = ENEMIES[enemy.type].score;
       run.score += score;
-      run.energy = Math.min(100, run.energy + (boss ? 22 : 5));
+      run.energy = Math.min(run.energyCap, run.energy + 1);
       this.notify('destroy', enemy);
       this.dropItem('credit', enemy.x, enemy.y, boss ? 95 + boss.tier * 25 : Math.max(4, Math.ceil(score / 3)));
       if (boss) this.dropItem('gem', enemy.x + 12, enemy.y, 1);
@@ -1033,7 +1044,7 @@
           drop.y += dy * step;
         } else drop.y = Math.min(FLIGHT_LANE, drop.y + 140 * dt);
         if (touches(drop, run.player)) {
-          if (drop.type !== 'alienSerum' || !this.profile.serumUsed || !AG.eventActive()) collected.push(drop);
+          if (drop.type !== 'alienSerum' || !this.profile.serumUsed || !AG.eventActive(this.now())) collected.push(drop);
           return false;
         }
         return magnet || drop.age < 16;

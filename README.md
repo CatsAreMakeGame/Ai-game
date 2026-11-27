@@ -15,8 +15,8 @@ A browser-based shooter with four flight modes, returning boss fleets, unlockabl
 - Easy ends at wave 20, Medium at 30, Hard at 50, and Endless continues after the wave-50 boss. Continue resumes from the last cleared wave in the same browser.
 - The Alien Event ends at midnight at the start of 1 December 2026 in Melbourne. Afterward, repeatable boss bounties supply Alien Cells, Alien Minds and Alien Serum for permanent recipes.
 - Craft an Alien Ship with an owned ship in the centre, Alien Serum above it, an Alien Mind below it, and six Alien Cells in the other slots. Craft an Alien Mind with Alien Serum in the centre and eight Alien Cells around it.
-- Alien Ships extend and retract tendrils with **E** and **Q**. The Lightning Beacon uses **F** or right-click. Change the keys in Settings. Select Alien Serum under Inventory → Items → Event and choose **Use on equipped Alien Ship** to unlock mind control permanently.
-- The Premium Store accepts Star Gems, including a one-way exchange for 250 Credits per gem. Supernova can be purchased again after an hour, at double the previous price.
+- All ships recover 0.5 energy per second and gain 1 per enemy destroyed. Alien Ships extend and retract wall-anchored tendrils with **E** and **Q**. Extending costs 30 energy, and each anchor draws 1 per second. Captured enemies are held for four seconds and award 1 energy after two seconds. The Lightning Beacon uses **F** or right-click. Change the keys in Settings. Select Alien Serum under Inventory → Items → Event and choose **Use on equipped Alien Ship** to unlock mind control permanently.
+- Supernova is sold for Star Gems in Shop → Spaceships. It can be purchased again after an hour, at double the previous price.
 
 ## Loot crates
 
@@ -31,7 +31,7 @@ The lead bosses at waves 10, 20, 30, 40 and 50 have a 20%, 30%, 40%, 50% and 60%
 
 ## Local testing
 
-Open **Admin** and enter `ADMIN99` once per tab session. **Wave controls** can run the entire game from **0.25× to 10×** during testing. Admin waves go up to **2,147,483,647**. Higher input is capped at that value. High-wave spawns scale within fixed limits to keep the browser responsive. **Clear all testing data** resets the isolated test inventory, currency and run after confirmation. **Exit testing** restores the normal game.
+Open **Admin** and enter `ADMIN99` once per tab session. **Test clock** can skip ahead for the Alien Event, Supernova availability and Merchant restocks. **Wave controls** can run the entire game from **0.25× to 10×** during testing. Admin waves go up to **2,147,483,647**. Higher input is capped at that value. High-wave spawns scale within fixed limits to keep the browser responsive. **Clear all testing data** resets the isolated test inventory, currency and run after confirmation. **Exit testing** restores the normal game.
 
 ## Source
 

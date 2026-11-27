@@ -77,6 +77,28 @@
     }
 
     body.append(intro);
+    const timeGroup = group('Test clock');
+    const hours = element('input');
+    hours.type = 'number';
+    hours.min = '.1';
+    hours.max = '8760';
+    hours.step = '.1';
+    hours.value = '1';
+    hours.setAttribute('aria-label', 'Hours to skip');
+    const clock = element('p', new Date(game.now()).toLocaleString(), 'admin-status');
+    clock.setAttribute('role', 'status');
+    const showClock = () => { clock.textContent = new Date(game.now()).toLocaleString(); };
+    timeGroup.append(hours, clock);
+    actions(timeGroup, button('Skip hours', () => {
+      const milliseconds = Math.round(hours.valueAsNumber * 3600000);
+      if (milliseconds > 0 && game.advanceTestClock(milliseconds)) showClock();
+      else clock.textContent = 'Enter a number from 0.1 to 8,760 hours.';
+    }), button('Jump to event end', () => {
+      const remaining = AG.EVENT_END - game.now();
+      if (remaining > 0) game.advanceTestClock(remaining + 1000);
+      showClock();
+    }), button('Reset clock', () => { game.testTimeOffset = 0; showClock(); }));
+
     const items = group('Give yourself an item');
     const categories = [
       ['Ship', AG.SHIPS], ['Upgrade', AG.UPGRADES], ['Boost', AG.BOOSTS], ['Crate', AG.CRATES], ['Item', AG.MATERIALS],
@@ -84,7 +106,7 @@
     ];
     const choices = categories.flatMap(([category, catalog]) => Object.entries(catalog)
       .sort(([, a], [, b]) => a.name.localeCompare(b.name))
-      .map(([id, spec]) => [id, category + ' · ' + spec.name]));
+      .map(([id, spec]) => [id, category + ' · ' + AG.itemName(id)]));
     const item = select(items, 'Item', choices);
     const amountLabel = element('label', 'Quantity');
     const amount = element('input');
@@ -111,7 +133,7 @@
       const count = quantity();
       if (count === null) return;
       const id = item.value;
-      const name = AG.ITEMS[id].name;
+      const name = AG.itemName(id);
       feedback.textContent = game.grantItem(id, count)
         ? name + ' ×' + count.toLocaleString() + ' added.'
         : 'Could not grant ' + name + '.';
@@ -224,29 +246,29 @@
       }));
       damage.append(damageStatus);
 
-      const energy = group('Laser energy');
+      const energy = group('Ship energy');
       const energyLabel = element('label', 'Energy percent');
       const energyInput = element('input');
       energyInput.type = 'number';
       energyInput.min = '0';
-      energyInput.max = '100';
+      energyInput.max = String(run.energyCap);
       energyInput.step = '1';
       energyInput.value = String(run.energy);
       energyLabel.append(energyInput);
       energy.append(energyLabel);
       actions(energy, button('Set energy', () => {
         const value = energyInput.valueAsNumber;
-        if (!Number.isInteger(value) || value < 0 || value > 100) {
-          status.textContent = 'Enter a whole energy percentage from 0 to 100.';
+        if (!Number.isInteger(value) || value < 0 || value > run.energyCap) {
+          status.textContent = 'Enter a whole energy percentage from 0 to ' + run.energyCap + '.';
           energyInput.focus();
           return;
         }
         run.energy = value;
-        status.textContent = 'Laser energy set to ' + value + '%.';
-      }), button('Charge to 100%', () => {
-        run.energy = 100;
-        energyInput.value = '100';
-        status.textContent = 'Laser fully charged.';
+        status.textContent = 'Ship energy set to ' + value + '%.';
+      }), button('Charge to full', () => {
+        run.energy = run.energyCap;
+        energyInput.value = String(run.energyCap);
+        status.textContent = 'Ship fully charged.';
       }));
 
       const combat = group('Enemy testing');

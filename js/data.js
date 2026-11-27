@@ -239,6 +239,7 @@ window.AG = (() => {
         return entry && typeof entry === 'object' ? Object.fromEntries(Object.entries(entry)
           .filter(([key, id]) => Object.hasOwn(SLOTS, key) && Object.hasOwn(UPGRADES, id))) : null;
       }),
+      nameStyle: ['original', 'roman', 'numeric'].includes(saved?.nameStyle) ? saved.nameStyle : 'original',
       bindings, boostReserve: reserve, discoveries: [...discoveries],
       mode: Object.hasOwn(window.AG?.MODES ?? {}, saved?.mode) ? saved.mode : 'hard',
       checkpoint, modeRecords: saved?.modeRecords ?? {},
@@ -250,6 +251,22 @@ window.AG = (() => {
     };
   }
 
-  return { slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  function energyCapacity(ship) {
+    if (ship.alien) return ship.energyCapacity ?? Math.round(1.1 * energyCapacity(
+      Object.values(SHIPS).find(base => !base.alien && base.name === ship.donor?.replace(/^Alien /, '')) ??
+      { rarity: ship.donorRarity ?? 'mythical' }));
+    if (ship.name === 'Supernova') return 110;
+    return { common: 40, rare: 60, epic: 80, legendary: 100, mythical: 115, godly: 110 }[ship.rarity] ?? 40;
+  }
+
+  const statNames = { booster: ['Speed', 1], wings: ['Speed', 2], fusion: ['Speed', 3], carbon: ['Speed', 4],
+    cannon: ['Damage', 1], rail: ['Damage', 2], nova: ['Damage', 3] };
+  function itemName(id, style = window.AG?.game?.profile.nameStyle) {
+    const tier = statNames[id];
+    if (!tier || !['roman', 'numeric'].includes(style)) return ITEMS[id]?.name ?? id;
+    return tier[0] + ' ' + (style === 'roman' ? ['I','II','III','IV'][tier[1] - 1] : tier[1]);
+  }
+
+  return { energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

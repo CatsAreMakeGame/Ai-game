@@ -5,19 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A browser-based alien shooter with 50 escalating waves, Mothership bosses, pilot upgrades and unlockable ships.">
   <title>Alien Shooter</title>
-  <link rel="stylesheet" href="css/style.css?v=wave-rewards">
-  <script defer src="js/data.js?v=wave-rewards"></script>
-  <script defer src="js/game.js?v=wave-rewards"></script>
-  <script defer src="js/expansion.js?v=wave-rewards"></script>
-  <script defer src="js/flight-view.js?v=wave-rewards"></script>
-  <script defer src="js/admin.js?v=wave-rewards"></script>
-  <script defer src="js/armory.js?v=wave-rewards"></script>
-  <script defer src="js/main.js?v=wave-rewards"></script>
+  <link rel="stylesheet" href="css/style.css?v=wall-tendrils">
+  <script defer src="js/data.js?v=wall-tendrils"></script>
+  <script defer src="js/game.js?v=wall-tendrils"></script>
+  <script defer src="js/expansion.js?v=wall-tendrils"></script>
+  <script defer src="js/flight-view.js?v=wall-tendrils"></script>
+  <script defer src="js/admin.js?v=wall-tendrils"></script>
+  <script defer src="js/armory.js?v=wall-tendrils"></script>
+  <script defer src="js/main.js?v=wall-tendrils"></script>
 </head>
 <body>
   <main class="console">
     <header class="top">
-      <a class="brand" href="./index.html" aria-label="Alien Shooter home"><span class="mark" aria-hidden="true">✦</span> ALIEN<span class="brand-end">/SHOOTER</span></a>
+      <a class="brand" href="./index.html" aria-label="Alien Shooter home"><span id="brand-ship" class="mark" aria-hidden="true"></span> ALIEN<span class="brand-end">/SHOOTER</span></a>
       <div class="console-actions">
         <button id="settings" class="quiet" type="button"><img class="menu-icon" src="new-icons/vector-icon-pack/General/Settings/Gear%20256.png" alt="">Settings</button>
         <button id="admin" class="quiet" type="button">Admin</button>
@@ -36,7 +36,7 @@
         <div><span class="label">WAVE</span><strong id="wave"></strong></div>
         <div><span class="label">HEALTH <span id="hull-value"></span></span><progress id="hull" aria-label="Health" max="100"></progress></div>
         <div><span class="label">PILOT <span id="level"></span></span><progress id="xp" aria-label="Pilot experience" max="100"></progress></div>
-        <div id="energy-hud" class="energy"><span class="label">ENERGY <span id="energy-value">0%</span></span><progress id="energy" aria-label="Laser energy" max="100"></progress></div>
+        <div id="energy-hud" class="energy"><span class="label">ENERGY <span id="energy-value">0%</span></span><progress id="energy" aria-label="Ship energy" max="100"></progress></div>
         <div><span class="label">SCORE</span><strong id="score"></strong></div>
         <div class="wallet"><span title="Credits"><img src="icons/currency/credit_gold.png" alt="Credits"> <b id="credits"></b></span><span title="Star Gems"><img src="icons/currency/star_gem.png" alt="Star Gems"> <b id="gems"></b></span></div>
       </div>
@@ -53,6 +53,10 @@
       <div id="wave-message" class="wave-message" hidden></div>
       <div id="overlay" class="overlay">
         <section id="home" class="screen home" aria-labelledby="title">
+          <div id="merchant-widget" class="merchant-widget">
+            <button id="merchant-tab" type="button" aria-label="Merchant" aria-expanded="false" aria-controls="merchant-open"><img src="new-icons/vector-icon-pack/General/Shopping%20Basket/Shopping%20Basket%20Purple%20256.png" alt=""></button>
+            <button id="merchant-open" type="button" disabled>Visit Merchant</button>
+          </div>
           <aside class="event-banner"><strong><img class="menu-icon" src="new-icons/vector-icon-pack/Transport/UFO/UFO%20256.png" alt="">Alien Event</strong><span id="event-time"></span></aside>
           <h1 id="title">ALIEN<br><em>SHOOTER</em></h1>
           <div class="launch-options">
@@ -64,7 +68,6 @@
             <button id="inventory-home"><img class="menu-icon" src="new-icons/vector-icon-pack/Clothing/Backpack/Backpack%20256.png" alt="">Inventory</button>
             <button id="craft-open"><img class="menu-icon" src="new-icons/vector-icon-pack/Tools/Hammer/Hammer%20256.png" alt="">Crafting</button>
             <button id="shop-open"><img class="menu-icon" src="new-icons/vector-icon-pack/General/Shopping%20Basket/Shopping%20Basket%20Green%20256.png" alt="">Shop</button>
-            <button id="merchant-open" class="merchant-teaser" type="button" aria-label="Visit Merchant"><img class="menu-icon" src="new-icons/vector-icon-pack/General/Shopping%20Basket/Shopping%20Basket%20Green%20256.png" alt=""><span>Visit Merchant</span></button>
             <button id="outfit-open"><img class="menu-icon" src="new-icons/vector-icon-pack/Tools/Wrench/Wrench%20256.png" alt="">Ship Loadout</button>
             <button id="help"><img class="menu-icon" src="new-icons/vector-icon-pack/UI/Question%20Mark/Question%20Mark%20256.png" alt="">How to play</button>
           </div>
