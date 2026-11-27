@@ -116,7 +116,7 @@
       this.releaseInput();
       this.run = {
         wave: 0, level: this.profile.bestPilotLevel, xp: this.profile.pilotXp, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostCycleOn: false, boostCycleDelay: 0, ship, shipId, mode, mindCooldown: 30, controlSequence: 0, tendrils: [],
-        stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisShield: 0, smoke: [], smokeIn: 0, enemySmoke: [], smokeDamageIn: .5, asteroids: [], asteroidField: null, slimeShots: [], slimeIn: 0,
+        stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: AG.contentActive() ? (ship.ability?.interval ?? 0) : 0, aegisShield: 0, smoke: [], smokeIn: 0, enemySmoke: [], smokeDamageIn: .5, asteroids: [], asteroidField: null, slimeShots: [], slimeIn: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
         missiles: [], missileIn: 0, targetMode: 'nearest', energy: 0, energyCap: AG.energyCapacity(ship), energyOverdrive: false, overdriveTick: 0, overdriveSuppressed: false,
@@ -292,7 +292,7 @@
       return this.profile.discoveries.includes(type);
     }
 
-    discoverItem(type, announce = true) {
+    discoverItem(type, announce = !AG.contentActive()) {
       if (this.isDiscovered(type)) return false;
       this.profile.discoveries.push(type);
       if (announce) this.notify('discovery', type);
@@ -448,11 +448,11 @@
       } else this.itemStock(type)[type] = total;
     }
 
-    grantItem(type, amount = 1) {
+    grantItem(type, amount = 1, announceDiscovery) {
       if (!Object.hasOwn(AG.ITEMS, type) || !AG.itemAvailable(type) || !Number.isSafeInteger(amount) || amount < 1 ||
           !Number.isSafeInteger(this.itemCount(type) + amount) || this.run?.practice) return false;
       this.addItem(type, amount);
-      this.discoverItem(type);
+      this.discoverItem(type, announceDiscovery);
       this.save();
       this.notify('loot', { type, amount });
       return true;
@@ -1453,11 +1453,11 @@
         const rank = id => ranks.indexOf(AG.ITEMS[id]?.rarity ?? 'common');
         if (!run.stats.rarest || rank(drop.type) > rank(run.stats.rarest)) run.stats.rarest = drop.type;
         if (Object.hasOwn(BOOSTS, drop.type)) {
-          this.discoverItem(drop.type);
+          this.discoverItem(drop.type, true);
           for (let i = 0; i < drop.amount; i++) this.applyBoost(drop.type);
           this.notify('loot', { type: drop.type, amount: drop.amount });
           this.save();
-        } else this.grantItem(drop.type, drop.amount);
+        } else this.grantItem(drop.type, drop.amount, true);
       }
     }
   }

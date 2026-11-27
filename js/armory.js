@@ -232,7 +232,7 @@
       dialog.remove();
       for (const reward of rewards) {
         game.notify('loot', reward);
-        if (reward.discovered) game.notify('discovery', reward.type);
+        if (reward.discovered && !AG.contentActive()) game.notify('discovery', reward.type);
       }
     }, { once: true });
     dialog.showModal();
