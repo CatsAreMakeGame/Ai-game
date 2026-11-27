@@ -42,6 +42,8 @@ window.AG = (() => {
     gemPrice: 100,
     ability: { name: 'Nova Aegis', interval: 24, capacity: 50 }
   });
+  SHIPS.singularity.barrage = { name: 'Singularity Barrage', energy: 115, shots: 200, duration: 8, damageScale: 1.25 };
+  const aegisCapacity = ship => contentActive() ? ship.hull * 1.5 : ship.ability?.capacity ?? 0;
   const BOSSES = {
     boss: { name: 'Mothership', hp: 95, size: 49, color: '#ff7894', score: 600, tier: 0, shots: 5, spread: .18, cadence: 2.2 },
     prism: { name: 'Prism Carrier', hp: 145, size: 44, color: '#bf8cff', score: 850, tier: 1, shots: 3, spread: .15, cadence: 1.8 },
@@ -379,6 +381,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { CONTENT_START, enemyCrateSaleActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { aegisCapacity, CONTENT_START, enemyCrateSaleActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

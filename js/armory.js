@@ -66,7 +66,10 @@
     const item = ITEMS[id];
     if (item.alien) return item.hull + ' hull · ' + Math.round(item.speed) + ' speed · ' + item.damage +
       ' damage · ' + item.engines + (item.engines === 1 ? ' engine' : ' engines') + ' · ' + AG.energyCapacity(item) + '% energy';
-    return SHIPS[id] ? item.description + ' · ' + AG.energyCapacity(item) + '% energy' : (item.description ?? '');
+    if (!SHIPS[id]) return item.description ?? '';
+    const barrage = AG.contentActive() && item.barrage;
+    return item.description + ' · ' + AG.energyCapacity(item) + '% energy' +
+      (barrage ? ' · ' + barrage.name + ' fires ' + barrage.shots + ' shots at 115% energy with at least two-thirds of the wave left. Requires an empty Ultimate slot.' : '');
   };
 
   let tooltip;
@@ -753,7 +756,7 @@
           }, 1000);
         }
         details.append(element('span', 'Godly', 'flagship-rarity'), element('h3', ship.name), stats,
-          element('h4', ability.name), element('p', 'Absorbs up to ' + ability.capacity + ' damage. Recharges ' + ability.interval + ' seconds after the shield breaks.'),
+          element('h4', ability.name), element('p', 'Absorbs up to ' + AG.aegisCapacity(ship) + ' damage. Recharges ' + ability.interval + ' seconds after the shield breaks.'),
           element('p', 'Owned ×' + game.shipCount('supernova') + ' · ' + AG.formatCurrency(profile.gems) + ' Star Gems saved'),
           savings, wait, buy);
         featured.append(visual, details);

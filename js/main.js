@@ -166,11 +166,18 @@
     const boss = active && run.enemies.find(enemy => (run.practice ? AG.BOSSES[enemy.type] : enemy.type === AG.mainBoss(run.wave) && !enemy.escort) && enemy.y > 65 && !enemy.allied);
     $('boss').hidden = !boss;
     $('boosts').hidden = !active || !Object.keys(run.boosts).length;
-    $('ship-ability').hidden = !active || !(run.ship.ability || run.ship.alien);
+    $('ship-ability').hidden = !active || !(run.ship.ability || run.ship.alien || (AG.contentActive() && run.ship.barrage));
     if (!active) return;
     if (run.ship.ability) {
-      const state = run.aegisShield > 0 ? run.aegisShield + ' shield' : run.aegisCooldown > 0 ? Math.ceil(run.aegisCooldown) + 's' : 'Ready';
+      const state = run.aegisShield > 0 ? Number(run.aegisShield.toFixed(1)) + ' shield' : run.aegisCooldown > 0 ? Math.ceil(run.aegisCooldown) + 's' : 'Ready';
       setText($('ship-ability'), run.ship.ability.name + ' · ' + state);
+    }
+    if (AG.contentActive() && run.ship.barrage) {
+      const spec = run.ship.barrage;
+      const state = !game.hasSingularityBarrage() ? 'Disabled by fitted ultimate' :
+        run.barrage ? Math.max(0, spec.duration - run.barrage.elapsed).toFixed(1) + 's firing' :
+        run.energy >= spec.energy ? 'Charged · waiting for enemies' : 'Charges at ' + spec.energy + '%';
+      setText($('ship-ability'), spec.name + ' · ' + state);
     }
     if (run.ship.alien) setText($('ship-ability'), run.tendrils.length + ' tendrils' + (run.ship.mindControl ? ' · Mind control ' + (run.mindCooldown > 0 ? Math.ceil(run.mindCooldown) + 's' : 'ready') : ''));
     if (now >= rewardUntil && now < creditUntil) setText(alert, '+' + AG.formatCurrency(creditBatch) + ' credits');
@@ -233,7 +240,7 @@
     const health = run.player.hp / run.ship.hull;
     const rim = $('combat-rim');
     rim.style.setProperty('--hurt', health <= .3 ? Math.max(.32, 1 - health * 2) : 0);
-    rim.style.setProperty('--shield', run.aegisShield > 0 ? Math.max(.17, run.aegisShield / run.ship.ability.capacity) :
+    rim.style.setProperty('--shield', run.aegisShield > 0 ? Math.max(.17, run.aegisShield / AG.aegisCapacity(run.ship)) :
       run.boosts.shield || run.boosts.fortress ? .65 : 0);
     rim.classList.toggle('nova-rim', run.aegisShield > 0);
     rim.classList.toggle('critical-health', health < .1);

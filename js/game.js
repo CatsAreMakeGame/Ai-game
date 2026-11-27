@@ -119,7 +119,7 @@
         stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: AG.contentActive() ? (ship.ability?.interval ?? 0) : 0, aegisShield: 0, smoke: [], smokeIn: 0, enemySmoke: [], smokeDamageIn: .5, asteroids: [], asteroidField: null, slimeShots: [], slimeIn: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
-        missiles: [], missileIn: 0, targetMode: 'nearest', energy: 0, energyCap: AG.energyCapacity(ship), energyOverdrive: false, overdriveTick: 0, overdriveSuppressed: false,
+        missiles: [], missileIn: 0, barrage: null, targetMode: 'nearest', energy: 0, energyCap: AG.energyCapacity(ship), energyOverdrive: false, overdriveTick: 0, overdriveSuppressed: false,
         laser: { held: false, toggled: false, tick: 0, aim: null }
       };
       this.run.asteroidDelay = AG.contentActive() && this.random() < .01 ? 6 : null;
@@ -902,6 +902,7 @@
       this.movePlayer(dt);
       this.updateSmoke(dt, x, y);
       this.updateEnergy(dt);
+      this.updateBarrage(dt);
       this.updateSlime(dt);
       this.updateAsteroids(dt);
       if (this.state === 'intermission') {
@@ -1303,9 +1304,43 @@
       if (enemy.hp <= 0) this.removeEnemy(index, true);
     }
 
+    hasSingularityBarrage() {
+      const run = this.run;
+      return Boolean(AG.contentActive() && run?.ship.barrage && !run.loadout?.special);
+    }
+
+    updateBarrage(dt) {
+      if (!this.hasSingularityBarrage()) return;
+      const run = this.run;
+      const spec = run.ship.barrage;
+      if (!run.barrage) {
+        const remaining = run.total - run.resolved;
+        if (this.state !== 'playing' || run.total < 1 || remaining * 3 < run.total * 2 ||
+            run.energy + 1e-8 < spec.energy) return;
+        run.energy = Math.max(0, run.energy - spec.energy);
+        run.barrage = { elapsed: 0, emitted: 0 };
+        this.notify('upgrade', spec.name + ' active');
+      }
+      const barrage = run.barrage;
+      barrage.elapsed = Math.min(spec.duration, barrage.elapsed + dt);
+      const due = Math.min(spec.shots, Math.floor(barrage.elapsed * spec.shots / spec.duration + 1e-8));
+      const { x, y } = run.player;
+      while (barrage.emitted < due) {
+        const i = barrage.emitted++;
+        const sweep = ((i * .61803398875) % 1) * 2 - 1;
+        const angle = -Math.PI / 2 + sweep * (i % 5 === 0 ? Math.PI : 1.42);
+        const vx = Math.cos(angle);
+        const vy = Math.sin(angle);
+        run.shots.push({ x: x + vx * 16, y: y + vy * 16, vx: vx * 780, vy: vy * 780,
+          size: 5, damage: run.ship.damage * spec.damageScale, color: '#ffabeb', barrage: true });
+      }
+      if (barrage.emitted === spec.shots) run.barrage = null;
+    }
+
     updatePlayerShots(dt) {
       const run = this.run;
       run.shots = run.shots.filter(shot => {
+        shot.x += shot.vx * dt;
         shot.y += shot.vy * dt;
         const hit = run.enemies.findIndex(enemy => !enemy.allied && touches(shot, enemy));
         if (hit >= 0) {
@@ -1314,7 +1349,7 @@
         }
         const rock = run.asteroids.find(rock => rock.hp > 0 && touches(shot, rock));
         if (rock) this.hitAsteroid(rock, shot.damage);
-        return !rock && shot.y > -24;
+        return !rock && shot.y > -24 && shot.y < HEIGHT + 24 && shot.x > -24 && shot.x < WIDTH + 24;
       });
     }
 
@@ -1359,7 +1394,7 @@
       const run = this.run;
       const ability = run.ship.ability;
       if (ability && damage > 0 && !run.aegisShield && run.aegisCooldown === 0) {
-        run.aegisShield = ability.capacity;
+        run.aegisShield = AG.aegisCapacity(run.ship);
         this.notify('upgrade', ability.name + ' active');
       }
       if (run.aegisShield > 0) {

@@ -66,7 +66,7 @@
     ITEMS[id].glyph ??= '◆';
   }
   const clone = value => JSON.parse(JSON.stringify(value));
-  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn', 'asteroidDelay', 'asteroidField', 'asteroids'];
+  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn', 'asteroidDelay', 'asteroidField', 'asteroids', 'barrage'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
   const mainBoss = wave => wave >= 10 && wave % 10 === 0 ? Object.keys(BOSSES)[Math.min(wave / 10 - 1, 4)] : null;
 
@@ -371,17 +371,17 @@
 
     canEnergyOverdrive() {
       return !!this.run && this.run.energy <= this.run.energyCap + 1e-8 &&
-        !this.run.ship.alien && !this.upgradeEffects().laser;
+        !this.run.ship.alien && !this.hasSingularityBarrage() && !this.upgradeEffects().laser;
     },
 
     overdriveStacks() {
       return this.boostCount('overdrive') + Number(this.run.energyOverdrive && this.canEnergyOverdrive());
     },
 
-    gainEnergy(amount) {
+    gainEnergy(amount, ceiling = this.run.energyCap) {
       const run = this.run;
       if (run.energyOverdrive || run.energy > run.energyCap) return;
-      run.energy = Math.min(run.energyCap, run.energy + amount);
+      if (run.energy < ceiling) run.energy = Math.min(ceiling, run.energy + amount);
       this.tryEnergyOverdrive();
     },
 
@@ -426,7 +426,7 @@
       } else {
         if (run.energy < run.energyCap) run.overdriveSuppressed = false;
         if (run.tendrils.length) run.energy = Math.max(0, run.energy + (.5 - run.tendrils.length) * dt);
-        else this.gainEnergy(.5 * dt);
+        else this.gainEnergy(.5 * dt, AG.contentActive() ? Math.min(100, run.energyCap) : run.energyCap);
       }
       if (run.energy <= 1e-8 && run.tendrils.length) while (this.retractTendril()) {}
       if (run.ship.mindControl && run.mindCooldown > 0) {

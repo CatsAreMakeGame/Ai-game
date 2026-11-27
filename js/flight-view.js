@@ -432,7 +432,8 @@
           ctx.fillStyle = shot.color ?? run.ship.color;
           ctx.shadowColor = ctx.fillStyle;
           ctx.shadowBlur = 6;
-          ctx.fillRect(-2, -9, 4, 18);
+          if (shot.barrage) ctx.fillRect(-1.5, -12, 3, 24);
+          else ctx.fillRect(-2, -9, 4, 18);
           ctx.restore();
         }
       }
@@ -564,7 +565,7 @@
       }
       if (run.aegisShield > 0) {
         ctx.save();
-        const strength = run.aegisShield / run.ship.ability.capacity;
+        const strength = run.aegisShield / AG.aegisCapacity(run.ship);
         const glow = ctx.createLinearGradient(player.x - 32, player.y - 30, player.x + 32, player.y + 30);
         glow.addColorStop(0, '#9d66ff');
         glow.addColorStop(.5, '#e6c6ff');
