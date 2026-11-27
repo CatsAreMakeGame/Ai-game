@@ -18,10 +18,11 @@
   let panelKind = '';
   let returnFocus = $('launch');
   let tutorialIndex = 0;
-  const armory = { inventoryTab: 'ships', shopTab: 'ships', autoOpen: false, result: '', part: '', ship: '', ingredient: '', grid: Array(9).fill('') };
+  const armory = { inventoryTab: 'ships', shopTab: 'ships', result: '', part: '', ship: '', ingredient: '', grid: Array(9).fill('') };
   const armoryPanels = ['hangar', 'shop', 'inventory', 'outfit', 'craft', 'recipes', 'merchant', 'shipPicker', 'autoBoost'];
   const panelHistory = [];
   let mindAim = false;
+  let hoveredDrop = null;
   const loot = new Map();
   let adminUnlocked = false;
   try { adminUnlocked = sessionStorage.getItem('alien-shooter.admin') === 'yes'; } catch {}
@@ -59,7 +60,6 @@
     if (game.profile.sound) audio.play(type);
     if (type === 'destroy') view.burst(value);
     if (type === 'blast') view.blast(value);
-    if (type === 'magnet-pickup') view.magnetPickup(value);
     if (type === 'enemy-damage') view.addDamageNumber(value);
     if (type === 'loot') {
       const { type: id, amount } = value;
@@ -178,7 +178,10 @@
       const caption = !ready ? 'Lv ' + [1, 5, 10][i] : id ? '×' + (game.profile.boosts[id] ?? 0) : 'Empty';
       if (slot.dataset.item !== (ready ? id : 'locked')) {
         slot.dataset.item = ready ? id : 'locked';
-        slot.replaceChildren(...(ready && id ? [AG.itemGraphic(id)] : []), element('small'));
+        const lock = element('img', '', 'boost-lock');
+        lock.src = AG.BOOST_LOCK;
+        lock.alt = 'Locked';
+        slot.replaceChildren(...(!ready ? [lock] : id ? [AG.itemGraphic(id)] : []), element('small'));
       }
       setText(slot.lastElementChild, caption);
       const name = ready ? (AG.BOOSTS[id]?.name ?? 'Empty boost slot') : 'Unlocks at pilot level ' + [1, 5, 10][i];
@@ -284,7 +287,6 @@
   }
 
   function resetPanelDraft() {
-    armory.autoOpen = false;
     armory.result = '';
     armory.part = '';
   }
@@ -351,6 +353,7 @@
   }
 
   function closePanel() {
+    AG.hideItemTooltip();
     panelKind = '';
     panel.hidden = true;
     overlay.hidden = game.state !== 'home';
@@ -408,6 +411,7 @@
   }
 
   function drawPanel(restoreFocus = false) {
+    AG.hideItemTooltip();
     const buttonIndex = [...body.querySelectorAll('button')].indexOf(document.activeElement);
     const priorScroll = overlay.scrollTop;
     overlay.hidden = panel.hidden = false;
@@ -436,10 +440,7 @@
       const titles = { hangar: 'Hangar', shop: 'Shop', inventory: 'Inventory', outfit: 'Ship Loadout', craft: 'Crafting', recipes: 'Recipes', shipPicker: 'Select a ship', merchant: 'Merchant', autoBoost: 'Auto Boost' };
       setText(title, titles[panelKind]);
       AG.renderArmory({ kind: panelKind, state: armory, game, body, button, element, dismiss,
-        open: navigate, refresh: () => drawPanel(true), practice: kind => {
-          game.startPractice(kind);
-          resumeFlight();
-        } });
+        open: navigate, refresh: () => drawPanel(true) });
     } else if (panelKind === 'launchMode') {
       setText(title, 'Choose a mode');
       const modes = element('div', '', 'mode-carousel');
@@ -655,8 +656,17 @@
     trackAim(event);
     game.laserInput('toggle');
   });
+  canvas.addEventListener('pointerleave', () => {
+    if (hoveredDrop) AG.hideItemTooltip();
+    hoveredDrop = null;
+  });
   canvas.addEventListener('pointermove', event => {
     const aim = trackAim(event);
+    const drop = aim && event.pointerType !== 'touch' && !panelKind && game.run?.drops.find(item =>
+      Math.hypot(aim.x - item.x, aim.y - item.y) <= item.size);
+    if (drop) AG.showItemTooltip(canvas, drop.type, event.clientX, event.clientY);
+    else if (hoveredDrop) AG.hideItemTooltip();
+    hoveredDrop = drop || null;
     if (aim && event.pointerId === pointerId) game.pointer = aim;
   });
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
@@ -728,6 +738,7 @@
     if (!panelKind && ['gameover', 'victory'].includes(game.state)) open('result');
     view.draw(game, panelKind && game.run ? 0 : game.run ? gameDt : dt);
     renderHUD(now);
+    if (hoveredDrop && !game.run?.drops.includes(hoveredDrop)) { hoveredDrop = null; AG.hideItemTooltip(); }
     requestAnimationFrame(frame);
   }
 

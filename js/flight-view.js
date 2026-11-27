@@ -259,14 +259,6 @@
       ctx.restore();
     }
 
-    magnetPickup({ x, y, toX, toY }) {
-      const duration = .14;
-      for (let i = 0; i < 3; i++) {
-        this.effects.push({ x: x + (i - 1) * 5, y, vx: (toX - x) / duration,
-          vy: (toY - y) / duration, life: duration, color: '#b1ffb8', magnet: true });
-      }
-    }
-
     burst(enemy) {
       const count = AG.BOSSES[enemy.type] ? 40 : 10;
       for (let index = 0; index < count; index++) {
@@ -423,6 +415,26 @@
         const item = AG.ITEMS[drop.type];
         ctx.save();
         ctx.translate(drop.x, drop.y);
+        if (AG.CRATES[drop.type] || ['legendary', 'mythical', 'godly'].includes(item.rarity)) {
+          const pulse = .5 + .5 * Math.sin(this.time * 6 + drop.x);
+          const light = AG.RARITIES[item.rarity ?? 'legendary'];
+          ctx.globalAlpha = .22 + pulse * .25;
+          ctx.shadowColor = light;
+          ctx.shadowBlur = 15;
+          ctx.strokeStyle = light;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, 22 + pulse * 3, 0, Math.PI * 2);
+          ctx.stroke();
+          for (let i = 0; i < 3; i++) {
+            const angle = this.time * 1.7 + i * Math.PI * 2 / 3;
+            const x = Math.cos(angle) * 25;
+            const y = Math.sin(angle) * 25;
+            disc(ctx, x, y, 1.5 + pulse, '#fff9ce');
+          }
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1;
+        }
         if (AG.SHIPS[drop.type]) {
           ctx.scale(.44, .44);
           paintShip(ctx, AG.SHIPS[drop.type]);
@@ -475,7 +487,7 @@
         particle.life -= dt;
         particle.x += particle.vx * dt;
         particle.y += particle.vy * dt;
-        ctx.globalAlpha = particle.magnet ? AG.clamp(particle.life / .14, 0, 1) : Math.max(0, particle.life);
+        ctx.globalAlpha = Math.max(0, particle.life);
         disc(ctx, particle.x, particle.y, 2.7, particle.color);
         ctx.globalAlpha = 1;
         return particle.life > 0;

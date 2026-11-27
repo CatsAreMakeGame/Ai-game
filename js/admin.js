@@ -255,6 +255,10 @@
     }
 
     const profile = group('Shop testing');
+    actions(profile, button('Reset Merchant', () => {
+      const stock = game.resetMerchant();
+      if (stock) status.textContent = 'New stock · ' + stock.ids.map(id => AG.ITEMS[id].name).join(' · ');
+    }));
     actions(profile, button('+5 Star Gems', () => {
       game.grantItem('gem', 5);
       status.textContent = game.profile.gems + ' Star Gems available.';

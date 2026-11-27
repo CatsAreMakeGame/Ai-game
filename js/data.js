@@ -21,7 +21,7 @@ window.AG = (() => {
     tempest: ['Tempest', 110, 480, .24, 2, 2, 'crescent', '#73f2b0', 'epic', 1250],
     solaris: ['Solaris', 125, 470, .25, 3, 3, 'delta', '#ff9474', 'epic', 1750],
     leviathan: ['Leviathan', 180, 370, .3, 4, 3, 'hex', '#ffbe68', 'legendary', 2600],
-    aurora: ['Aurora', 117, 550, .20, 2, 3, 'arrow', '#83fff3', 'legendary', 3300],
+    aurora: ['Aurora', 160, 575, .19, 4, 3, 'arrow', '#83fff3', 'legendary', 3300],
     comet: ['Comet', 100, 605, .21, 1, 2, 'needle', '#6edaff', 'rare', null],
     eclipse: ['Eclipse', 138, 525, .22, 3, 2, 'fang', '#e0a1ff', 'epic', null],
     singularity: ['Singularity', 165, 560, .19, 4, 3, 'star', '#ff81bf', 'mythical', null],
@@ -74,7 +74,7 @@ window.AG = (() => {
 
   const UPGRADES = {
     vector: { name: 'Vector Engine', description: 'Unlocks vertical and horizontal steering.',
-      slot: 'Engine', rarity: 'legendary', chance: 0.015, color: '#87def9', glyph: '↕', vertical: true },
+      slot: 'Engine', rarity: 'legendary', color: '#87def9', glyph: '↕', vertical: true },
     wings: { name: 'Swift Wings', description: 'Increases movement speed by 20%.',
       slot: 'Wings', rarity: 'rare', chance: 0.025, color: '#d5fa74', glyph: '»', speed: .2 },
     cannon: { name: 'Pulse Cannon', description: 'Adds 1 damage to every shot.',
@@ -86,15 +86,15 @@ window.AG = (() => {
     nova: { name: 'Nova Emitter', slot: 'Weapon', rarity: 'mythical', chance: .002, color: '#ff7ba7', glyph: '✹', damage: 4, description: 'Adds 4 damage to every shot.' },
     rocket: { name: 'Blast Missile', slot: 'Weapon', rarity: 'rare', chance: .015, glyph: '◆', missile: 'blast',
       description: 'Launches toward a target’s current position. Its blast can hit several enemies.' },
-    seeker: { name: 'Heat-Seeking Missile', slot: 'Weapon', rarity: 'legendary', chance: .004, glyph: '➶', missile: 'homing',
+    seeker: { name: 'Heat-Seeking Missile', slot: 'Weapon', rarity: 'legendary', glyph: '➶', missile: 'homing',
       description: 'Steers after its target and can retarget if the original enemy is destroyed.' },
     smokeBomb: { name: 'Smoke Bomb', slot: 'Engine', rarity: 'rare', glyph: '☁', smoke: true, chance: .018,
       description: 'Leaves a two-second smoke trail that deals 1 damage per second to enemies inside it.' },
     beacon: { name: 'Lightning Beacon', slot: 'Special', rarity: 'godly', glyph: '⚡', laser: true,
       description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold the Lightning Beacon key. Each pulse costs 3% and deals double shot damage.' },
-    magnet: { name: 'Loot Magnet', slot: 'Ability', rarity: 'legendary', glyph: '∪', magnet: true, chance: .006,
-      description: 'Instantly collects enemy loot anywhere on the field, including Credits, Star Gems and items.' },
-    boostRelay: { name: 'Auto Boost', slot: 'Ability', rarity: 'epic', glyph: '▣', boostRelay: true, chance: .009,
+    magnet: { name: 'Loot Magnet', slot: 'Ability', rarity: 'legendary', glyph: '∪', magnet: true,
+      description: 'Pulls enemy loot to your ship and collects it when it arrives.' },
+    boostRelay: { name: 'Auto Boost', slot: 'Ability', rarity: 'epic', glyph: '▣', boostRelay: true,
       description: 'Holds up to five copies each of five boost types. Right-click its equipped slot in Ship Loadout to configure it.' }
   };
   const CRATES = {
@@ -104,8 +104,7 @@ window.AG = (() => {
     ] },
     upgradeCrate: { name: 'Upgrade Crate', rarity: 'rare', glyph: '▧', price: 2, outcomes: [
       { rarity: 'rare', weight: 56, items: ['booster', 'wings', 'cannon', 'rocket', 'smokeBomb'] },
-      { rarity: 'epic', weight: 30, items: ['rail', 'fusion', 'carbon', 'boostRelay'] },
-      { rarity: 'legendary', weight: 12, items: ['vector', 'seeker', 'magnet'] }, { rarity: 'mythical', weight: 1.5, items: ['nova'] },
+      { rarity: 'epic', weight: 42, items: ['rail', 'fusion', 'carbon'] }, { rarity: 'mythical', weight: 1.5, items: ['nova'] },
       { rarity: 'godly', weight: .5, items: ['beacon'] }
     ] }
   };
@@ -140,8 +139,9 @@ window.AG = (() => {
     return mounts;
   }
 
-  const SHIP_ORDER = ['supernova', 'singularity', 'leviathan', 'eclipse', 'solaris', 'aurora', 'tempest', 'bastion', 'comet', 'wraith', 'falcon', 'scout'];
-  const MERCHANT = { boostRelay: 1600, vector: 2400, magnet: 2000, seeker: 2200 };
+  const SHIP_ORDER = ['supernova', 'singularity', 'aurora', 'leviathan', 'eclipse', 'solaris', 'tempest', 'bastion', 'comet', 'wraith', 'falcon', 'scout'];
+  const BOOST_LOCK = 'new-icons/vector-icon-pack/General/Lock/Lock 256.png';
+  const MERCHANT = { boostRelay: 1600, seeker: 2200, vector: 2400, magnet: 2000 };
   const TARGET_MODES = { nearest: 'Closest to ship', bottom: 'Closest to bottom', strongest: 'Strongest', weakest: 'Weakest' };
   const SUPPLIES = {
     heal: { name: 'Hull repair', description: 'Restores up to 25 hull.', price: 150 },
@@ -220,9 +220,11 @@ window.AG = (() => {
         const id = (saved?.boostSlots ?? saved?.favoriteBoosts)?.[i];
         return Object.hasOwn(BOOSTS, id) ? id : '';
       }),
+      bestPilotLevel: Math.max(1, readNumber('bestPilotLevel'), Number.isInteger(checkpoint?.level) ? Math.min(50, checkpoint.level) : 1),
+      merchant: saved?.merchant ?? null,
       boostSide: saved?.boostSide === 'left' ? 'left' : 'right',
       layoutVersion: 1,
-      presets: Array.from({ length: 3 }, (_, i) => {
+      presets: Array.from({ length: 2 }, (_, i) => {
         const entry = saved?.presets?.[i];
         return entry && typeof entry === 'object' ? Object.fromEntries(Object.entries(entry)
           .filter(([key, id]) => Object.hasOwn(SLOTS, key) && Object.hasOwn(UPGRADES, id))) : null;
@@ -238,6 +240,6 @@ window.AG = (() => {
     };
   }
 
-  return { slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

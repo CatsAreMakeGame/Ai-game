@@ -191,6 +191,10 @@
         this.repair(10, false);
         this.notify('upgrade', run.level === SUPPLY_LEVEL ? 'Level 5 · Supplies unlocked' : 'Pilot level ' + run.level);
       }
+      if (!run.practice && run.level > this.profile.bestPilotLevel) {
+        this.profile.bestPilotLevel = run.level;
+        this.save();
+      }
     }
 
     repair(amount, announce = true) {
@@ -307,16 +311,36 @@
       return true;
     }
 
+    merchantStock(now = Date.now()) {
+      const saved = this.profile.merchant;
+      const ids = Object.keys(AG.MERCHANT);
+      if (saved?.until > now && Array.isArray(saved.ids) && saved.ids.length === 2 && new Set(saved.ids).size === 2 &&
+          saved.ids.every(id => ids.includes(id))) return saved;
+      const first = ids.splice(Math.floor(this.random() * ids.length), 1)[0];
+      const second = ids[Math.floor(this.random() * ids.length)];
+      const stock = { ids: [first, second].sort((a, b) => Object.keys(AG.MERCHANT).indexOf(a) - Object.keys(AG.MERCHANT).indexOf(b)),
+        until: now + 300000 };
+      this.profile.merchant = stock;
+      this.save();
+      return stock;
+    }
+
+    resetMerchant() {
+      if (!this.testing) return false;
+      this.profile.merchant = null;
+      return this.merchantStock();
+    }
+
     buyMerchant(id) {
       const price = AG.MERCHANT[id];
-      if (!this.canVisitBase() || !Number.isInteger(price) || this.credits < price ||
+      if (!this.canVisitBase() || !Number.isInteger(price) || this.credits < price || !this.merchantStock().ids.includes(id) ||
           !Number.isSafeInteger(this.itemCount(id) + 1)) return false;
       this.profile.credits -= price;
       return this.grantItem(id);
     }
 
     setPreset(index, ship, save) {
-      if (!this.canVisitBase() || !this.shipCount(ship) || ![0, 1, 2].includes(index)) return false;
+      if (!this.canVisitBase() || !this.shipCount(ship) || ![0, 1].includes(index)) return false;
       if (save) this.profile.presets[index] = { ...this.profile.loadouts[ship] };
       else {
         const preset = this.profile.presets[index];
@@ -328,7 +352,8 @@
     }
 
     boostSlotOpen(index) {
-      return index === 0 || index === 1 && this.run?.level >= 5 || index === 2 && this.run?.level >= 10;
+      const level = this.canVisitBase() ? this.profile.bestPilotLevel : (this.run?.level ?? 1);
+      return [1, 5, 10][index] <= level;
     }
 
     updateSmoke(dt, lastX, lastY) {
@@ -413,13 +438,11 @@
         Number.MAX_SAFE_INTEGER - (this.profile.crates[type] ?? 0));
     }
 
-    buyCrates(type, count, autoOpen = false) {
+    buyCrates(type, count) {
       if (!Number.isSafeInteger(count) || count < 1 || count > this.cratePurchaseLimit(type)) return false;
       this.profile.gems -= CRATES[type].price * count;
       this.grantItem(type, count);
-      const opened = Math.min(count, this.crateBatchLimit());
-      const batch = autoOpen ? this.openCrates(type, opened) : false;
-      return { batch, stored: batch ? count - batch.count : count };
+      return true;
     }
 
     crateBatchLimit() {
@@ -966,17 +989,21 @@
       const magnet = this.upgradeEffects().magnet;
       run.drops = run.drops.filter(drop => {
         drop.age += dt;
-        drop.y = Math.min(FLIGHT_LANE, drop.y + 140 * dt);
-        if (magnet || touches(drop, run.player)) {
+        if (magnet) {
+          const dx = run.player.x - drop.x;
+          const dy = run.player.y - drop.y;
+          const distance = Math.hypot(dx, dy);
+          const step = Math.min(1, 1450 * dt / Math.max(1, distance));
+          drop.x += dx * step;
+          drop.y += dy * step;
+        } else drop.y = Math.min(FLIGHT_LANE, drop.y + 140 * dt);
+        if (touches(drop, run.player)) {
           if (drop.type !== 'alienSerum' || !this.profile.serumUsed || !AG.eventActive()) collected.push(drop);
           return false;
         }
-        return drop.age < 16;
+        return magnet || drop.age < 16;
       });
       for (const drop of collected) {
-        if (magnet && !touches(drop, run.player)) this.notify('magnet-pickup', {
-          x: drop.x, y: drop.y, toX: run.player.x, toY: run.player.y
-        });
         if (drop.type === 'gem') run.stats.gems += drop.amount;
         const ranks = Object.keys(AG.RARITIES);
         const rank = id => ranks.indexOf(AG.ITEMS[id]?.rarity ?? 'common');

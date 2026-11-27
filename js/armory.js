@@ -30,9 +30,13 @@
     return control;
   }
 
-  function graphic(id) {
+  function graphic(id, hover = true) {
     const item = ITEMS[id];
-    if (SHIPS[id]) return AG.shipGraphic(id);
+    if (SHIPS[id]) {
+      const ship = AG.shipGraphic(id);
+      if (hover) itemHover(ship, id);
+      return ship;
+    }
     const badge = document.createElement('span');
     badge.className = 'item-icon';
     badge.style.setProperty('--rarity', RARITIES[item.rarity ?? 'common']);
@@ -46,6 +50,7 @@
     } else {
       badge.textContent = item.glyph;
     }
+    if (hover) itemHover(badge, id);
     return badge;
   }
 
@@ -56,9 +61,92 @@
       strength(catalog[b]) - strength(catalog[a]) || catalog[a].name.localeCompare(catalog[b].name));
   }
 
-  function crateOdds(crate) {
-    return crate.outcomes.map(({ rarity, weight, items }) =>
-      weight + '% ' + rarity + ' (' + items.map(id => ITEMS[id].name).join(', ') + ')').join(' · ');
+  const titleCase = value => value[0].toUpperCase() + value.slice(1);
+  const tooltipText = id => {
+    const item = ITEMS[id];
+    if (item.alien) return item.hull + ' hull · ' + Math.round(item.speed) + ' speed · ' + item.damage +
+      ' damage · ' + item.engines + (item.engines === 1 ? ' engine' : ' engines');
+    return item.description ?? '';
+  };
+
+  let tooltip;
+  let tooltipOwner;
+  let tooltipId;
+  function hideTooltip() {
+    tooltip?.remove();
+    tooltip = null;
+    tooltipOwner = null;
+    tooltipId = null;
+  }
+
+  function showItemTooltip(node, id, x, y) {
+    if (tooltipOwner !== node || tooltipId !== id || !tooltip?.isConnected) {
+      hideTooltip();
+      tooltipOwner = node;
+      tooltipId = id;
+      const item = ITEMS[id];
+      const tier = item.rarity ?? 'common';
+      const crate = CRATES[id];
+      const label = document.createElement('strong');
+      label.textContent = item.name + (item.alien ? ' · Alienated' : '');
+      const rarity = document.createElement('small');
+      rarity.textContent = titleCase(tier);
+      tooltip = document.createElement('aside');
+      tooltip.className = 'item-tooltip';
+      tooltip.setAttribute('role', 'tooltip');
+      tooltip.style.setProperty('--rarity', RARITIES[tier]);
+      tooltip.append(label, rarity);
+      if (crate) {
+        const list = document.createElement('ul');
+        for (const outcome of crate.outcomes) for (const reward of outcome.items) {
+          const row = document.createElement('li');
+          const name = document.createElement('span');
+          name.textContent = ITEMS[reward].name;
+          const odds = document.createElement('b');
+          odds.textContent = (outcome.weight / outcome.items.length).toLocaleString(undefined, { maximumFractionDigits: 2 }) + '%';
+          row.append(graphic(reward, false), name, odds);
+          list.append(row);
+        }
+        tooltip.append(list);
+      } else if (tooltipText(id)) {
+        const description = document.createElement('p');
+        description.textContent = tooltipText(id);
+        tooltip.append(description);
+      }
+      (node.closest?.('dialog') ?? document.body).append(tooltip);
+    }
+    const maxX = Math.max(4, window.innerWidth - tooltip.offsetWidth - 6);
+    const maxY = Math.max(4, window.innerHeight - tooltip.offsetHeight - 6);
+    tooltip.style.left = Math.max(4, Math.min(x + 13, maxX)) + 'px';
+    tooltip.style.top = Math.max(4, Math.min(y + 13, maxY)) + 'px';
+  }
+
+  function itemHover(node, id) {
+    node.addEventListener('pointerenter', event => showItemTooltip(node, id, event.clientX, event.clientY));
+    node.addEventListener('pointermove', event => showItemTooltip(node, id, event.clientX, event.clientY));
+    node.addEventListener('pointerleave', () => { if (tooltipOwner === node) hideTooltip(); });
+    node.addEventListener('focus', () => {
+      const rect = node.getBoundingClientRect();
+      showItemTooltip(node, id, rect.right, rect.top);
+    });
+    node.addEventListener('blur', () => { if (tooltipOwner === node) hideTooltip(); });
+  }
+
+  function dragIcon(event, control) {
+    const source = control.querySelector('img');
+    if (!source?.complete || !source.naturalWidth) {
+      event.dataTransfer.setDragImage(control.firstElementChild, 14, 14);
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 28;
+    canvas.className = 'drag-icon';
+    canvas.style.left = event.clientX + 'px';
+    canvas.style.top = event.clientY + 'px';
+    canvas.getContext('2d').drawImage(source, 0, 0, 28, 28);
+    document.body.append(canvas);
+    event.dataTransfer.setDragImage(canvas, 14, 14);
+    requestAnimationFrame(() => canvas.remove());
   }
 
   function revealCrate(crateId, batch, element, button, game) {
@@ -230,6 +318,8 @@
     node.classList.add('rarity-outline');
   }
 
+  const rarityRank = id => Object.keys(RARITIES).indexOf(SHIPS[id].rarity);
+
   function shipRank(id) {
     const ship = SHIPS[id];
     const base = ship.alien ? Object.keys(AG.BASE_SHIPS).find(key => AG.BASE_SHIPS[key].name === ship.donor?.replace(/^Alien /, '')) : id;
@@ -237,12 +327,11 @@
     return (rank < 0 ? AG.SHIP_ORDER.length : rank) - (ship.alien ? .25 : 0);
   }
 
-  function renderArmory({ kind, state, game, body, button, element, open, dismiss, refresh, practice }) {
+  function renderArmory({ kind, state, game, body, button, element, open, dismiss, refresh }) {
     const profile = game.profile;
     const base = game.canVisitBase();
     const cards = element('div', '', 'cards armory-cards');
     const tiles = element('div', '', 'inventory-tiles');
-    const preview = element('div', '', 'inventory-preview');
     const details = element('div', '', 'inventory-details');
     const tileChoices = new Map();
 
@@ -250,8 +339,8 @@
     function selectTile(id) {
       const choice = tileChoices.get(id);
       if (!choice) return;
-      const { item, text, action, showPreview } = choice;
-      showPreview();
+      const { item, text, action } = choice;
+      hideTooltip();
       state.selectedItem = id;
       state.showItemDetails = true;
       details.hidden = false;
@@ -271,22 +360,15 @@
       tile.className = 'inventory-tile';
       tile.style.setProperty('--rarity', RARITIES[rarity]);
       decorateRarity(tile, item);
-      tile.title = item.name + '\n' + rarity + '\n' + text;
+      itemHover(tile, id);
       tile.setAttribute('aria-label', item.name + ', ' + rarity + ', quantity ' + (count || 1));
-      tile.append(graphic(id), element('b', '×' + (count || 1).toLocaleString(), 'inventory-count'));
-      function showPreview() {
-        const tier = element('span', rarity, 'item-rarity');
-        tier.style.color = RARITIES[rarity];
-        preview.replaceChildren(element('strong', item.name + (item.alien ? ' · Alienated' : '')), tier, element('small', text));
-      }
-      tile.addEventListener('pointerenter', showPreview);
-      tile.addEventListener('focus', showPreview);
+      tile.append(graphic(id, false), element('b', '×' + (count || 1).toLocaleString(), 'inventory-count'));
       if (BOOSTS[id]) {
         tile.draggable = true;
         tile.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', id));
       }
       tiles.append(tile);
-      tileChoices.set(id, { item, tile, text, action, showPreview });
+      tileChoices.set(id, { item, tile, text, action });
     }
 
     function card(id, text, action, count = 0) {
@@ -299,8 +381,8 @@
       const rarity = element('span', item.rarity ?? 'common', 'item-rarity');
       rarity.style.color = RARITIES[item.rarity ?? 'common'];
       copy.append(header, rarity, element('small', text));
-      if (item.donor) row.title = 'Donor ship · ' + item.donor;
-      row.append(graphic(id), copy);
+      itemHover(row, id);
+      row.append(graphic(id, false), copy);
       if (action) row.append(action);
       cards.append(row);
     }
@@ -313,12 +395,12 @@
 
     if (kind === 'shipPicker') {
       const list = element('div', '', 'ship-picker');
-      for (const id of [...profile.unlocked].sort((a, b) => shipRank(a) - shipRank(b))) {
+      for (const id of [...profile.unlocked].sort((a, b) => rarityRank(b) - rarityRank(a) || shipRank(a) - shipRank(b))) {
         const ship = SHIPS[id];
         const pick = button('', () => open('outfit', { ship: id, part: state.part }));
-        pick.append(graphic(id), element('strong', ship.name),
-          element('small', ship.alien ? 'Alienated · ' + ship.donor : ship.rarity));
-        pick.title = ship.description;
+        pick.append(graphic(id, false), element('strong', ship.name),
+          element('small', ship.alien ? 'Alienated · ' + titleCase(ship.rarity) : titleCase(ship.rarity)));
+        itemHover(pick, id);
         decorateRarity(pick, ship);
         list.append(pick);
       }
@@ -326,7 +408,21 @@
       footer();
     } else if (kind === 'merchant') {
       body.append(element('p', game.credits.toLocaleString() + ' Credits available', 'panel-note'));
-      for (const [id, price] of Object.entries(AG.MERCHANT)) {
+      const stock = game.merchantStock();
+      const clock = element('p', '', 'panel-note');
+      const updateStockClock = () => {
+        const seconds = Math.max(0, Math.ceil((stock.until - Date.now()) / 1000));
+        clock.textContent = 'Restock in ' + Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+        return seconds;
+      };
+      updateStockClock();
+      body.append(clock);
+      const timer = setInterval(() => {
+        if (!clock.isConnected) { clearInterval(timer); return; }
+        if (!updateStockClock()) { clearInterval(timer); refresh(); }
+      }, 1000);
+      for (const id of stock.ids) {
+        const price = AG.MERCHANT[id];
         card(id, ITEMS[id].description, button(price.toLocaleString() + ' Credits', () => {
           if (game.buyMerchant(id)) state.result = ITEMS[id].name + ' purchased.';
           refresh();
@@ -439,13 +535,6 @@
         exchange.append(element('h3', 'Currency exchange'), element('p', '1 Star Gem → ' + AG.EXCHANGE_RATE + ' Credits'), quantity, convert);
         body.append(featured, exchange);
       } else {
-        const label = element('label', '', 'crate-switch');
-        const toggle = element('input');
-        toggle.type = 'checkbox';
-        toggle.checked = state.autoOpen;
-        toggle.addEventListener('change', () => { state.autoOpen = toggle.checked; });
-        label.append(toggle, element('span', 'Open up to ' + game.crateBatchLimit().toLocaleString() + ' crates immediately. Store any extras.'));
-        body.append(label);
         for (const [id, crate] of Object.entries(CRATES)) {
           const limit = game.cratePurchaseLimit(id);
           const controls = element('div', '', 'crate-batch-controls');
@@ -458,11 +547,10 @@
           quantity.disabled = limit < 1;
           quantity.setAttribute('aria-label', crate.name + ' purchase quantity');
           const buy = button('Buy', () => {
-            const result = game.buyCrates(id, quantity.valueAsNumber, state.autoOpen);
-            if (!result) return;
-            state.result = result.stored ? result.stored.toLocaleString() + ' crates saved in Inventory.' : '';
+            const count = quantity.valueAsNumber;
+            if (!game.buyCrates(id, count)) return;
+            state.result = count.toLocaleString() + ' crates saved in Inventory.';
             refresh();
-            if (result.batch) revealCrate(id, { ...result.batch, stored: result.stored }, element, button, game);
           }, { disabled: limit < 1 });
           function updateTotal() {
             const count = quantity.valueAsNumber;
@@ -475,7 +563,7 @@
           quantity.addEventListener('input', updateTotal);
           updateTotal();
           controls.append(quantity, buy);
-          card(id, crate.price + ' Star Gems each · ' + crateOdds(crate), controls);
+          card(id, crate.price + ' Star Gems each', controls);
         }
         body.append(element('p', 'Duplicate ships and upgrades add to the copies you own.', 'panel-note'));
       }
@@ -494,11 +582,11 @@
         body.append(tabs);
       }
       if (tab === 'ships') {
-        for (const id of [...profile.unlocked].sort((a, b) => shipRank(a) - shipRank(b))) {
+        for (const id of [...profile.unlocked].sort((a, b) => rarityRank(b) - rarityRank(a) || shipRank(a) - shipRank(b))) {
           if (!profile.unlocked.includes(id)) continue;
           const equipped = profile.ship === id;
           const ship = SHIPS[id];
-          const info = ship.description + (ship.ability ? ' · ' + ship.ability.name : '');
+          const info = tooltipText(id) + (ship.ability ? ' · ' + ship.ability.name : '');
           card(id, info, button(equipped ? 'Equipped' : 'Equip', () => {
             game.equip(id); refresh();
           }, { disabled: equipped || !base }), inventory || game.shipCount(id) > 1 ? game.shipCount(id) : 0);
@@ -518,10 +606,17 @@
         profile.boostSlots.forEach((id, i) => {
           const slot = button('', () => assign(BOOSTS[state.selectedItem] ? state.selectedItem : ''));
           slot.setAttribute('aria-label', 'Flight boost slot ' + (i + 1));
-          if (id) slot.append(graphic(id));
+          const unlocked = game.boostSlotOpen(i);
+          slot.disabled = !unlocked;
+          if (!unlocked) {
+            const lock = element('img', '', 'boost-lock');
+            lock.src = AG.BOOST_LOCK;
+            lock.alt = 'Locked';
+            slot.append(lock);
+          } else if (id) slot.append(graphic(id));
           slot.append(element('small', 'Level ' + [1, 5, 10][i]));
           function assign(type) {
-            if (type && (!BOOSTS[type] || !profile.boosts[type])) return;
+            if (!game.boostSlotOpen(i) || (type && (!BOOSTS[type] || !profile.boosts[type]))) return;
             profile.boostSlots[i] = type;
             game.save();
             refresh();
@@ -580,7 +675,7 @@
             quantity.setAttribute('aria-label', CRATES[id].name + ' quantity');
             controls.append(quantity, button('Open', () => openBatch(quantity.valueAsNumber), { primary: true }));
           }
-          card(id, crateOdds(CRATES[id]), controls, count);
+          card(id, '', controls, count);
         }
       }
       if (inventory) {
@@ -589,7 +684,7 @@
         scroll.setAttribute('aria-label', 'Collected ' + tab);
         if (tileChoices.size) {
           scroll.append(tiles);
-          shell.append(preview, scroll, details);
+          shell.append(scroll, details);
           body.append(shell);
           if (tileChoices.has(state.selectedItem) && state.showItemDetails) selectTile(state.selectedItem);
           const positions = state.inventoryScroll ??= {};
@@ -604,11 +699,6 @@
         body.append(cards);
       }
       
-      if (!inventory && base) {
-        const range = element('section', '', 'practice-range');
-        range.append(element('h3', 'Practice range'), ...[['boss', 'Boss dummy'], ['moving', 'Moving target'], ['cluster', 'Grunt cluster']].map(([id, label]) => button(label, () => practice(id))));
-        body.append(range);
-      }
       footer();
     } else if (kind === 'craft') {
       renderCraft({ game, state, element, button, body, refresh });
@@ -690,9 +780,9 @@
         if (!profile.upgrades[id]) continue;
         const part = UPGRADES[id];
         const choose = button('', () => { state.part = state.part === id ? '' : id; state.selectedUpgrade = id; refresh(); });
-        choose.append(graphic(id), element('span', part.name));
+        choose.append(graphic(id, false), element('span', part.name));
         choose.style.setProperty('--rarity', RARITIES[part.rarity]);
-        choose.title = part.slot + ' · ' + part.description;
+        itemHover(choose, id);
         choose.draggable = true;
         choose.setAttribute('aria-pressed', String(state.part === id));
         choose.addEventListener('dragstart', event => {
@@ -700,7 +790,8 @@
           indicators.forEach(highlight => highlight());
           event.dataTransfer.setData('text/plain', id);
           event.dataTransfer.effectAllowed = 'copy';
-          event.dataTransfer.setDragImage(choose.firstElementChild.querySelector('img') ?? choose.firstElementChild, 15, 15);
+          hideTooltip();
+          dragIcon(event, choose);
         });
         parts.append(choose);
       }
@@ -730,5 +821,5 @@
       body.prepend(feedback);
     }
   }
-  Object.assign(AG, { renderArmory, itemGraphic: graphic, menuIcon });
+  Object.assign(AG, { renderArmory, itemGraphic: graphic, menuIcon, hideItemTooltip: hideTooltip, showItemTooltip });
 })();

@@ -467,3 +467,31 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 
 .inventory-preview { min-height: 4.6em; }
 .inventory-preview > small { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+
+.console { position: relative; }
+.merchant-teaser { position: absolute; top: 64px; bottom: auto; left: 5px; }
+.home .event-banner { margin-left: 0; }
+.ship-diagram { grid-template-rows: auto clamp(65px, 13vw, 106px) auto auto; }
+.ship-diagram .diagram-art { grid-area: 2 / 2; width: min(100%, 132px); }
+.ship-diagram .mount-leftWing { grid-area: 2 / 1; }
+.ship-diagram .mount-rightWing { grid-area: 2 / 3; }
+.ship-diagram .mount-engine2 { grid-area: 3 / 1; }
+.ship-diagram .mount-engine1 { grid-area: 3 / 2; }
+.ship-diagram .mount-engine3 { grid-area: 3 / 3; }
+.ship-diagram .mount-special { grid-area: 4 / 2; }
+.ship-diagram .mount-ability1 { grid-area: 1 / 1; }
+.ship-diagram .mount-ability2 { grid-area: 1 / 3; }
+.ship-diagram .mount-ability3 { grid-area: 4 / 3; }
+.boost-lock { object-fit: contain; width: 23px; height: 23px; }
+.drag-icon { position: fixed; top: -60px; left: 0; pointer-events: none; }
+.item-tooltip { position: fixed; z-index: 1000; pointer-events: none; color: #eff6fc; padding: 8px 10px;
+  width: max-content; max-width: min(290px, 86vw); background: #101422; border: 1px solid var(--rarity);
+  box-shadow: 0 4px 15px #05070bd9; border-radius: 5px; text-align: left; font-size: .8rem; }
+.item-tooltip > strong, .item-tooltip > small { display: block; }
+.item-tooltip > small { color: var(--rarity); }
+.item-tooltip p, .item-tooltip ul { margin: 5px 0 0; }
+.item-tooltip ul { display: grid; gap: 4px; padding: 5px 0 0; border-top: 1px solid #536078; list-style: none; }
+.item-tooltip li { display: grid; grid-template-columns: 21px 1fr auto; align-items: center; gap: 6px; }
+.item-tooltip .item-icon, .item-tooltip .ship-graphic { width: 21px; height: 21px; border: 0; }
+.item-tooltip img { width: 17px; height: 17px; }
+@media (max-width: 620px) { .merchant-teaser { top: 47px; left: 4px; } .home { padding-top: 36px; } }

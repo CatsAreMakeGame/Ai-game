@@ -7,7 +7,7 @@
   const EXCHANGE_RATE = 250;
   const MATERIALS = {
     alienCell: { name: 'Alien Cell', rarity: 'rare', description: 'Used in both Alien recipes.' },
-    alienMind: { name: 'Alien Mind', rarity: 'legendary', description: 'Crafted with Alien Serum and eight Alien Cells. Place below the donor ship to craft an Alien Ship.' },
+    alienMind: { name: 'Alien Mind', rarity: 'legendary', description: 'Crafted with Alien Serum and eight Alien Cells. Place below the ship used in the recipe to craft an Alien Ship.' },
     alienSerum: { name: 'Alien Serum', rarity: 'godly', description: 'Use to craft an Alien Mind or apply to an equipped Alien Ship to unlock mind control permanently.' }
   };
   const RECIPES = {
@@ -75,7 +75,7 @@
     return { name, hull, damage, speed: donor.speed * 1.1, delay: donor.delay / 1.1,
       engines: donor.engines, frame: donor.frame, color: '#8ae86c', rarity: 'mythical', alien: true,
       donor: donor.name, donorRarity: donor.donorRarity ?? donor.rarity, donorDamage: donor.donorDamage ?? donor.damage,
-      description: 'Donor · ' + donor.name + ' · ' + hull + ' hull · ' + damage + ' damage · ' + donor.engines + (donor.engines === 1 ? ' engine' : ' engines') };
+      description: hull + ' hull · ' + Math.round(donor.speed * 1.1) + ' speed · ' + damage + ' damage · ' + donor.engines + (donor.engines === 1 ? ' engine' : ' engines') };
   }
 
   Object.assign(Game.prototype, {
@@ -192,7 +192,11 @@
     grantEverything() {
       if (!this.testing) return false;
       for (const id of Object.keys(BASE_SHIPS)) if (!this.shipCount(id)) this.grantItem(id);
-      if (!Object.keys(this.profile.alienShips).length) this.grantItem(this.addAlien(SHIPS.scout));
+      for (const ship of Object.values(BASE_SHIPS)) {
+        if (!Object.values(this.profile.alienShips).some(alien => alien.donor === ship.name)) {
+          this.grantItem(this.addAlien(ship));
+        }
+      }
       for (const [bucket, specs] of [['materials', MATERIALS], ['upgrades', AG.UPGRADES], ['boosts', BOOSTS], ['crates', AG.CRATES]]) {
         for (const id of Object.keys(specs)) this.profile[bucket][id] = Math.max(999, this.profile[bucket][id] ?? 0);
       }
