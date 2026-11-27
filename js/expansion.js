@@ -299,7 +299,7 @@
     },
 
     flagshipPrice(id) { return SHIPS[id]?.gemPrice * 2 ** this.profile.flagshipPurchases; },
-    flagshipWait() { return Math.max(0, this.profile.flagshipTime + 3600000 - this.now()); },
+    flagshipWait() { return Math.max(0, this.profile.flagshipTime + AG.PREMIUM_PURCHASE_COOLDOWN - this.now()); },
 
     grantEverything() {
       if (!this.testing) return false;

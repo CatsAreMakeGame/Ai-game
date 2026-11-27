@@ -178,7 +178,12 @@ window.AG = (() => {
   const contentActive = (now = Date.now()) => now >= CONTENT_START;
   const ENEMY_CRATE_SALE_END = Date.parse('2026-11-29T00:00:00+11:00');
   const enemyCrateSaleActive = (now = Date.now()) => contentActive(now) && now < ENEMY_CRATE_SALE_END;
+  const PREMIUM_PURCHASE_COOLDOWN = 3600000;
   const CRATE_BUY_AMOUNTS = [1, 4, 10];
+  const giftCalendar = new Intl.DateTimeFormat('en-AU', {
+    timeZone: 'Australia/Melbourne', year: 'numeric', month: '2-digit', day: '2-digit'
+  });
+  const updateGiftDay = now => giftCalendar.format(now);
   const UPDATE_GIFTS = [
     { wait: 0, rewards: { credit: 100, gem: 1 } },
     { wait: 180000, rewards: { upgradeBundle: 1, boostBundle: 1 } },
@@ -308,15 +313,19 @@ window.AG = (() => {
     bindings.relay = /^[a-z]$/.test(relayKey ?? '') && !'wasdpi'.includes(relayKey) && !usedKeys.includes(relayKey)
       ? relayKey : [...'bgrtchjklmnuovxyz'].find(key => !usedKeys.includes(key));
     const readNumber = key => Number.isSafeInteger(saved?.[key]) ? Math.max(0, saved[key]) : 0;
+    const giftSave = saved?.updateGifts;
+    const claimed = Number.isSafeInteger(giftSave?.claimed) ? Math.min(UPDATE_GIFTS.length, Math.max(0, giftSave.claimed)) : 0;
+    const nextAt = Number.isSafeInteger(giftSave?.nextAt) ? Math.max(0, giftSave.nextAt) : 0;
+    // An older save only recorded the deadline for the next gift.
+    const previousClaim = nextAt - (UPDATE_GIFTS[claimed]?.wait ?? 0);
+    const giftDay = typeof giftSave?.day === 'string' ? giftSave.day :
+      claimed && nextAt <= 8640000000000000 && previousClaim > 0 ? updateGiftDay(previousClaim) : '';
     return {
       unlocked, ship: unlocked.includes(saved?.ship) ? saved.ship : unlocked[0], alienShips,
       materials,
       copies: counts('copies', catalog), flagshipPurchases: Math.max(0, readNumber('flagshipPurchases') || Number(unlocked.includes('supernova'))),
-      flagshipTime: readNumber('flagshipTime'), serumUsed: saved?.serumUsed === true, mindControlPerShip: true,
-      updateGifts: {
-        claimed: Number.isSafeInteger(saved?.updateGifts?.claimed) ? Math.min(UPDATE_GIFTS.length, Math.max(0, saved.updateGifts.claimed)) : 0,
-        nextAt: Number.isSafeInteger(saved?.updateGifts?.nextAt) ? Math.max(0, saved.updateGifts.nextAt) : 0
-      },
+      flagshipTime: readNumber('flagshipTime'), boostOverdriveTime: readNumber('boostOverdriveTime'), serumUsed: saved?.serumUsed === true, mindControlPerShip: true,
+      updateGifts: { day: giftDay, claimed, nextAt },
       allowRareCrateSkip: saved?.allowRareCrateSkip === true,
       bounties: (Array.isArray(saved?.bounties) ? saved.bounties : []).filter(id => Object.hasOwn(BOSSES, id)),
       boostSlots: Array.from({ length: 3 }, (_, i) => {
@@ -370,6 +379,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { CONTENT_START, enemyCrateSaleActive, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { CONTENT_START, enemyCrateSaleActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

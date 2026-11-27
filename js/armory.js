@@ -482,7 +482,7 @@
       }
       info.append(title, pricing, quick);
       if (id === 'enemyCrate' && AG.enemyCrateSaleActive()) {
-        info.append(element('p', '25% off Buy 4 and Buy 10 until 29 Nov, 12:00 a.m. AEDT', 'sale-note'));
+        info.append(element('p', '25% off Buy 1, Buy 4 and Buy 10 until 29 Nov, 12:00 a.m. AEDT', 'sale-note'));
       }
       if (game.canBuyCustomCrateAmount) {
         const controls = element('form', '', 'crate-batch-controls crate-admin-buy');
@@ -519,9 +519,9 @@
   function renderUpdateGifts(game, state, element, button, refresh) {
     const section = element('section', '', 'update-gifts');
     section.setAttribute('aria-label', 'Free update gifts');
-    section.append(element('h3', 'Free update gifts'));
+    section.append(element('h3', 'Daily free gifts'), element('p', 'Resets at midnight Melbourne time.', 'panel-note'));
     const steps = element('ol', '', 'gift-steps');
-    const { claimed, nextAt } = game.profile.updateGifts;
+    const { day, claimed, nextAt } = game.updateGiftProgress();
     AG.UPDATE_GIFTS.forEach(({ wait, rewards }, index) => {
       const step = element('li', '', 'gift-step');
       if (index === claimed) step.classList.add('gift-current');
@@ -558,6 +558,10 @@
       steps.append(step);
     });
     section.append(steps);
+    const dayTimer = setInterval(() => {
+      if (!section.isConnected) clearInterval(dayTimer);
+      else if (AG.updateGiftDay(game.now()) !== day) { clearInterval(dayTimer); refresh(); }
+    }, 1000);
     return section;
   }
 
@@ -770,10 +774,23 @@
             'Activates eligible boosts with no delay'
           ]) benefits.append(element('li', benefit));
           const rarity = element('span', 'Mythical · Ability upgrade', 'overdrive-rarity');
-          info.append(rarity, element('h3', item.name), benefits, button('Buy · ' + item.premium + ' Star Gems', () => {
+          const wait = element('p', '', 'panel-note');
+          const buy = button('Buy · ' + item.premium + ' Star Gems', () => {
             if (game.buyPremiumUpgrade(id)) state.result = item.name + ' purchased.';
             refresh();
-          }, { disabled: !base || profile.gems < item.premium }));
+          });
+          function refreshCooldown() {
+            const seconds = Math.ceil(game.premiumUpgradeWait() / 1000);
+            wait.textContent = seconds ? 'Next purchase in ' + Math.floor(seconds / 60) + 'm ' + seconds % 60 + 's' : 'Available to purchase';
+            buy.disabled = !game.canBuyPremiumUpgrade(id);
+            return seconds;
+          }
+          if (refreshCooldown()) {
+            const timer = setInterval(() => {
+              if (!wait.isConnected || !refreshCooldown()) clearInterval(timer);
+            }, 1000);
+          }
+          info.append(rarity, element('h3', item.name), benefits, wait, buy);
           feature.append(art, info);
           body.append(feature);
         }

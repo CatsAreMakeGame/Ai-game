@@ -481,11 +481,20 @@
       return this.merchantStock();
     }
 
-    buyPremiumUpgrade(id) {
+    premiumUpgradeWait() {
+      return Math.max(0, this.profile.boostOverdriveTime + AG.PREMIUM_PURCHASE_COOLDOWN - this.now());
+    }
+
+    canBuyPremiumUpgrade(id) {
       const price = UPGRADES[id]?.premium;
-      if (!AG.contentActive() || !price || !this.canVisitBase() || this.profile.gems < price ||
-          !Number.isSafeInteger(this.itemCount(id) + 1)) return false;
-      this.profile.gems -= price;
+      return Boolean(AG.contentActive() && price && this.canVisitBase() && this.profile.gems >= price &&
+        this.premiumUpgradeWait() === 0 && Number.isSafeInteger(this.itemCount(id) + 1));
+    }
+
+    buyPremiumUpgrade(id) {
+      if (!this.canBuyPremiumUpgrade(id)) return false;
+      this.profile.gems -= UPGRADES[id].premium;
+      this.profile.boostOverdriveTime = this.now();
       return this.grantItem(id);
     }
 
@@ -671,7 +680,7 @@
 
     cratePurchasePrice(type, count, now = Date.now()) {
       const price = CRATES[type]?.price ?? 0;
-      const discount = type === 'enemyCrate' && (count === 4 || count === 10) && AG.enemyCrateSaleActive(now);
+      const discount = type === 'enemyCrate' && AG.CRATE_BUY_AMOUNTS.includes(count) && AG.enemyCrateSaleActive(now);
       return count * price * (discount ? .75 : 1);
     }
 
@@ -701,10 +710,16 @@
       return true;
     }
 
+    updateGiftProgress(now = this.now()) {
+      const day = AG.updateGiftDay(now);
+      if (this.profile.updateGifts.day !== day) this.profile.updateGifts = { day, claimed: 0, nextAt: 0 };
+      return this.profile.updateGifts;
+    }
+
     claimUpdateGift() {
       const now = this.now();
       if (!AG.contentActive(now) || !this.canVisitBase()) return false;
-      const progress = this.profile.updateGifts;
+      const progress = this.updateGiftProgress(now);
       const gift = AG.UPDATE_GIFTS[progress.claimed];
       if (!gift || now < progress.nextAt) return false;
       const rewards = Object.entries(gift.rewards);
