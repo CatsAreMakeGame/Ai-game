@@ -439,8 +439,9 @@
     const shelf = element('div', '', 'shop-crates');
     const flash = state.crateFlash;
     state.crateFlash = '';
-    for (const [id, crate] of Object.entries(CRATES)) {
-      if (!crate.price || !AG.itemAvailable(id)) continue;
+    for (const id of ['enemyCrate', 'shipCrate', 'upgradeCrate']) {
+      if (!AG.itemAvailable(id)) continue;
+      const crate = CRATES[id];
       const limit = game.cratePurchaseLimit(id);
       const card = element('article', '', 'shop-crate');
       card.style.setProperty('--rarity', RARITIES[crate.rarity]);
@@ -450,6 +451,10 @@
       icon.tabIndex = 0;
       icon.removeAttribute('aria-hidden');
       icon.setAttribute('aria-label', crate.name + ' drop rates');
+      if (id === 'enemyCrate') {
+        card.classList.add('shop-crate-new');
+        art.append(element('span', 'New!', 'crate-new-label'));
+      }
       art.append(icon);
       const info = element('div', '', 'shop-crate-info');
       const title = element('h3', crate.name);
@@ -742,11 +747,24 @@
         if (AG.contentActive()) {
           const id = 'boostOverdrive';
           const item = UPGRADES[id];
-          card(id, item.description, button('Buy · ' + item.premium + ' Star Gems', () => {
+          const feature = element('article', '', 'overdrive-feature');
+          const art = element('div', '', 'overdrive-art');
+          art.append(graphic(id));
+          const info = element('div', '', 'overdrive-info');
+          const benefits = element('ul', '', 'overdrive-benefits');
+          const { types, capacity } = item.boostRelay;
+          for (const benefit of [
+            'Loads up to ' + types + ' different boost types',
+            'Stores up to ' + capacity + ' boosts of each type',
+            'Activates eligible boosts with no delay'
+          ]) benefits.append(element('li', benefit));
+          const rarity = element('span', 'Mythical · Ability upgrade', 'overdrive-rarity');
+          info.append(rarity, element('h3', item.name), benefits, button('Buy · ' + item.premium + ' Star Gems', () => {
             if (game.buyPremiumUpgrade(id)) state.result = item.name + ' purchased.';
             refresh();
           }, { disabled: !base || profile.gems < item.premium }));
-          body.append(cards, renderUpdateGifts(game, state, element, button, refresh));
+          feature.append(art, info);
+          body.append(feature, renderUpdateGifts(game, state, element, button, refresh));
         }
       } else if (AG.contentActive()) {
         body.append(renderCrateShop(game, state, element, button, refresh));

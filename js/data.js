@@ -85,7 +85,7 @@ window.AG = (() => {
     wings: { name: 'Swift Wings', description: 'Increases movement speed by 20%.',
       slot: 'Wings', rarity: 'rare', chance: 0.025, color: '#d5fa74', glyph: '»', speed: .2 },
     cannon: { name: 'Pulse Cannon', description: 'Adds 1 damage to every shot.',
-      slot: 'Weapon', rarity: 'rare', chance: 0.03, color: '#ffad83', glyph: '✦', damage: 1 },
+      slot: 'Weapon', rarity: 'rare', chance: 0.03, killDropChance: .02, color: '#ffad83', glyph: '✦', damage: 1 },
     booster: { name: 'Auxiliary Booster', slot: 'Engine', rarity: 'rare', chance: .018, color: '#70c9ff', glyph: '▲', speed: .12, description: 'Adds 12% movement speed.' },
     carbon: { name: 'Carbon Wing', slot: 'Wings', rarity: 'epic', chance: .009, color: '#c597ff', glyph: '◀', speed: .32, description: 'Adds 32% movement speed.' },
     rail: { name: 'Rail Lance', slot: 'Weapon', rarity: 'epic', chance: .008, color: '#c597ff', glyph: '↑', damage: 2, description: 'Adds 2 damage to every shot.' },

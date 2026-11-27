@@ -1375,12 +1375,17 @@
         const types = Object.keys(BOOSTS);
         this.dropItem(boss ? 'shield' : types[Math.floor(this.random() ** 1.65 * types.length)], enemy.x - 20, enemy.y);
       }
+      const updateLive = AG.contentActive();
       let roll = this.random();
       for (const [type, upgrade] of Object.entries(UPGRADES)) {
+        if (updateLive && upgrade.killDropChance) continue;
         roll -= (upgrade.chance ?? 0) / 10;
         if (roll >= 0) continue;
         this.dropItem(type, enemy.x + 21, enemy.y);
         break;
+      }
+      if (updateLive && this.random() < UPGRADES.cannon.killDropChance) {
+        this.dropItem('cannon', enemy.x + 21, enemy.y - 19);
       }
       const lead = boss && !enemy.escort && enemy.bornWave === run.wave && AG.mainBoss(run.wave) === enemy.type;
       if (AG.contentActive() && enemy.type === 'grunt' && this.random() < .12) this.dropItem('slime', enemy.x - 20, enemy.y);
