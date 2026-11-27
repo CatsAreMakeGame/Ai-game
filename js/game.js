@@ -669,10 +669,24 @@
       return true;
     }
 
+    cratePurchasePrice(type, count, now = Date.now()) {
+      const price = CRATES[type]?.price ?? 0;
+      const discount = type === 'enemyCrate' && (count === 4 || count === 10) && AG.enemyCrateSaleActive(now);
+      return count * price * (discount ? .75 : 1);
+    }
+
+    canBuyCrates(type, count, now = Date.now()) {
+      if (!CRATES[type]?.price || !AG.itemAvailable(type) || !this.canVisitBase() ||
+          !Number.isSafeInteger(count) || count < 1 ||
+          (!this.canBuyCustomCrateAmount && !AG.CRATE_BUY_AMOUNTS.includes(count))) return false;
+      return Number.isSafeInteger(this.itemCount(type) + count) && this.cratePurchasePrice(type, count, now) <= this.profile.gems;
+    }
+
     cratePurchaseLimit(type) {
       if (!CRATES[type]?.price || !AG.itemAvailable(type) || !this.canVisitBase()) return 0;
-      return Math.min(Math.floor(this.profile.gems / CRATES[type].price),
-        Number.MAX_SAFE_INTEGER - (this.profile.crates[type] ?? 0));
+      const regularLimit = Math.min(Math.floor(this.profile.gems / CRATES[type].price),
+        Number.MAX_SAFE_INTEGER - this.itemCount(type));
+      return Math.max(regularLimit, ...AG.CRATE_BUY_AMOUNTS.filter(count => this.canBuyCrates(type, count)));
     }
 
     get canBuyCustomCrateAmount() {
@@ -680,16 +694,16 @@
     }
 
     buyCrates(type, count) {
-      if (!Number.isSafeInteger(count) || count < 1 || count > this.cratePurchaseLimit(type) ||
-          (!this.canBuyCustomCrateAmount && !AG.CRATE_BUY_AMOUNTS.includes(count))) return false;
-      this.profile.gems -= CRATES[type].price * count;
+      const now = Date.now();
+      if (!this.canBuyCrates(type, count, now)) return false;
+      this.profile.gems -= this.cratePurchasePrice(type, count, now);
       this.grantItem(type, count);
       return true;
     }
 
     claimUpdateGift() {
-      if (!AG.contentActive() || !this.canVisitBase()) return false;
-      const now = Date.now();
+      const now = this.now();
+      if (!AG.contentActive(now) || !this.canVisitBase()) return false;
       const progress = this.profile.updateGifts;
       const gift = AG.UPDATE_GIFTS[progress.claimed];
       if (!gift || now < progress.nextAt) return false;

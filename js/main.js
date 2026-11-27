@@ -844,14 +844,21 @@
   let accumulated = 0;
   const tick = 1 / 120;
   let contentLive = AG.contentActive();
+  let crateSaleLive = AG.enemyCrateSaleActive();
   function frame(now) {
     const dt = Math.min(0.05, (now - previous) / 1000);
     previous = now;
     const wallTime = Date.now();
     const unlocked = AG.contentActive(wallTime);
-    if (unlocked !== contentLive) {
+    const contentChanged = unlocked !== contentLive;
+    if (contentChanged) {
       contentLive = unlocked;
       if (armoryPanels.includes(panelKind) || panelKind === 'admin') drawPanel(true);
+    }
+    const sale = AG.enemyCrateSaleActive(wallTime);
+    if (sale !== crateSaleLive) {
+      crateSaleLive = sale;
+      if (panelKind === 'shop' && armory.shopTab === 'crates' && !contentChanged) drawPanel(true);
     }
     if (wallTime >= nextMerchantCheck) {
       game.merchantStock(game.now());

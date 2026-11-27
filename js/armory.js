@@ -355,9 +355,18 @@
     ingredients.scrollTop = state.ingredientScroll ?? 0;
   }
 
-  function renderRecipes(body, element, game) {
-    const active = AG.eventActive(game.now());
-    const lists = { normal: element('div', '', 'recipe-list'), event: element('div', '', 'recipe-list') };
+  function renderRecipes(body, element, button, game, state, refresh) {
+    const activeTab = state.recipeTab ?? (AG.contentActive() ? 'normal' : 'event');
+    const tabs = element('div', '', 'inventory-tabs');
+    tabs.setAttribute('role', 'group');
+    tabs.setAttribute('aria-label', 'Recipe categories');
+    for (const [id, label] of [['normal', 'Normal'], ['event', 'Event']]) {
+      const tab = button(label, () => { state.recipeTab = id; refresh(); });
+      tab.setAttribute('aria-pressed', String(activeTab === id));
+      tabs.append(tab);
+    }
+    const list = element('div', '', 'recipe-list');
+    body.append(tabs, list);
     const ships = Object.keys(AG.BASE_SHIPS).filter(AG.itemAvailable);
     const example = ships.includes(game.profile.ship) ? game.profile.ship : ships[0];
     const alienExample = game.profile.unlocked.find(id => SHIPS[id].alien) ?? example;
@@ -369,7 +378,7 @@
       control: [[alienExample, 'Any Alien spaceship ×1'], ['alienSerum', 'Alien Mind Serum ×1'], ['alienMind', 'Alien Mind ×1']]
     };
     for (const [key, recipe] of Object.entries(AG.RECIPES)) {
-      if (!recipe.event && !AG.contentActive()) continue;
+      if (Boolean(recipe.event) !== (activeTab === 'event') || (!recipe.event && !AG.contentActive())) continue;
       const card = element('article', '', 'recipe-card');
       card.append(element('h3', recipe.name));
       if (recipe.pattern) {
@@ -406,14 +415,9 @@
         legend.append(row);
       }
       card.append(legend);
-      lists[recipe.event && !active ? 'event' : 'normal'].append(card);
+      list.append(card);
     }
-    if (lists.normal.children.length) body.append(lists.normal);
-    if (lists.event.children.length) {
-      const section = element('section', '', 'event-recipes');
-      section.append(element('h3', 'Event Recipes'), lists.event);
-      body.append(section);
-    }
+    if (!list.children.length) body.append(element('p', 'Normal recipes unlock with the Asteroid update.', 'panel-note'));
   }
 
   function decorateRarity(node, item) {
@@ -467,12 +471,19 @@
         refresh();
       }
       for (const count of AG.CRATE_BUY_AMOUNTS) {
-        const choice = button('Buy ' + count, () => purchase(count), { disabled: count > limit });
-        choice.append(element('small', (count * crate.price) + ' Gems'));
-        choice.setAttribute('aria-label', 'Buy ' + count + ' ' + crate.name + (count === 1 ? '' : 's') + ' for ' + count * crate.price + ' Star Gems');
+        const price = game.cratePurchasePrice(id, count);
+        const choice = button('Buy ' + count, () => purchase(count), { disabled: !game.canBuyCrates(id, count) });
+        const amount = element('small', '', price < count * crate.price ? 'sale-price' : '');
+        if (price < count * crate.price) amount.append(element('s', String(count * crate.price)));
+        amount.append(element('span', price + ' Gems'));
+        choice.append(amount);
+        choice.setAttribute('aria-label', 'Buy ' + count + ' ' + crate.name + (count === 1 ? '' : 's') + ' for ' + price + ' Star Gems');
         quick.append(choice);
       }
       info.append(title, pricing, quick);
+      if (id === 'enemyCrate' && AG.enemyCrateSaleActive()) {
+        info.append(element('p', '25% off Buy 4 and Buy 10 until 29 Nov, 12:00 a.m. AEDT', 'sale-note'));
+      }
       if (game.canBuyCustomCrateAmount) {
         const controls = element('form', '', 'crate-batch-controls crate-admin-buy');
         const quantity = element('input');
@@ -487,8 +498,8 @@
         buy.type = 'button';
         function updateTotal() {
           const count = quantity.valueAsNumber;
-          buy.disabled = !Number.isSafeInteger(count) || count < 1 || count > limit;
-          buy.textContent = buy.disabled ? 'Buy custom' : 'Buy custom · ' + AG.formatCurrency(count * crate.price) + ' Gems';
+          buy.disabled = !game.canBuyCrates(id, count);
+          buy.textContent = buy.disabled ? 'Buy custom' : 'Buy custom · ' + AG.formatCurrency(game.cratePurchasePrice(id, count)) + ' Gems';
         }
         controls.addEventListener('submit', event => {
           event.preventDefault();
@@ -528,7 +539,7 @@
           refresh();
         }, { primary: true });
         const update = () => {
-          const remaining = Math.max(0, Math.ceil((nextAt - Date.now()) / 1000));
+          const remaining = Math.max(0, Math.ceil((nextAt - game.now()) / 1000));
           const text = remaining ? 'Ready in ' + Math.floor(remaining / 60) + ':' + String(remaining % 60).padStart(2, '0') : 'Claim free gift';
           if (claim.textContent !== text) claim.textContent = text;
           claim.disabled = remaining > 0 || !game.canVisitBase();
@@ -764,8 +775,9 @@
             refresh();
           }, { disabled: !base || profile.gems < item.premium }));
           feature.append(art, info);
-          body.append(feature, renderUpdateGifts(game, state, element, button, refresh));
+          body.append(feature);
         }
+        if (AG.contentActive(game.now())) body.append(renderUpdateGifts(game, state, element, button, refresh));
       } else if (AG.contentActive()) {
         body.append(renderCrateShop(game, state, element, button, refresh));
       } else {
@@ -945,7 +957,7 @@
       body.append(menuIcon(button('Recipes', () => open('recipes')), 'recipes'));
       footer();
     } else if (kind === 'recipes') {
-      renderRecipes(body, element, game);
+      renderRecipes(body, element, button, game, state, refresh);
       footer();
     } else {
       const ship = base ? (profile.unlocked.includes(state.ship) ? state.ship : profile.ship) : game.run.shipId;

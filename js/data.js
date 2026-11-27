@@ -176,6 +176,8 @@ window.AG = (() => {
   const BOOST_LOCK = 'new-icons/vector-icon-pack/General/Lock/Lock 256.png';
   const CONTENT_START = Date.parse('2026-11-28T11:15:00+10:00');
   const contentActive = (now = Date.now()) => now >= CONTENT_START;
+  const ENEMY_CRATE_SALE_END = Date.parse('2026-11-29T00:00:00+11:00');
+  const enemyCrateSaleActive = (now = Date.now()) => contentActive(now) && now < ENEMY_CRATE_SALE_END;
   const CRATE_BUY_AMOUNTS = [1, 4, 10];
   const UPDATE_GIFTS = [
     { wait: 0, rewards: { credit: 100, gem: 1 } },
@@ -368,6 +370,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { CONTENT_START, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { CONTENT_START, enemyCrateSaleActive, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();
