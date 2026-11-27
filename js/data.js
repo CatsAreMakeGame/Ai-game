@@ -176,10 +176,11 @@ window.AG = (() => {
 
   const SHIP_ORDER = ['supernova', 'singularity', 'aurora', 'zenith', 'enemySmokeNinja', 'leviathan', 'enemyTank', 'eclipse', 'solaris', 'enemyDiver', 'tempest', 'bastion', 'enemyShooter', 'comet', 'wraith', 'falcon', 'enemyGrunt', 'scout'];
   const BOOST_LOCK = 'new-icons/vector-icon-pack/General/Lock/Lock 256.png';
-  const CONTENT_START = Date.parse('2026-11-28T11:15:00+10:00');
+  const CONTENT_START = Date.parse('2026-11-28T11:30:00+10:00');
   const contentActive = (now = Date.now()) => now >= CONTENT_START;
-  const ENEMY_CRATE_SALE_END = Date.parse('2026-11-29T00:00:00+11:00');
-  const enemyCrateSaleActive = (now = Date.now()) => contentActive(now) && now < ENEMY_CRATE_SALE_END;
+  const LAUNCH_DEALS_END = Date.parse('2026-11-29T00:00:00+11:00');
+  const SHIP_CRATE_OFFER_PRICE = CRATES.shipCrate.price / 4;
+  const launchDealsActive = (now = Date.now()) => contentActive(now) && now < LAUNCH_DEALS_END;
   const PREMIUM_PURCHASE_COOLDOWN = 3600000;
   const CRATE_BUY_AMOUNTS = [1, 4, 10];
   const giftCalendar = new Intl.DateTimeFormat('en-AU', {
@@ -189,7 +190,7 @@ window.AG = (() => {
   const UPDATE_GIFTS = [
     { wait: 0, rewards: { credit: 100, gem: 1 } },
     { wait: 180000, rewards: { upgradeBundle: 1, boostBundle: 1 } },
-    { wait: 300000, rewards: { shipCrate: 2, upgradeCrate: 2, enemyCrate: 2 } }
+    { wait: 360000, rewards: { shipCrate: 2, upgradeCrate: 2, enemyCrate: 2 } }
   ];
   const crateUnitPrice = (id, now = Date.now()) => id === 'shipCrate' && !contentActive(now) ? 3 : (CRATES[id]?.price ?? 0);
   function liveCrate(id) {
@@ -319,7 +320,8 @@ window.AG = (() => {
     const readNumber = key => Number.isSafeInteger(saved?.[key]) ? Math.max(0, saved[key]) : 0;
     const giftSave = saved?.updateGifts;
     const claimed = Number.isSafeInteger(giftSave?.claimed) ? Math.min(UPDATE_GIFTS.length, Math.max(0, giftSave.claimed)) : 0;
-    const nextAt = Number.isSafeInteger(giftSave?.nextAt) ? Math.max(0, giftSave.nextAt) : 0;
+    let nextAt = Number.isSafeInteger(giftSave?.nextAt) ? Math.max(0, giftSave.nextAt) : 0;
+    if (giftSave?.version !== 2 && claimed === 2 && nextAt > 0 && nextAt <= 8640000000000000 - 60000) nextAt += 60000;
     // An older save only recorded the deadline for the next gift.
     const previousClaim = nextAt - (UPDATE_GIFTS[claimed]?.wait ?? 0);
     const giftDay = typeof giftSave?.day === 'string' ? giftSave.day :
@@ -329,7 +331,8 @@ window.AG = (() => {
       materials,
       copies: counts('copies', catalog), flagshipPurchases: Math.max(0, readNumber('flagshipPurchases') || Number(unlocked.includes('supernova'))),
       flagshipTime: readNumber('flagshipTime'), boostOverdriveTime: readNumber('boostOverdriveTime'), serumUsed: saved?.serumUsed === true, mindControlPerShip: true,
-      updateGifts: { day: giftDay, claimed, nextAt },
+      updateGifts: { version: 2, day: giftDay, claimed, nextAt },
+      shipCrateOfferUsed: saved?.shipCrateOfferUsed === true,
       allowRareCrateSkip: saved?.allowRareCrateSkip === true,
       bounties: (Array.isArray(saved?.bounties) ? saved.bounties : []).filter(id => Object.hasOwn(BOSSES, id)),
       boostSlots: Array.from({ length: 3 }, (_, i) => {
@@ -383,6 +386,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { aegisCapacity, crateUnitPrice, CONTENT_START, enemyCrateSaleActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

@@ -483,9 +483,21 @@
         choice.setAttribute('aria-label', 'Buy ' + count + ' ' + crate.name + (count === 1 ? '' : 's') + ' for ' + price + ' Star Gems');
         quick.append(choice);
       }
-      info.append(title, pricing, quick);
-      if (id === 'enemyCrate' && AG.enemyCrateSaleActive()) {
-        info.append(element('p', '25% off Buy 1, Buy 4 and Buy 10 until 29 Nov, 12:00 a.m. AEDT', 'sale-note'));
+      info.append(title, pricing);
+      if (id === 'shipCrate') info.append(element('p', 'Singularity got a new ultimate, and Zenith joined the crate.', 'panel-note'));
+      info.append(quick);
+      if (id === 'enemyCrate' && AG.launchDealsActive()) {
+        info.append(element('p', '25% off Buy 1, Buy 4 and Buy 10', 'sale-note'));
+      }
+      if (id === 'shipCrate' && AG.launchDealsActive() && !game.profile.shipCrateOfferUsed) {
+        const offer = button('One-time offer · ' + AG.SHIP_CRATE_OFFER_PRICE + ' Star Gem', () => {
+          if (!game.buyIntroShipCrate()) return;
+          state.result = 'Spaceship Crate saved in Inventory.';
+          state.crateFlash = id;
+          refresh();
+        }, { disabled: !game.canBuyIntroShipCrate() });
+        offer.classList.add('crate-intro-offer');
+        info.append(element('p', '75% off one Spaceship Crate', 'sale-note'), offer);
       }
       if (game.canBuyCustomCrateAmount) {
         const controls = element('form', '', 'crate-batch-controls crate-admin-buy');

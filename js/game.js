@@ -680,7 +680,7 @@
 
     cratePurchasePrice(type, count, now = Date.now()) {
       const price = AG.crateUnitPrice(type, now);
-      const discount = type === 'enemyCrate' && AG.CRATE_BUY_AMOUNTS.includes(count) && AG.enemyCrateSaleActive(now);
+      const discount = type === 'enemyCrate' && AG.CRATE_BUY_AMOUNTS.includes(count) && AG.launchDealsActive(now);
       return count * price * (discount ? .75 : 1);
     }
 
@@ -710,9 +710,22 @@
       return true;
     }
 
+    canBuyIntroShipCrate(now = Date.now()) {
+      return AG.launchDealsActive(now) && !this.profile.shipCrateOfferUsed && this.canVisitBase() &&
+        !this.run?.practice && this.profile.gems >= AG.SHIP_CRATE_OFFER_PRICE &&
+        Number.isSafeInteger(this.itemCount('shipCrate') + 1);
+    }
+
+    buyIntroShipCrate() {
+      if (!this.canBuyIntroShipCrate()) return false;
+      this.profile.shipCrateOfferUsed = true;
+      this.profile.gems -= AG.SHIP_CRATE_OFFER_PRICE;
+      return this.grantItem('shipCrate');
+    }
+
     updateGiftProgress(now = this.now()) {
       const day = AG.updateGiftDay(now);
-      if (this.profile.updateGifts.day !== day) this.profile.updateGifts = { day, claimed: 0, nextAt: 0 };
+      if (this.profile.updateGifts.day !== day) this.profile.updateGifts = { version: 2, day, claimed: 0, nextAt: 0 };
       return this.profile.updateGifts;
     }
 

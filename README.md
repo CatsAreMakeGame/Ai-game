@@ -43,7 +43,7 @@ Twin Cannon, Triple Cannon, Slime Cannon and Radioactive Smoke Bomb are permanen
 
 A new run has a 1% chance to encounter a 20-asteroid field. Each asteroid has a 5% chance to be green. Break green asteroids for 1–3 Uranium Ore and triple the Credits and Star Gems. Admin can summon a field during flight.
 
-This content unlocks in-game on 28 November 2026 at 11:15 a.m. AEST (12:15 p.m. AEDT).
+This content unlocks in-game on 28 November 2026 at 11:30 a.m. AEST (12:30 p.m. AEDT).
 
 ## Local testing
 

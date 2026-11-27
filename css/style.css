@@ -677,3 +677,5 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .sale-price { display: inline-flex; align-items: baseline; gap: 5px; }
 .sale-price span, .shop-crate-info .sale-note { color: #b9f592; }
 .sale-note { font-size: .75rem; }
+
+.crate-intro-offer { justify-self: start; border-color: #82bf79; color: #d8ffd0; }

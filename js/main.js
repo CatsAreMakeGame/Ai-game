@@ -134,11 +134,18 @@
     while (sideNotices.length && sideNotices[0].until <= now) sideNotices.shift().node.remove();
     if (!$('home').hidden) {
       const release = $('update-time');
-      const left = Math.max(0, Math.ceil((AG.CONTENT_START - Date.now()) / 1000));
+      const wallTime = Date.now();
+      const live = AG.contentActive(wallTime);
+      const deals = AG.launchDealsActive(wallTime);
+      const target = deals ? AG.LAUNCH_DEALS_END : AG.CONTENT_START;
+      const datetime = new Date(target).toISOString();
+      if (release.dateTime !== datetime) release.dateTime = datetime;
+      setText($('update-title'), deals ? 'Next update' : 'Asteroid update');
+      const left = Math.max(0, Math.ceil((target - wallTime) / 1000));
       const hours = Math.floor(left / 3600);
       const minutes = Math.floor(left / 60) % 60;
       const clock = String(minutes).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
-      setText(release, AG.contentActive() ? 'Live now' : 'Launches in ' + hours + ':' + clock);
+      setText(release, live && !deals ? 'Live now' : (deals ? 'In ' : 'Launches in ') + hours + ':' + clock);
       const seconds = Math.max(0, Math.ceil((AG.EVENT_END - game.now()) / 1000));
       const time = [Math.floor(seconds / 86400) + 'd', Math.floor(seconds / 3600) % 24 + 'h',
         Math.floor(seconds / 60) % 60 + 'm', seconds % 60 + 's'].join(' ');
@@ -851,7 +858,7 @@
   let accumulated = 0;
   const tick = 1 / 120;
   let contentLive = AG.contentActive();
-  let crateSaleLive = AG.enemyCrateSaleActive();
+  let launchDealsLive = AG.launchDealsActive();
   function frame(now) {
     const dt = Math.min(0.05, (now - previous) / 1000);
     previous = now;
@@ -862,9 +869,9 @@
       contentLive = unlocked;
       if (armoryPanels.includes(panelKind) || panelKind === 'admin') drawPanel(true);
     }
-    const sale = AG.enemyCrateSaleActive(wallTime);
-    if (sale !== crateSaleLive) {
-      crateSaleLive = sale;
+    const sale = AG.launchDealsActive(wallTime);
+    if (sale !== launchDealsLive) {
+      launchDealsLive = sale;
       if (panelKind === 'shop' && armory.shopTab === 'crates' && !contentChanged) drawPanel(true);
     }
     if (wallTime >= nextMerchantCheck) {
