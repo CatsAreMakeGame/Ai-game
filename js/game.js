@@ -915,6 +915,7 @@
       this.movePlayer(dt);
       this.updateSmoke(dt, x, y);
       this.updateEnergy(dt);
+      const barrageWasFiring = Boolean(run.barrage);
       this.updateBarrage(dt);
       this.updateSlime(dt);
       this.updateAsteroids(dt);
@@ -955,7 +956,7 @@
 
       const { player, ship } = run;
       player.fireIn -= dt;
-      if (player.fireIn <= 0 && !this.laserActive()) {
+      if (player.fireIn <= 0 && !barrageWasFiring && !run.barrage && !this.laserActive()) {
         const damage = this.shotDamage();
         const { barrels } = this.upgradeEffects();
         for (let i = 0; i < barrels; i++) {

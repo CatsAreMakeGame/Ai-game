@@ -42,7 +42,7 @@ window.AG = (() => {
     gemPrice: 100,
     ability: { name: 'Nova Aegis', interval: 24, capacity: 50 }
   });
-  SHIPS.singularity.barrage = { name: 'Singularity Barrage', energy: 115, shots: 800, duration: 8, sweepPasses: 4, arcDegrees: 160, damageScale: 1.25 };
+  SHIPS.singularity.barrage = { name: 'Singularity Barrage', energy: 115, shots: 960, duration: 8, sweepPasses: 6, arcDegrees: 120, damageScale: 1.25 };
   const aegisCapacity = ship => contentActive() ? ship.hull * 1.5 : ship.ability?.capacity ?? 0;
   const BOSSES = {
     boss: { name: 'Mothership', hp: 95, size: 49, color: '#ff7894', score: 600, tier: 0, shots: 5, spread: .18, cadence: 2.2 },
