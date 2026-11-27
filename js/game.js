@@ -107,7 +107,7 @@
       const ship = SHIPS[shipId];
       this.releaseInput();
       this.run = {
-        wave: 0, level: 1, xp: 0, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostRelayOn: true, ship, shipId, mode, mindCooldown: 30, controlSequence: 0, tendrils: [],
+        wave: 0, level: this.profile.bestPilotLevel, xp: this.profile.pilotXp, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostRelayOn: true, ship, shipId, mode, mindCooldown: 30, controlSequence: 0, tendrils: [],
         stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisShield: 0, smoke: [], smokeIn: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
@@ -182,16 +182,42 @@
     awardMilestone() {
       const count = this.run.cleared;
       if (count % 5) return;
+      const pending = this.profile.pendingMilestones;
+      const add = (id, amount = 1) => { pending[id] = (pending[id] ?? 0) + amount; };
       const storedBoosts = ['heal', 'rapidFire', 'shield', 'doubleDamage', 'nanites'];
-      this.grantItem(storedBoosts[(count / 5 - 1) % storedBoosts.length]);
-      if (count % 10) return;
-      const tier = Math.min(5, count / 10);
-      const upgrades = ['wings', 'carbon', 'fusion', 'rail', 'nova'];
-      this.grantItem('credit', 100 * tier);
-      this.grantItem('gem', tier);
-      this.grantItem(upgrades[tier - 1]);
-      if (AG.eventActive(this.now())) this.grantItem(count % 20 ? 'alienCell' : 'alienMind');
-      this.notify('milestone', count + ' waves cleared · Rewards stored');
+      add(storedBoosts[(count / 5 - 1) % storedBoosts.length]);
+      if (count % 10 === 0) {
+        const tier = Math.min(5, count / 10);
+        const upgrades = ['wings', 'carbon', 'fusion', 'rail', 'nova'];
+        add('credit', 100 * tier);
+        add('gem', tier);
+        add(upgrades[tier - 1]);
+        if (AG.eventActive(this.now())) add(count % 20 ? 'alienCell' : 'alienMind');
+      }
+      this.notify('milestone', count + ' waves cleared · Rewards earned');
+    }
+
+    settleMilestones() {
+      const earned = Object.entries(this.profile.pendingMilestones);
+      const settled = [];
+      this.profile.pendingMilestones = {};
+      for (const [id, amount] of earned) {
+        const room = Number.MAX_SAFE_INTEGER - this.itemCount(id);
+        if (room < amount) this.profile.pendingMilestones[id] = amount - room;
+        const payable = Math.min(amount, room);
+        if (payable < 1) continue;
+        this.addItem(id, payable);
+        this.discoverItem(id);
+        settled.push([id, payable]);
+      }
+      return settled;
+    }
+
+    abandonSavedRun() {
+      this.profile.checkpoint = null;
+      const rewards = this.settleMilestones();
+      this.save();
+      return rewards;
     }
 
     isDiscovered(type) {
@@ -217,11 +243,13 @@
       this.profile.checkpoint = null;
       this.releaseInput();
       this.state = state;
+      run.milestoneRewards = this.settleMilestones();
       this.save();
     }
 
     gainXp(amount) {
       const run = this.run;
+      if (run.level >= 50) return;
       run.xp += amount;
       while (run.level < 50 && run.xp >= xpForLevel(run.level)) {
         run.xp -= xpForLevel(run.level);
@@ -229,8 +257,10 @@
         this.repair(10, false);
         this.notify('upgrade', run.level === SUPPLY_LEVEL ? 'Level 5 · Supplies unlocked' : 'Pilot level ' + run.level);
       }
-      if (!run.practice && run.level > this.profile.bestPilotLevel) {
+      if (run.level === 50) run.xp = 0;
+      if (!run.practice) {
         this.profile.bestPilotLevel = run.level;
+        this.profile.pilotXp = run.xp;
         this.save();
       }
     }
@@ -531,7 +561,7 @@
     }
 
     canVisitBase() {
-      return ['home', 'gameover', 'victory'].includes(this.state);
+      return ['home', 'gameover', 'victory', 'quit'].includes(this.state);
     }
 
     canUnlockShip(id) {

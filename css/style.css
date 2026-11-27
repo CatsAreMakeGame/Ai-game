@@ -549,3 +549,33 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
   .health-meter progress { height: 14px; }
   .health-meter #hull-value { font-size: .57rem; }
 }
+
+.event-banner { justify-content: flex-start; gap: 3px .45em; margin-right: 0; }
+.event-banner > strong { display: inline-flex; align-items: center; }
+.event-banner > span::before { content: '·'; margin-right: .4em; }
+.hud-toggle { position: absolute; z-index: 3; top: 8px; right: 8px; padding: 0 6px; min-width: 28px; min-height: 34px; }
+.wave-actions { right: 42px; }
+.stage:has(.wave-actions:not([hidden])) .hud { right: 125px; }
+.top-menu-hidden .hud { width: min(265px, calc(100% - 49px)); right: auto !important; justify-content: flex-start; }
+.top-menu-hidden .hud > div:not(.health-hud, .wave-hud),
+.top-menu-hidden #wave-actions, .top-menu-hidden #boss, .top-menu-hidden #boosts, .top-menu-hidden #ship-ability { display: none; }
+.console:has(.top-menu-hidden) > .top { display: none; }
+.top-menu-hidden .hud > .health-hud { flex-grow: 1; }
+.inventory-actions { display: flex; gap: 6px; margin-top: 6px; }
+.recipe-autofill { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.recipe-autofill select { max-width: 100%; min-height: 34px; padding: 4px 7px; border: 1px solid var(--line);
+  border-radius: 5px; background: #10232e; color: var(--ink); }
+.craft-grid .missing-ingredient { border-color: #d35e68; background: #391c29; }
+.missing-ingredient > * { opacity: .43; filter: grayscale(1) sepia(1) saturate(4) hue-rotate(307deg); }
+.overlay:has(.craft-layout), .ingredient-bank { overflow-anchor: none; }
+.overlay:has(.craft-layout) { align-items: start; }
+.milestone-results { display: grid; gap: 6px; padding: 0; list-style: none; }
+.milestone-results li { display: grid; grid-template-columns: 25px 1fr auto; align-items: center; gap: 8px;
+  padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; }
+.milestone-results .item-icon, .milestone-results .ship-graphic { width: 25px; height: 25px; }
+.milestone-results img { width: 18px; height: 18px; }
+@media (max-width: 620px) {
+  .hud-toggle { top: 5px; right: 4px; min-height: 26px; min-width: 24px; }
+  .wave-actions { right: 33px; }
+  .stage:has(.wave-actions:not([hidden])) .hud { right: 91px; }
+}

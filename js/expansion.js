@@ -103,7 +103,7 @@
       if (!this.canContinue()) return false;
       const saved = clone(this.profile.checkpoint);
       this.start(saved.mode, saved.shipId);
-      for (const key of checkpointKeys) if (Object.hasOwn(saved, key)) this.run[key] = saved[key];
+      for (const key of checkpointKeys) if (key !== 'level' && key !== 'xp' && Object.hasOwn(saved, key)) this.run[key] = saved[key];
       Object.assign(this.run.player, saved.player);
       this.run.enemies = saved.allies;
       this.run.energy = clamp(this.run.energy, 0, this.run.energyCap);
@@ -117,7 +117,7 @@
     },
 
     newRun() {
-      this.profile.checkpoint = null;
+      this.abandonSavedRun();
       this.start();
       this.save();
     },

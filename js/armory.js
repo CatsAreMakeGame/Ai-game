@@ -252,17 +252,26 @@
     const choices = [...game.profile.unlocked, 'alienCell', 'alienMind', 'alienSerum'].filter(available);
     const grid = element('div', '', 'craft-grid');
     const ingredients = element('div', '', 'ingredient-bank');
+    const missing = state.missing ??= [];
+    ingredients.addEventListener('scroll', () => { state.ingredientScroll = ingredients.scrollTop; });
     function place(index, id) {
       const occupied = state.grid.filter((ingredient, position) => ingredient === id && position !== index).length;
       if (id && (!choices.includes(id) || occupied >= available(id))) return;
       state.grid[index] = id;
+      delete missing[index];
       if (id && occupied + 1 === available(id)) state.ingredient = '';
       refresh();
     }
     state.grid.forEach((id, index) => {
       const tile = button('', () => place(index, state.ingredient));
+      const wanted = missing[index];
       if (id && ITEMS[id]) tile.append(graphic(id));
-      tile.setAttribute('aria-label', 'Slot ' + (index + 1) + ' · ' + (id ? AG.itemName(id) : 'empty'));
+      else if (wanted) {
+        tile.classList.add('missing-ingredient');
+        tile.append(graphic(wanted === 'alienShip' ? game.profile.ship : wanted));
+      }
+      tile.setAttribute('aria-label', 'Slot ' + (index + 1) + ' · ' +
+        (id ? AG.itemName(id) : wanted ? 'Missing ' + (wanted === 'alienShip' ? 'an Alien spaceship' : AG.itemName(wanted)) : 'empty'));
       tile.addEventListener('dragover', event => event.preventDefault());
       tile.addEventListener('drop', event => { event.preventDefault(); place(index, event.dataTransfer.getData('text/plain')); });
       grid.append(tile);
@@ -278,6 +287,53 @@
     }
     const layout = element('div', '', 'craft-layout');
     layout.append(grid, ingredients);
+    if (game.profile.bestPilotLevel >= 10) {
+      const controls = element('div', '', 'recipe-autofill');
+      const recipes = element('select');
+      recipes.setAttribute('aria-label', 'Recipe to autofill');
+      for (const [id, recipe] of Object.entries(AG.RECIPES)) {
+        const option = element('option', recipe.name);
+        option.value = id;
+        recipes.append(option);
+      }
+      recipes.value = state.autofillRecipe ?? 'ship';
+      const ships = element('select');
+      ships.setAttribute('aria-label', 'Spaceship for recipe');
+      function shipChoices() {
+        const mode = recipes.value;
+        const eligible = game.profile.unlocked.filter(id => mode !== 'control' || SHIPS[id]?.alien && !SHIPS[id].mindControl);
+        ships.hidden = !['ship', 'control'].includes(mode);
+        ships.replaceChildren();
+        for (const id of eligible) {
+          const option = element('option', AG.itemName(id));
+          option.value = id;
+          ships.append(option);
+        }
+        ships.value = eligible.includes(state.autofillShip) ? state.autofillShip :
+          eligible.includes(game.profile.ship) ? game.profile.ship : eligible[0] ?? '';
+      }
+      recipes.addEventListener('change', () => { state.autofillRecipe = recipes.value; shipChoices(); });
+      ships.addEventListener('change', () => { state.autofillShip = ships.value; });
+      shipChoices();
+      controls.append(recipes, ships, button('Fill recipe', () => {
+        state.autofillRecipe = recipes.value;
+        state.autofillShip = ships.value;
+        const chosen = AG.RECIPES[recipes.value];
+        const pattern = chosen.pattern ?? chosen.ingredients;
+        const allocated = {};
+        state.grid = Array(9).fill('');
+        state.missing = [];
+        state.ingredient = '';
+        pattern.forEach((part, index) => {
+          const id = part === 'donor' || part === 'alienShip' ? ships.value || 'alienShip' : part;
+          allocated[id] = (allocated[id] ?? 0) + 1;
+          if (allocated[id] <= available(id)) state.grid[index] = id;
+          else state.missing[index] = id;
+        });
+        refresh();
+      }));
+      body.append(controls);
+    }
     const recipe = game.recipe(state.grid);
     const label = recipe === 'ship' ? 'Consume ' + AG.itemName(state.grid[4]) + ' and craft Alien Ship' :
       recipe === 'mind' ? 'Craft Alien Mind' : recipe === 'serum' ? 'Craft Alien Mind Serum' :
@@ -285,14 +341,15 @@
     const actions = element('div', '', 'home-actions');
     actions.append(button(label, () => {
       const id = game.craft(state.grid);
-      if (id) { state.grid.fill(''); state.ingredient = ''; }
+      if (id) { state.grid.fill(''); state.missing = []; state.ingredient = ''; }
       state.result = id ? AG.itemName(id) + (recipe === 'control' ? ' gained Mind Control.' : ' added to Inventory.') : 'Check the ingredients in the grid.';
       refresh();
     }, { primary: true, disabled: !recipe }), button('Clear grid', () => {
-      state.grid.fill(''); state.ingredient = ''; refresh();
+      state.grid.fill(''); state.missing = []; state.ingredient = ''; refresh();
     }));
     body.append(element('p', 'Drag an ingredient or select it and tap a slot. Tap a filled slot with nothing selected to clear it.', 'panel-note'),
       layout, actions);
+    ingredients.scrollTop = state.ingredientScroll ?? 0;
   }
 
   function renderRecipes(body, element, game) {
@@ -374,28 +431,22 @@
     const base = game.canVisitBase();
     const cards = element('div', '', 'cards armory-cards');
     const tiles = element('div', '', 'inventory-tiles');
-    const details = element('div', '', 'inventory-details');
+    const details = element('div', '', 'inventory-actions');
     const tileChoices = new Map();
 
     details.hidden = true;
     function selectTile(id) {
       const choice = tileChoices.get(id);
       if (!choice) return;
-      const { item, text, action } = choice;
       hideTooltip();
       state.selectedItem = id;
-      state.showItemDetails = true;
-      details.hidden = false;
+      state.showItemDetails = Boolean(choice.action);
+      details.hidden = !choice.action;
       for (const [key, entry] of tileChoices) entry.tile.setAttribute('aria-pressed', String(key === id));
-      const copy = element('div');
-      const rarity = element('span', item.rarity ?? 'common', 'item-rarity');
-      rarity.style.color = RARITIES[item.rarity ?? 'common'];
-      copy.append(element('strong', AG.itemName(id)), rarity, element('p', text));
-      details.replaceChildren(graphic(id), copy);
-      if (action) details.append(action);
+      details.replaceChildren(...(choice.action ? [choice.action] : []));
     }
 
-    function tileCard(id, text, action, count) {
+    function tileCard(id, action, count) {
       const item = ITEMS[id];
       const rarity = item.rarity ?? 'common';
       const tile = button('', () => selectTile(id));
@@ -410,11 +461,11 @@
         tile.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', id));
       }
       tiles.append(tile);
-      tileChoices.set(id, { item, tile, text, action });
+      tileChoices.set(id, { tile, action });
     }
 
     function card(id, text, action, count = 0) {
-      if (kind === 'inventory') { tileCard(id, text, action, count); return; }
+      if (kind === 'inventory') { tileCard(id, action, count); return; }
       const item = ITEMS[id];
       const row = element('div', '', 'card item-card');
       if (SHIPS[id]) decorateRarity(row, item);

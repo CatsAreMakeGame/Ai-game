@@ -236,7 +236,9 @@ window.AG = (() => {
         const id = (saved?.boostSlots ?? saved?.favoriteBoosts)?.[i];
         return Object.hasOwn(BOOSTS, id) ? id : '';
       }),
-      bestPilotLevel: Math.max(1, readNumber('bestPilotLevel'), Number.isInteger(checkpoint?.level) ? Math.min(50, checkpoint.level) : 1),
+      bestPilotLevel: Math.min(50, Math.max(1, readNumber('bestPilotLevel'), Number.isInteger(checkpoint?.level) ? checkpoint.level : 1)),
+      pilotXp: saved?.pilotXp === undefined ? Math.max(0, Number.isSafeInteger(checkpoint?.xp) ? checkpoint.xp : 0) : readNumber('pilotXp'),
+      pendingMilestones: counts('pendingMilestones', window.AG?.ITEMS ?? {}),
       merchant: saved?.merchant ?? null,
       boostSide: saved?.boostSide === 'left' ? 'left' : 'right',
       layoutVersion: 1,

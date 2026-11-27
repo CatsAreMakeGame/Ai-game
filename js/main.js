@@ -22,6 +22,9 @@
   const armoryPanels = ['hangar', 'shop', 'inventory', 'outfit', 'craft', 'recipes', 'merchant', 'shipPicker', 'autoBoost'];
   const panelHistory = [];
   let mindAim = false;
+  let hideTopMenu = false;
+  let abandonedRewards = [];
+  let panelRender = 0;
   let hoveredDrop = null;
   const sideNotices = [];
   let shopSeen = false;
@@ -143,7 +146,12 @@
     const run = game.run;
     const active = ['playing', 'intermission', 'paused'].includes(game.state);
     hud.hidden = controls.hidden = $('wave-actions').hidden = $('boost-dock').hidden = !active;
-    $('merchant-widget').hidden = !game.canVisitBase() || Boolean(panelKind);
+    const topToggle = $('hud-toggle');
+    topToggle.hidden = !active;
+    topToggle.setAttribute('aria-pressed', String(hideTopMenu));
+    topToggle.setAttribute('aria-label', hideTopMenu ? 'Show top menu' : 'Hide top menu');
+    setText(topToggle, hideTopMenu ? '▴' : '▾');
+    $('flight-layout').classList.toggle('top-menu-hidden', active && hideTopMenu);
     $('flight-layout').classList.toggle('boost-left', game.profile.boostSide === 'left');
     $('combat-rim').hidden = !active;
     setText($('admin'), game.testing ? 'Admin · Testing' : 'Admin');
@@ -300,6 +308,11 @@
 
   function start() {
     panelHistory.length = 0;
+    if (Object.keys(game.profile.pendingMilestones).length) {
+      abandonedRewards = game.abandonSavedRun();
+      open('queuedRewards');
+      return;
+    }
     game.newRun();
     resumeFlight();
   }
@@ -349,8 +362,8 @@
   function dismiss() {
     const kind = panelKind;
     mindAim = false;
-    if (kind === 'craft') { armory.grid.fill(''); armory.ingredient = ''; }
-    if ((armoryPanels.includes(kind) || kind === 'settings' || kind === 'keybinds' || kind === 'uiSettings' || kind === 'launchMode') && panelHistory.length) {
+    if (kind === 'craft') { armory.grid.fill(''); armory.missing = []; armory.ingredient = ''; armory.ingredientScroll = 0; }
+    if ((armoryPanels.includes(kind) || kind === 'settings' || kind === 'keybinds' || kind === 'uiSettings' || kind === 'launchMode' || kind === 'tutorial') && panelHistory.length) {
       const parent = panelHistory.pop();
       resetPanelDraft();
       Object.assign(armory, { inventoryTab: parent.inventoryTab, shopTab: parent.shopTab, part: parent.part, ship: parent.ship });
@@ -368,7 +381,7 @@
       game.save();
     }
     if (kind === 'pause') game.state = game.resumeState;
-    if (kind === 'result') {
+    if (kind === 'result' || kind === 'queuedRewards') {
       showHome();
       return;
     }
@@ -444,7 +457,19 @@
     normalReturn = null;
   }
 
+  function appendMilestoneRewards(rewards) {
+    if (!rewards?.length) return;
+    const list = element('ul', '', 'milestone-results');
+    for (const [id, amount] of rewards) {
+      const row = element('li');
+      row.append(AG.itemGraphic(id), element('span', AG.itemName(id)), element('strong', '×' + amount.toLocaleString()));
+      list.append(row);
+    }
+    body.append(element('h3', 'Milestone rewards'), list);
+  }
+
   function drawPanel(restoreFocus = false) {
+    const revision = ++panelRender;
     AG.hideItemTooltip();
     const buttonIndex = [...body.querySelectorAll('button')].indexOf(document.activeElement);
     const priorScroll = overlay.scrollTop;
@@ -453,7 +478,11 @@
     note.hidden = true;
     body.replaceChildren();
     const title = $('panel-title');
-    if (panelKind === 'tutorial') {
+    if (panelKind === 'queuedRewards') {
+      setText(title, 'Previous run ended');
+      appendMilestoneRewards(abandonedRewards);
+      body.append(button('Launch', start, { primary: true }), button('Main menu', showHome));
+    } else if (panelKind === 'tutorial') {
       setText(title, 'Flight training');
       const [name, copy] = tutorial[tutorialIndex];
       const slide = element('article', '', 'tutorial-slide');
@@ -503,7 +532,7 @@
       setText(title, 'Settings');
       const actions = element('div', '', 'home-actions');
       actions.append(AG.menuIcon(button('Keybinds', () => navigate('keybinds')), 'keybinds'),
-        button('UI Settings', () => navigate('uiSettings')), button('Back', dismiss));
+        button('UI Settings', () => navigate('uiSettings')), button('How to play', () => { tutorialIndex = 0; navigate('tutorial'); }), button('Back', dismiss));
       body.append(actions);
     } else if (panelKind === 'uiSettings') {
       setText(title, 'UI Settings');
@@ -581,7 +610,7 @@
       body.append(cards, button('Back to flight', dismiss, { primary: true }));
     } else {
       const paused = panelKind === 'pause';
-      setText(title, paused ? 'Flight paused' : game.state === 'victory' ? 'Sector secured' : 'Ship lost');
+      setText(title, paused ? 'Flight paused' : game.state === 'victory' ? 'Sector secured' : game.state === 'quit' ? 'Run ended' : 'Ship lost');
       setText(note, 'Wave ' + game.waveLabel + '  ·  Score ' + game.run.score.toLocaleString());
       note.hidden = false;
       const actions = element('div', '', 'home-actions');
@@ -594,18 +623,22 @@
           'Bosses defeated · ' + (bosses || 'None'), 'Star Gems collected · ' + AG.formatCurrency(stats.gems),
           'Rarest pickup · ' + (stats.rarest ? AG.itemName(stats.rarest) : 'None')]) if (entry) summary.append(element('li', entry));
         body.append(summary);
+        appendMilestoneRewards(game.run.milestoneRewards);
         actions.append(button('Launch again', () => navigate('launchMode'), { primary: true }));
       }
       actions.append(game.run.practice ? button('Exit practice', () => {
         showHome();
         open('hangar');
-      }) : button('Main menu', showHome));
+      }) : paused ? button('Quit run', () => { game.finish('quit'); open('result'); }) : button('Main menu', showHome));
       body.append(actions);
     }
     if (restoreFocus) {
       const candidate = body.querySelectorAll('button')[buttonIndex];
       (candidate && !candidate.disabled ? candidate : $('close')).focus({ preventScroll: true });
       overlay.scrollTop = priorScroll;
+      if (panelKind === 'craft') requestAnimationFrame(() => {
+        if (revision === panelRender && panelKind === 'craft') overlay.scrollTop = priorScroll;
+      });
     } else {
       overlay.scrollTop = 0;
     }
@@ -625,23 +658,8 @@
 
   $('launch').addEventListener('click', () => open('launchMode'));
   $('continue').addEventListener('click', () => { if (game.continueRun()) resumeFlight(); });
-  function toggleMerchant(expanded) {
-    $('merchant-tab').setAttribute('aria-expanded', String(expanded));
-    $('merchant-widget').classList.toggle('expanded', expanded);
-    $('merchant-open').disabled = !expanded;
-  }
-  $('merchant-tab').addEventListener('click', () =>
-    toggleMerchant($('merchant-tab').getAttribute('aria-expanded') !== 'true'));
-  $('merchant-open').addEventListener('click', () => {
-    if (!game.canVisitBase()) return;
-    toggleMerchant(false);
-    open('merchant');
-  });
-  $('settings').addEventListener('click', () => {
-    if (panelKind === 'settings') dismiss();
-    else if (panelKind) navigate('settings');
-    else open('settings');
-  });
+  $('merchant-open').addEventListener('click', () => { if (game.canVisitBase()) open('merchant'); });
+  $('hud-toggle').addEventListener('click', () => { hideTopMenu = !hideTopMenu; });
   $('outfit-open').addEventListener('click', () => open('shipPicker'));
   $('craft-open').addEventListener('click', () => open('craft'));
   $('hangar-open').addEventListener('click', () => open('hangar'));
@@ -652,7 +670,6 @@
     else if (!panelKind && game.canVisitBase()) { armory.showItemDetails = false; open('inventory'); }
   }
   $('inventory-home').addEventListener('click', openInventory);
-  $('help').addEventListener('click', () => { tutorialIndex = 0; open('tutorial'); });
   $('close').addEventListener('click', dismiss);
   $('skip').addEventListener('click', () => game.skip());
   function syncAutoSkip() {
