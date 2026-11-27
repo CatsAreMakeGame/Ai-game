@@ -319,13 +319,16 @@
         ctx.stroke();
       }
 
-      strand('#216aff38', 66, 5, 0);
-      strand('#508dff58', 44, 4, 0);
-      strand('#72c6ffe0', 21, 3, 0);
-      strand('#e8faff', 7, 2, 0);
-      strand('#338fff88', 2, 23, 3);
-      strand('#78daffb5', 2, 18, 6);
-      for (let i = 0; i < 24; i++) {
+      const pulse = (Math.sin(t * 22) + 1) / 2;
+      strand('#4520bf24', 104 + pulse * 12, 8, 0);
+      strand('#216aff55', 73, 6, 0);
+      strand('#4594ff80', 43, 4, 0);
+      strand('#77d8ffee', 25 + pulse * 3, 3, 0);
+      strand('#f0fdff', 9, 1.5, 0);
+      strand('#8177ff9c', 2.5, 32, 2);
+      strand('#3b9affb8', 2.5, 23, 4);
+      strand('#a8f6ffbd', 1.5, 17, 6);
+      for (let i = 0; i < 34; i++) {
         const progress = (i * 37 + t * (130 + (i % 4) * 65)) % Math.max(1, length);
         const side = i % 2 ? -1 : 1;
         const width = side * (13 + (i * 3 % 24) + Math.sin(t * 15 + i) * 8);
@@ -337,7 +340,12 @@
         ctx.lineTo(progress + 8, width * .87);
         ctx.stroke();
       }
-      disc(ctx, 0, 0, 13 + Math.sin(t * 33) * 3, '#8fdcff');
+      const flare = ctx.createRadialGradient(0, 0, 2, 0, 0, 38);
+      flare.addColorStop(0, '#ffffff');
+      flare.addColorStop(.35, '#86ddffbd');
+      flare.addColorStop(1, '#318aff00');
+      disc(ctx, 0, 0, 38, flare);
+      disc(ctx, 0, 0, 14 + pulse * 3, '#8fdcff');
       disc(ctx, 0, 0, 5, '#effcff');
       ctx.restore();
     }
@@ -356,6 +364,10 @@
         const drift = Math.sin(this.time * 1.25) * 11;
         this.ship(685, 321 + drift, '#d5fa74', 2.8, game.profile.ship);
         return;
+      }
+      ctx.save();
+      if (dt > 0 && game.laserActive() && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+        ctx.translate(Math.sin(this.time * 43) * 1.65, Math.cos(this.time * 37) * 1.25);
       }
       for (const puff of run.enemySmoke) {
         const haze = ctx.createRadialGradient(puff.x, puff.y, puff.size * .13, puff.x, puff.y, puff.size);
@@ -544,6 +556,7 @@
         return particle.life > 0;
       });
       this.drawDamageNumbers(dt);
+      ctx.restore();
     }
   }
 

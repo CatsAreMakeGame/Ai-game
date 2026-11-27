@@ -675,7 +675,6 @@
     else if (panelKind) navigate('settings');
     else open('settings');
   });
-  $('rewards-open').addEventListener('click', () => open('rewards'));
   $('merchant-open').addEventListener('click', () => { if (game.canVisitBase()) open('merchant'); });
   $('hud-toggle').addEventListener('click', () => { hideTopMenu = !hideTopMenu; });
   $('outfit-open').addEventListener('click', () => open('shipPicker'));

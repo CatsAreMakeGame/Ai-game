@@ -5,8 +5,8 @@ A browser-based shooter with four flight modes, returning boss fleets, unlockabl
 ## Flight
 
 - Move with **A/D**, the left and right arrows, or a held drag. The ship fires automatically. Fit a **Vector Engine** to unlock vertical movement.
-- Open **Inventory** between runs. Drag boosts into its three flight slots, then click a slot during flight to use its boost. Extra slots unlock at pilot levels 5 and 10. Reach those levels once to assign boosts between runs. Loot pauses for one second and then accelerates toward your ship.
-- Equip a **Loot Magnet** to pull drops toward your ship faster. Right-click an equipped **Boost Cycle** in Ship Loadout to configure it. It starts off and can be enabled during flight with the **Auto** button or your Equipment keybind. It holds up to 15 of each of three boost types and activates one every two seconds when eligible. Fit a **Smoke Bomb** in an engine slot for a five-second trail that damages enemies every half second.
+- Open **Inventory** between runs. Drag boosts into its three flight slots, then click a slot during flight to use its boost. Extra slots unlock at pilot levels 5 and 10. Reach those levels once to assign boosts between runs. Loot pauses for one second, then drifts toward the flight lane for manual pickup.
+- Equip a **Loot Magnet** to make drops accelerate toward your ship after the pause. Right-click an equipped **Boost Cycle** in Ship Loadout to configure it. It starts off and can be enabled during flight with the **Auto** button or your Equipment keybind. It holds up to 15 of each of three boost types and activates one every two seconds when eligible. Fit a **Smoke Bomb** in an engine slot for a five-second trail that damages enemies every half second.
 - The boss ladder adds a new boss on waves 10, 20, 30, 40 and 50. Each boss wave includes the previous bosses. Boss waves cannot be skipped. Every five clears earn a boost. Every ten clears also earn Credits, Star Gems, an upgrade and an Alien Event item while the event is active. You'll receive these milestone rewards together when the run ends. Flight boost drops activate immediately.
 - Pilot level and XP save across runs. Use the top arrow to reduce the flight HUD to wave and health. Use **P** or **Esc** to pause. Continuing a saved run keeps its launch loadout. Equipment changes apply to new runs. At pilot level 5, you can buy flight supplies during intermission.
 
@@ -20,7 +20,7 @@ A browser-based shooter with four flight modes, returning boss fleets, unlockabl
 
 ## Rewards
 
-Campaign wins grant guaranteed credits, gems, crates, upgrades and repair boosts. Endless bonus rewards scale every tenth wave cleared, with Spaceship Crates every fiftieth wave. Rewards shows your most recent completed run's payout. Milestone rewards settle when you finish or quit.
+Campaign wins grant guaranteed credits, gems, crates, upgrades and repair boosts. Endless bonus rewards scale every tenth wave cleared, with Spaceship Crates every fiftieth wave. Open Rewards on the results screen to see your payout. Milestone rewards settle when you finish or quit.
 
 ## Loot crates
 

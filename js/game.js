@@ -197,13 +197,14 @@
       const pending = this.profile.pendingMilestones;
       const add = (id, amount = 1) => { pending[id] = (pending[id] ?? 0) + amount; };
       const storedBoosts = ['heal', 'rapidFire', 'shield', 'doubleDamage', 'nanites'];
-      add(storedBoosts[(count / 5 - 1) % storedBoosts.length]);
+      add(storedBoosts[(count / 5 - 1) % storedBoosts.length], 3);
       if (count % 10 === 0) {
         const tier = Math.min(5, count / 10);
         const upgrades = ['wings', 'carbon', 'fusion', 'rail', 'nova'];
-        add('credit', 100 * tier);
-        add('gem', tier);
-        add(upgrades[tier - 1]);
+        add('credit', 500 * tier);
+        add('gem', 3 * tier);
+        add(upgrades[tier - 1], Math.min(3, tier));
+        add('upgradeCrate', tier);
         if (AG.eventActive(this.now())) add(count % 20 ? 'alienCell' : 'alienMind');
       }
       this.notify('milestone', count + ' waves cleared · Rewards earned');
@@ -218,9 +219,9 @@
       const { mode } = this.run;
       if (mode === 'endless' || this.run.unlimitedTest) return;
       const tier = { easy: 1, medium: 2, hard: 3 }[mode];
-      const rewards = { credit: 750 * tier, gem: 3 * tier, upgradeCrate: tier,
-        nanites: tier, [['rail', 'fusion', 'nova'][tier - 1]]: 1 };
-      if (tier >= 2) rewards.shipCrate = tier - 1;
+      const rewards = { credit: 4000 * tier, gem: 12 * tier, upgradeCrate: 5 * tier,
+        nanites: 4 * tier, [['rail', 'fusion', 'nova'][tier - 1]]: 2 * tier };
+      rewards.shipCrate = [2, 5, 10][tier - 1];
       if (AG.eventActive(this.now())) rewards.alienCell = tier * 2;
       this.queueRewards(rewards);
     }
@@ -229,9 +230,9 @@
       const wave = this.run.wave;
       if (this.run.mode !== 'endless' || wave % 10 !== 0) return;
       const scale = Math.floor(Math.sqrt(wave / 10));
-      const rewards = { credit: wave * 25, gem: scale * 2, upgradeCrate: scale, nanites: scale,
-        [wave >= 100 ? 'nova' : 'rail']: scale };
-      if (wave % 50 === 0) rewards.shipCrate = scale;
+      const rewards = { credit: wave * 100, gem: scale * 8, upgradeCrate: scale * 4, nanites: scale * 3,
+        [wave >= 100 ? 'nova' : 'rail']: scale * 2 };
+      if (wave % 50 === 0) rewards.shipCrate = scale * 3;
       if (AG.eventActive(this.now())) rewards.alienCell = scale;
       this.queueRewards(rewards);
     }
@@ -1176,13 +1177,18 @@
         if (drop.age + 1e-8 < 1) return true;
         const movingFor = Math.max(0, drop.age - 1);
         const elapsed = Math.min(dt, Math.max(0, drop.age - Math.max(1, oldAge)));
-        const speed = Math.min(magnet ? 800 : 340, movingFor * (magnet ? 750 : 310));
-        const dx = run.player.x - drop.x;
-        const dy = run.player.y - drop.y;
-        const distance = Math.hypot(dx, dy);
-        const step = Math.min(1, speed * elapsed / Math.max(1, distance));
-        drop.x += dx * step;
-        drop.y += dy * step;
+        const speed = Math.min(magnet ? 800 : 140, movingFor * (magnet ? 750 : 180));
+        if (magnet) {
+          const dx = run.player.x - drop.x;
+          const dy = run.player.y - drop.y;
+          const distance = Math.hypot(dx, dy);
+          const step = Math.min(1, speed * elapsed / Math.max(1, distance));
+          drop.x += dx * step;
+          drop.y += dy * step;
+        } else {
+          if (drop.y < FLIGHT_LANE) drop.y = Math.min(FLIGHT_LANE, drop.y + speed * elapsed);
+          else if (drop.y > FLIGHT_LANE) drop.y = Math.max(FLIGHT_LANE, drop.y - speed * elapsed);
+        }
         if (touches(drop, run.player)) {
           if (drop.type !== 'alienSerum' || !this.profile.serumUsed || !AG.eventActive(this.now())) collected.push(drop);
           return false;
