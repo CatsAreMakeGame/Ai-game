@@ -116,12 +116,13 @@
       this.releaseInput();
       this.run = {
         wave: 0, level: this.profile.bestPilotLevel, xp: this.profile.pilotXp, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostCycleOn: false, boostCycleDelay: 0, ship, shipId, mode, mindCooldown: 30, controlSequence: 0, tendrils: [],
-        stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisShield: 0, smoke: [], smokeIn: 0, enemySmoke: [], smokeDamageIn: .5,
+        stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisShield: 0, smoke: [], smokeIn: 0, enemySmoke: [], smokeDamageIn: .5, asteroids: [], asteroidField: null, slimeShots: [], slimeIn: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
         missiles: [], missileIn: 0, targetMode: 'nearest', energy: 0, energyCap: AG.energyCapacity(ship), energyOverdrive: false, overdriveTick: 0, overdriveSuppressed: false,
         laser: { held: false, toggled: false, tick: 0, aim: null }
       };
+      this.run.asteroidDelay = AG.contentActive() && this.random() < .01 ? 6 : null;
       this.beginWave(1);
     }
 
@@ -197,10 +198,12 @@
       if (count % 5) return;
       const boosts = ['heal', 'rapidFire', 'shield', 'doubleDamage', 'nanites', 'overdrive'];
       const rewards = { [this.rewardPick(boosts)]: 3 };
+      if (AG.contentActive()) rewards.boostBundle = 1;
       if (count % 10 === 0) {
         const tier = Math.min(5, count / 10);
         Object.assign(rewards, { credit: 500 * tier, gem: 3 * tier, upgradeCrate: tier,
           [this.rewardPick(['wings', 'carbon', 'fusion', 'rail', 'nova', 'booster', 'cannon', 'rocket'])]: Math.min(3, tier) });
+        if (AG.contentActive()) rewards.upgradeBundle = 1;
         if (AG.eventActive(this.now())) rewards.alienCell = tier;
       }
       this.queueRewards(rewards);
@@ -215,7 +218,7 @@
       const pending = this.profile.pendingMilestones;
       for (const [id, amount] of Object.entries(rewards)) {
         const quantity = reduce ? Math.max(1, Math.round(amount * 2 / 3)) : amount;
-        pending[id] = (pending[id] ?? 0) + quantity;
+        pending[id] = Math.min(Number.MAX_SAFE_INTEGER, (pending[id] ?? 0) + quantity);
       }
     }
 
@@ -234,6 +237,7 @@
       const boost = this.rewardPick(['nanites', 'overdrive', 'doubleDamage']);
       const rewards = { credit: 4000 * tier, gem: 12 * tier, upgradeCrate: 5 * tier,
         [boost]: 4 * tier, [upgrade]: 2 * tier, shipCrate: [2, 5, 10][tier - 1] };
+      if (AG.contentActive()) { rewards.boostBundle = 3 * tier; rewards.upgradeBundle = 2 * tier; }
       if (AG.eventActive(this.now())) rewards.alienCell = tier * 2;
       this.queueRewards(rewards);
     }
@@ -241,13 +245,23 @@
     awardEndlessWave() {
       const wave = this.run.wave;
       if (this.run.mode !== 'endless' || wave % 10 !== 0) return;
-      const scale = Math.floor(Math.sqrt(wave / 10));
+      const scale = Math.min(1000, 3 ** ((wave - 50) / 50));
+      const scaled = amount => Math.max(1, Math.round(amount * scale));
       const upgrade = this.rewardPick(wave >= 100 ? ['nova', 'carbon', 'fusion', 'rail'] : ['rail', 'fusion', 'carbon', 'rocket']);
       const boost = this.rewardPick(['nanites', 'overdrive', 'shield', 'doubleDamage']);
-      const rewards = { credit: wave * 100, gem: scale * 8, upgradeCrate: scale * 4, [boost]: scale * 3, [upgrade]: scale * 2 };
-      if (wave % 50 === 0) rewards.shipCrate = scale * 3;
-      if (AG.eventActive(this.now())) rewards.alienCell = scale;
-      this.queueRewards(rewards);
+      if (!AG.contentActive()) {
+        const previous = Math.floor(Math.sqrt(wave / 10));
+        const rewards = { credit: wave * 100, gem: previous * 8, upgradeCrate: previous * 4, [boost]: previous * 3, [upgrade]: previous * 2 };
+        if (wave % 50 === 0) rewards.shipCrate = previous * 3;
+        if (AG.eventActive(this.now())) rewards.alienCell = previous;
+        this.queueRewards(rewards);
+        return;
+      }
+      const rewards = { credit: scaled(5000), gem: scaled(12), upgradeCrate: scaled(4),
+        [boost]: scaled(3), [upgrade]: scaled(2), boostBundle: scaled(2), upgradeBundle: scaled(1) };
+      if (wave % 50 === 0) rewards.shipCrate = scaled(3);
+      if (AG.eventActive(this.now())) rewards.alienCell = scaled(1);
+      this.queueRewards(rewards, false);
     }
 
     settleMilestones() {
@@ -368,8 +382,8 @@
     }
 
     upgradeEffects(ship, mounts = (ship ? this.profile.loadouts[ship] : this.run?.loadout ?? this.profile.loadouts[this.profile.ship]) ?? {}) {
-      const effects = { speed: 1, damage: 0, vertical: false, vectors: 0, missile: null, laser: false, magnet: false, boostRelay: false, smoke: 0 };
-      for (const id of Object.values(mounts)) {
+      const effects = { speed: 1, damage: 0, vertical: false, vectors: 0, missile: null, laser: false, magnet: false, boostRelay: null, smoke: 0, radioactive: false, normalSmoke: false, barrels: 1, slimeMounts: [] };
+      for (const [slot, id] of Object.entries(mounts)) {
         const upgrade = UPGRADES[id];
         effects.speed += upgrade.speed ?? 0;
         effects.damage += upgrade.damage ?? 0;
@@ -378,14 +392,22 @@
         effects.missile ||= upgrade.missile ?? null;
         effects.laser ||= Boolean(upgrade.laser);
         effects.magnet ||= Boolean(upgrade.magnet);
-        effects.boostRelay ||= Boolean(upgrade.boostRelay);
-        effects.smoke += Number(Boolean(upgrade.smoke));
+        if (upgrade.boostRelay && (!effects.boostRelay || upgrade.boostRelay.interval < UPGRADES[effects.boostRelay].boostRelay.interval)) {
+          effects.boostRelay = id;
+        }
+        if (upgrade.smoke) {
+          effects.smoke++;
+          effects.radioactive ||= Boolean(upgrade.radioactive);
+          effects.normalSmoke ||= !upgrade.radioactive;
+        }
+        effects.barrels = Math.max(effects.barrels, upgrade.barrels ?? 1);
+        if (upgrade.slime) effects.slimeMounts.push(slot);
       }
       return effects;
     }
 
     mountUpgrade(ship, slot, type) {
-      if (!this.profile.unlocked.includes(ship) || !Object.hasOwn(SLOTS, slot)) return false;
+      if (!this.profile.unlocked.includes(ship) || !Object.hasOwn(SLOTS, slot) || (type && !AG.itemAvailable(type))) return false;
       if (!AG.slotAvailable(SHIPS[ship], slot) || !this.canVisitBase()) return false;
       const mounts = this.profile.loadouts[ship] ??= {};
       if (type) {
@@ -427,7 +449,7 @@
     }
 
     grantItem(type, amount = 1) {
-      if (!Object.hasOwn(AG.ITEMS, type) || !Number.isSafeInteger(amount) || amount < 1 ||
+      if (!Object.hasOwn(AG.ITEMS, type) || !AG.itemAvailable(type) || !Number.isSafeInteger(amount) || amount < 1 ||
           !Number.isSafeInteger(this.itemCount(type) + amount) || this.run?.practice) return false;
       this.addItem(type, amount);
       this.discoverItem(type);
@@ -438,7 +460,7 @@
 
     merchantStock(now = this.now()) {
       const saved = this.profile.merchant;
-      const ids = Object.keys(AG.MERCHANT);
+      const ids = Object.keys(AG.merchantCatalog());
       if (saved?.until > now && Array.isArray(saved.ids) && saved.ids.length === 2 && new Set(saved.ids).size === 2 &&
           saved.ids.every(id => ids.includes(id))) {
         if (!Array.isArray(saved.sold)) saved.sold = [];
@@ -446,7 +468,7 @@
       }
       const first = ids.splice(Math.floor(this.random() * ids.length), 1)[0];
       const second = ids[Math.floor(this.random() * ids.length)];
-      const stock = { ids: [first, second].sort((a, b) => Object.keys(AG.MERCHANT).indexOf(a) - Object.keys(AG.MERCHANT).indexOf(b)),
+      const stock = { ids: [first, second].sort((a, b) => Object.keys(AG.merchantCatalog()).indexOf(a) - Object.keys(AG.merchantCatalog()).indexOf(b)),
         until: now + 300000, sold: [] };
       this.profile.merchant = stock;
       this.save();
@@ -459,8 +481,16 @@
       return this.merchantStock();
     }
 
+    buyPremiumUpgrade(id) {
+      const price = UPGRADES[id]?.premium;
+      if (!AG.contentActive() || !price || !this.canVisitBase() || this.profile.gems < price ||
+          !Number.isSafeInteger(this.itemCount(id) + 1)) return false;
+      this.profile.gems -= price;
+      return this.grantItem(id);
+    }
+
     buyMerchant(id) {
-      const price = AG.MERCHANT[id];
+      const price = AG.merchantCatalog()[id];
       if (!this.canVisitBase() || !Number.isInteger(price) || this.credits < price ||
           !Number.isSafeInteger(this.itemCount(id) + 1)) return false;
       const stock = this.merchantStock();
@@ -489,25 +519,52 @@
 
     updateSmoke(dt, lastX, lastY) {
       const run = this.run;
-      const count = this.upgradeEffects().smoke;
+      const { smoke, normalSmoke, radioactive } = this.upgradeEffects();
       for (const puff of run.smoke) puff.life -= dt;
-      run.smoke = run.smoke.filter(puff => puff.life > 0);
+      run.smoke = run.smoke.filter(puff => puff.life > 1e-8);
       run.smokeIn -= dt;
-      if (count && run.smokeIn <= 0) {
+      if (smoke && run.smokeIn <= 0) {
         const { x, y } = run.player;
         const movement = Math.hypot(x - lastX, y - lastY);
         const back = movement > 0 ? 16 / movement : 0;
-        run.smoke.push({ x: x + (lastX - x) * back, y: movement > 0 ? y + (lastY - y) * back : y + 14,
-          life: 5, size: 66 });
-        run.smokeIn = .1;
+        const scale = [1, 1, 1.25, 1.375][Math.min(smoke, 3)];
+        const emit = (radius, poison, damage, duration) => run.smoke.push({
+          x: x + (lastX - x) * back, y: movement > 0 ? y + (lastY - y) * back : y + 14,
+          life: duration, duration, size: radius, poison, damage
+        });
+        if (!AG.contentActive()) emit(66, 0, smoke, 5);
+        else {
+          if (normalSmoke) emit(80 * scale, 0, 3, 5 * scale);
+          if (radioactive) emit(60 * scale, 4 * scale, 4, 5 * scale);
+        }
+        run.smokeIn = AG.contentActive() ? .15 : .1;
       }
+      if (!smoke && !run.smoke.length) return;
       for (let i = run.enemies.length - 1; i >= 0; i--) {
         const enemy = run.enemies[i];
-        if (enemy.allied || !run.smoke.some(puff => touches(enemy, puff))) continue;
+        if (enemy.allied) continue;
+        let smokeDamage = 0;
+        enemy.poisonTime = Math.max(0, (enemy.poisonTime ?? 0) - dt);
+        for (const puff of run.smoke) {
+          if (!touches(enemy, puff)) continue;
+          if (puff.poison) enemy.poisonTime = Math.max(enemy.poisonTime, puff.poison);
+          else smokeDamage = puff.damage;
+          if ((!normalSmoke || smokeDamage) && (!radioactive || enemy.poisonTime > 0)) break;
+        }
+        if (enemy.poisonTime > 1e-8) {
+          enemy.poisonExposure = (enemy.poisonExposure ?? 0) + dt;
+          if (enemy.poisonExposure + 1e-8 >= .5) {
+            enemy.poisonExposure -= .5;
+            this.hitEnemy(i, 4, 'poison');
+            if (enemy.hp <= 0) continue;
+          }
+        } else enemy.poisonExposure = 0;
+        if (!smokeDamage) continue;
         enemy.smokeExposure = (enemy.smokeExposure ?? 0) + dt;
-        if (enemy.smokeExposure + 1e-8 < .5) continue;
-        enemy.smokeExposure -= .5;
-        this.hitEnemy(i, count || 1, 'smoke');
+        if (enemy.smokeExposure + 1e-8 >= .5) {
+          enemy.smokeExposure -= .5;
+          this.hitEnemy(i, smokeDamage, 'smoke');
+        }
       }
     }
 
@@ -550,12 +607,15 @@
       return true;
     }
 
-    adjustBoostReserve(type, amount) {
+    adjustBoostReserve(type, amount, id = 'boostRelay') {
       if (!Object.hasOwn(BOOSTS, type) || ![-1, 1].includes(amount) || this.run?.practice) return false;
-      const { boostReserve, boosts } = this.profile;
+      const limits = UPGRADES[id]?.boostRelay;
+      if (!limits || !this.canVisitBase() || !this.itemCount(id)) return false;
+      const { boosts, boostReserves } = this.profile;
+      const boostReserve = boostReserves[id];
       const stored = boostReserve[type] ?? 0;
       const available = boosts[type] ?? 0;
-      if (amount > 0 && (!available || stored >= 15 || (!stored && Object.keys(boostReserve).length >= 3))) return false;
+      if (amount > 0 && (!available || stored >= limits.capacity || (!stored && Object.keys(boostReserve).length >= limits.types))) return false;
       if (amount < 0 && (!stored || !Number.isSafeInteger(available + 1))) return false;
       if (stored + amount === 0) delete boostReserve[type];
       else boostReserve[type] = stored + amount;
@@ -574,20 +634,26 @@
     updateBoostRelay(dt) {
       const run = this.run;
       run.boostCycleDelay = Math.max(0, run.boostCycleDelay - dt);
-      if (!run.boostCycleOn || run.boostCycleDelay > 1e-8 || run.practice || !this.upgradeEffects().boostRelay ||
+      if (!run.boostCycleOn || run.boostCycleDelay > 1e-8 || run.practice ||
           !run.enemies.some(enemy => !enemy.allied && enemy.y > 0)) return;
-      for (const [type, count] of Object.entries(this.profile.boostReserve)) {
+      const id = this.upgradeEffects().boostRelay;
+      if (!id) return;
+      const { interval } = UPGRADES[id].boostRelay;
+      const reserve = this.profile.boostReserves[id];
+      let used = false;
+      for (const [type, count] of Object.entries(reserve)) {
         const boost = BOOSTS[type];
         const shield = type === 'shield' || type === 'fortress';
         if (boost.repair ? run.ship.hull - run.player.hp < Math.min(boost.repair, run.ship.hull / 2) :
             this.boostCount(type) || (shield && (this.boostCount('shield') || this.boostCount('fortress')))) continue;
-        if (count === 1) delete this.profile.boostReserve[type];
-        else this.profile.boostReserve[type]--;
+        if (count === 1) delete reserve[type];
+        else reserve[type]--;
         this.applyBoost(type);
-        run.boostCycleDelay = 2;
-        this.save();
-        break;
+        used = true;
+        run.boostCycleDelay = interval;
+        if (interval) break;
       }
+      if (used) this.save();
     }
 
     canUseBoost(type) {
@@ -604,7 +670,7 @@
     }
 
     cratePurchaseLimit(type) {
-      if (!Object.hasOwn(CRATES, type) || !this.canVisitBase()) return 0;
+      if (!CRATES[type]?.price || !AG.itemAvailable(type) || !this.canVisitBase()) return 0;
       return Math.min(Math.floor(this.profile.gems / CRATES[type].price),
         Number.MAX_SAFE_INTEGER - (this.profile.crates[type] ?? 0));
     }
@@ -620,13 +686,36 @@
       return this.testing || this.adminUnlocked ? 1000000000000 : 10;
     }
 
+    openBundle(type) {
+      const spec = CRATES[type];
+      if (!AG.contentActive() || !spec?.bundle || !this.canVisitBase() || !this.itemCount(type)) return false;
+      const [min, max] = spec.bundle;
+      const count = min + Math.floor(this.random() * (max - min + 1));
+      const rewards = {};
+      let pool = [];
+      for (let i = 0; i < count; i++) {
+        if (!pool.length) pool = [...spec.pool];
+        const [id] = pool.splice(Math.floor(this.random() * pool.length), 1);
+        rewards[id] = (rewards[id] ?? 0) + 1;
+      }
+      if (Object.entries(rewards).some(([id, amount]) => !Number.isSafeInteger(this.itemCount(id) + amount))) return false;
+      this.profile.crates[type]--;
+      for (const [id, amount] of Object.entries(rewards)) {
+        this.addItem(id, amount);
+        this.discoverItem(id);
+        this.notify('loot', { type: id, amount });
+      }
+      this.save();
+      return rewards;
+    }
+
     openCrates(type, count) {
       const crate = CRATES[type];
       const profile = this.profile;
-      if (!Object.hasOwn(CRATES, type) || !Number.isSafeInteger(count) || count < 1 || this.run?.practice ||
+      if (!crate?.outcomes || !AG.itemAvailable(type) || !Number.isSafeInteger(count) || count < 1 || this.run?.practice ||
           count > this.crateBatchLimit() || count > (profile.crates[type] ?? 0)) return false;
 
-      const totals = AG.crateTotals(crate, count, this.random);
+      const totals = AG.crateTotals(AG.liveCrate(type), count, this.random);
       const rarityOrder = Object.keys(AG.RARITIES);
       const rank = id => rarityOrder.indexOf(AG.ITEMS[id].rarity ?? 'common');
       const rewards = [...totals].sort(([a], [b]) => rank(b) - rank(a))
@@ -662,7 +751,7 @@
     }
 
     canUnlockShip(id) {
-      return this.canVisitBase() && Object.hasOwn(SHIPS, id) &&
+      return this.canVisitBase() && AG.itemAvailable(id) && Object.hasOwn(SHIPS, id) &&
         Number.isFinite(SHIPS[id].price) && !this.shipCount(id) && this.credits >= SHIPS[id].price;
     }
 
@@ -762,6 +851,8 @@
       this.movePlayer(dt);
       this.updateSmoke(dt, x, y);
       this.updateEnergy(dt);
+      this.updateSlime(dt);
+      this.updateAsteroids(dt);
       if (this.state === 'intermission') {
         if (run.wave < this.waveLimit) {
           this.updateEnemySmoke(dt);
@@ -801,13 +892,20 @@
       player.fireIn -= dt;
       if (player.fireIn <= 0 && !this.laserActive()) {
         const damage = this.shotDamage();
-        run.shots.push({ x: player.x, y: player.y - 20, vx: 0, vy: -720, size: 5, damage, color: ship.color });
+        const { barrels } = this.upgradeEffects();
+        for (let i = 0; i < barrels; i++) {
+          run.shots.push({ x: player.x + (i - (barrels - 1) / 2) * 19,
+            y: player.y - 20, vx: 0, vy: -720, size: 5, damage, color: ship.color });
+        }
         player.fireIn = Math.max(.055,
           ship.delay * .52 ** this.boostCount('rapidFire') * .68 ** this.overdriveStacks());
         this.notify('fire');
       }
 
-      if (!this.laserActive()) this.launchMissile(dt);
+      if (!this.laserActive()) {
+        this.launchMissile(dt);
+        this.launchSlime(dt);
+      }
       this.updateAlien(dt);
       this.moveEnemies(dt);
       this.updateEnemySmoke(dt);
@@ -829,7 +927,9 @@
       const { player } = run;
       for (let index = run.enemies.length - 1; index >= 0; index--) {
         const enemy = run.enemies[index];
-        enemy.age += dt;
+        enemy.slimeTime = Math.max(0, (enemy.slimeTime ?? 0) - dt);
+        const travel = dt * (enemy.slimeTime > 0 ? .5 : 1);
+        enemy.age += enemy.allied ? dt : travel;
         enemy.flash -= dt;
         enemy.coreTime = Math.max(0, (enemy.coreTime ?? 0) - dt);
         enemy.ghostTime = Math.max(0, (enemy.ghostTime ?? 0) - dt);
@@ -841,7 +941,7 @@
         }
         const boss = BOSSES[enemy.type];
         if (boss) {
-          enemy.y = Math.min(enemy.y + (68 + boss.tier * 8) * dt, 128 + enemy.lane * 33);
+          enemy.y = Math.min(enemy.y + (68 + boss.tier * 8) * travel, 128 + enemy.lane * 33);
           const center = enemy.bornWave === 10 ? WIDTH / 2 : 120 + enemy.lane * 164;
           enemy.x = clamp(center + (enemy.teleportOffset ?? 0) + Math.sin(enemy.age * (.78 + boss.tier * .18)) * (enemy.bornWave === 10 ? 275 : 90), boss.size + 12, WIDTH - boss.size - 12);
           if (enemy.teleportIn > 0 && (enemy.teleportIn -= dt) <= 0) {
@@ -850,7 +950,7 @@
             enemy.teleportOffset = enemy.x < WIDTH / 2 ? 165 : -165;
           }
         } else {
-          enemy.y += (enemy.formation ? run.diff.speed * .91 : enemy.speed) * dt;
+          enemy.y += (enemy.formation ? run.diff.speed * .91 : enemy.speed) * travel;
           const diver = enemy.type === 'diver';
           enemy.x = clamp(enemy.origin + Math.sin(enemy.age * (diver ? 4.2 : 1.5)) * (diver ? 73 : 17), enemy.size, WIDTH - enemy.size);
         }
@@ -929,6 +1029,91 @@
       return best;
     }
 
+    launchSlime(dt) {
+      const run = this.run;
+      run.slimeIn = Math.max(0, run.slimeIn - dt);
+      const mounts = this.upgradeEffects().slimeMounts;
+      if (run.slimeIn > 0 || !mounts.length) return;
+      const target = this.pickMissileTarget();
+      if (!target) return;
+      for (const mount of mounts) {
+        const x = run.player.x + (mount === 'leftWing' ? -22 : 22);
+        const y = run.player.y - 13;
+        const range = Math.max(1, Math.hypot(target.x - x, target.y - y));
+        run.slimeShots.push({ x, y, vx: (target.x - x) / range, vy: (target.y - y) / range, range, size: 6 });
+      }
+      run.slimeIn = 2;
+    }
+
+    updateSlime(dt) {
+      const { enemies, slimeShots } = this.run;
+      if (!slimeShots.length) return;
+      const radius = BOSSES.boss.size / 2;
+      this.run.slimeShots = slimeShots.filter(shot => {
+        const step = Math.min(shot.range, dt * 540);
+        shot.x += shot.vx * step;
+        shot.y += shot.vy * step;
+        shot.range -= step;
+        if (shot.range > 1e-8 && !enemies.some(enemy => !enemy.allied && touches(enemy, shot))) return true;
+        for (const enemy of enemies) {
+          if (!enemy.allied && (enemy.x - shot.x) ** 2 + (enemy.y - shot.y) ** 2 <= (radius + enemy.size) ** 2) enemy.slimeTime = 4;
+        }
+        this.notify('blast', { x: shot.x, y: shot.y, radius, color: '#7bfa65' });
+        return false;
+      });
+    }
+
+    summonAsteroidField() {
+      const run = this.run;
+      if (!AG.contentActive() || !run || run.practice || run.asteroidField || !['playing', 'intermission'].includes(this.state === 'paused' ? this.resumeState : this.state)) return false;
+      run.asteroidDelay = null;
+      run.asteroidField = { left: 20, next: 0 };
+      this.notify('wave', 'Asteroid field incoming');
+      return true;
+    }
+
+    hitAsteroid(rock, damage) {
+      if (rock.hp <= 0) return;
+      rock.hp -= damage;
+      if (rock.hp > 0) return;
+      const multiplier = rock.green ? 3 : 1;
+      this.dropItem('credit', rock.x - 15, rock.y, 30 * multiplier);
+      this.dropItem('gem', rock.x + 12, rock.y, multiplier);
+      if (rock.green) this.dropItem('uranium', rock.x + 40, rock.y, 1 + Math.floor(this.random() * 3));
+      this.notify('blast', { x: rock.x, y: rock.y, radius: rock.size + 9, color: rock.green ? '#b5ff62' : '#ffc185' });
+    }
+
+    updateAsteroids(dt) {
+      const run = this.run;
+      if (run.asteroidDelay != null && (run.asteroidDelay -= dt) <= 0) this.summonAsteroidField();
+      const field = run.asteroidField;
+      if (field?.left && (field.next -= dt) <= 0) {
+        const green = this.random() < .05;
+        const size = 18 + this.random() * 14;
+        run.asteroids.push({ x: 35 + this.random() * (WIDTH - 70), y: -size,
+          vx: (this.random() - .5) * 60, vy: 160 + this.random() * 80,
+          hp: green ? 3 : 2, size, green, spin: this.random() * 6 });
+        field.left--;
+        field.next += .23;
+      }
+      if (!run.asteroids.length) return;
+      run.asteroids = run.asteroids.filter(rock => {
+        if (rock.hp <= 0) return false;
+        rock.x += rock.vx * dt;
+        rock.y += rock.vy * dt;
+        rock.spin += dt * 1.5;
+        for (let i = run.enemies.length - 1; i >= 0; i--) {
+          const enemy = run.enemies[i];
+          if (enemy.allied || enemy.y < 0 || !touches(rock, enemy)) continue;
+          this.hitEnemy(i, BOSSES[enemy.type] ? 35 * run.diff.health : enemy.hp, 'asteroid');
+          this.notify('blast', { x: rock.x, y: rock.y, radius: rock.size });
+          return false;
+        }
+        return rock.y < HEIGHT + rock.size;
+      });
+      if (field?.left === 0 && !run.asteroids.length) run.asteroidField = null;
+    }
+
     launchMissile(dt) {
       const run = this.run;
       const kind = this.upgradeEffects().missile;
@@ -963,18 +1148,23 @@
         missile.range -= step;
         missile.life -= dt;
         const hit = run.enemies.findIndex(enemy => !enemy.allied && touches(missile, enemy));
+        const rock = run.asteroids.find(rock => rock.hp > 0 && touches(missile, rock));
+        if (guided && rock && hit < 0) { this.hitAsteroid(rock, missile.damage); return false; }
         if (guided && hit >= 0) {
           this.hitEnemy(hit, missile.damage, 'missile');
           this.notify('blast', { x: missile.x, y: missile.y, radius: 22 });
           return false;
         }
-        if (!guided && (hit >= 0 || missile.range <= 0)) {
+        if (!guided && (hit >= 0 || rock || missile.range <= 0)) {
           const radius = 72;
           for (let index = run.enemies.length - 1; index >= 0; index--) {
             const enemy = run.enemies[index];
             if (!enemy.allied && Math.hypot(enemy.x - missile.x, enemy.y - missile.y) <= radius + enemy.size) {
               this.hitEnemy(index, missile.damage, 'missile');
             }
+          }
+          for (const asteroid of run.asteroids) {
+            if (Math.hypot(asteroid.x - missile.x, asteroid.y - missile.y) <= radius + asteroid.size) this.hitAsteroid(asteroid, missile.damage);
           }
           this.notify('blast', { x: missile.x, y: missile.y, radius });
           return false;
@@ -1038,6 +1228,11 @@
         const offset = Math.abs((enemy.x - x) * uy - (enemy.y - y) * ux);
         if (!enemy.allied && progress >= 0 && progress <= reach && offset <= enemy.size + 19) this.hitEnemy(index, damage, 'laser');
       }
+      for (const rock of run.asteroids) {
+        const progress = (rock.x - x) * ux + (rock.y - y) * uy;
+        const offset = Math.abs((rock.x - x) * uy - (rock.y - y) * ux);
+        if (progress >= 0 && progress <= reach && offset <= rock.size + 19) this.hitAsteroid(rock, damage);
+      }
       if (run.energy + 1e-8 < 1) this.laserInput('off');
       if (run.energy === 0) while (this.retractTendril()) {}
     }
@@ -1049,10 +1244,10 @@
         enemy.flash = .16;
         return;
       }
-      if (enemy.coreTime > 0 && source !== 'tendril' && source !== 'ally') damage *= 1.5;
+      if (enemy.coreTime > 0 && ['shot', 'missile', 'laser'].includes(source)) damage *= 1.5;
       enemy.hp -= damage;
       enemy.flash = .09;
-      this.alienHit(enemy, source, damage);
+      if (source !== 'asteroid') this.alienHit(enemy, source, damage);
       this.notify('enemy-damage', { x: enemy.x, y: enemy.y, size: enemy.size, amount: damage, source });
       if (enemy.hp <= 0) this.removeEnemy(index, true);
     }
@@ -1062,9 +1257,13 @@
       run.shots = run.shots.filter(shot => {
         shot.y += shot.vy * dt;
         const hit = run.enemies.findIndex(enemy => !enemy.allied && touches(shot, enemy));
-        if (hit < 0) return shot.y > -24;
-        this.hitEnemy(hit, shot.damage, 'shot', shot.x);
-        return false;
+        if (hit >= 0) {
+          this.hitEnemy(hit, shot.damage, 'shot', shot.x);
+          return false;
+        }
+        const rock = run.asteroids.find(rock => rock.hp > 0 && touches(shot, rock));
+        if (rock) this.hitAsteroid(rock, shot.damage);
+        return !rock && shot.y > -24;
       });
     }
 
@@ -1162,6 +1361,10 @@
         break;
       }
       const lead = boss && !enemy.escort && enemy.bornWave === run.wave && AG.mainBoss(run.wave) === enemy.type;
+      if (AG.contentActive() && enemy.type === 'grunt' && this.random() < .12) this.dropItem('slime', enemy.x - 20, enemy.y);
+      if (AG.contentActive() && this.random() < (boss ? .04 : .002)) {
+        this.dropItem(this.random() < .7 ? 'boostBundle' : 'upgradeBundle', enemy.x + 33, enemy.y);
+      }
       const ninja = enemy.type === 'smokeNinja';
       if (ninja && this.random() < .6) this.dropItem('smokeBomb', enemy.x + 27, enemy.y);
       const crateChance = ninja ? .45 : lead ? Math.min(.6, (run.wave / 10 + 1) / 10) : boss ? 0 : .0005;

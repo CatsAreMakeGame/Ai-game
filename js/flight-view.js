@@ -31,6 +31,12 @@
     needle: [0,-35, 7,-9, 28,14, 25,23, 8,13, 0,24,-8,13,-25,23,-28,14,-7,-9],
     fang: [0,-22, 13,-10, 33,-20, 27,18, 10,22, 0,12,-10,22,-27,18,-33,-20,-13,-10],
     supernova: [0,-36,9,-25,13,-13,29,-22,34,-4,26,2,32,16,17,22,10,16,0,25,-10,16,-17,22,-32,16,-26,2,-34,-4,-29,-22,-13,-13,-9,-25],
+    zenith: [0,-35, 13,-20, 18,-10, 32,-14, 26,10, 14,20, 8,16, 0,24,-8,16,-14,20,-26,10,-32,-14,-18,-10,-13,-20],
+    enemyGrunt: [0,-22, 20,-13, 29,8, 17,20,-17,20,-29,8,-20,-13],
+    enemyShooter: [0,-24, 23,-18, 29,7, 14,23,-14,23,-29,7,-23,-18],
+    enemyDiver: [0,-29, 16,-7, 31,23, 0,12,-31,23,-16,-7],
+    enemyTank: [0,-25, 16,-25, 31,-14, 31,14, 17,24,-17,24,-31,14,-31,-14,-16,-25],
+    enemySmokeNinja: [0,-14, 21,-24, 13,-1, 32,10, 17,24, 0,29,-17,24,-32,10,-13,-1,-21,-24],
     star: [0,-34, 13,-11, 33,-6, 21,8, 22,25, 0,16,-22,25,-21,8,-33,-6,-13,-11]
   };
   function paintShip(ctx, spec, flame = 26) {
@@ -176,6 +182,9 @@
         ctx.restore();
       }
       ctx.translate(enemy.x, enemy.y);
+      if (!enemy.allied && (enemy.slimeTime > 0 || enemy.poisonTime > 0)) {
+        disc(ctx, 0, 0, size + 6, enemy.poisonTime > 0 ? '#9aff514d' : '#5ddf4f4d');
+      }
       if ((enemy.formation === 'pair' && !enemy.shieldBroken) || enemy.allied || enemy.coreTime > 0) {
         ctx.strokeStyle = enemy.allied ? '#9ff387' : enemy.coreTime > 0 ? '#ffe99c' : '#6dceff';
         ctx.lineWidth = 2;
@@ -270,12 +279,12 @@
       }
     }
 
-    blast({ x, y, radius }) {
+    blast({ x, y, radius, color = '#ffb376' }) {
       for (let i = 0; i < 22; i++) {
         const angle = i * Math.PI * 2 / 22;
         const speed = radius * (1.2 + (i % 4) * .32);
         this.effects.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-          life: .33 + (i % 3) * .12, color: i % 3 ? '#ffb376' : '#fff3cc' });
+          life: .33 + (i % 3) * .12, color: i % 3 ? color : '#fff3cc' });
       }
     }
 
@@ -381,13 +390,35 @@
       }
       for (const puff of run.smoke) {
         ctx.save();
-        ctx.globalAlpha = .23 * puff.life / 5;
+        ctx.globalAlpha = .23 * puff.life / puff.duration;
         const haze = ctx.createRadialGradient(puff.x, puff.y, 2, puff.x, puff.y, puff.size);
-        haze.addColorStop(0, '#c9d8ac');
-        haze.addColorStop(.55, '#9da88d');
+        haze.addColorStop(0, puff.poison ? '#b8ff62' : '#c9d8ac');
+        haze.addColorStop(.55, puff.poison ? '#5be14c' : '#9da88d');
         haze.addColorStop(1, '#79836d00');
         disc(ctx, puff.x, puff.y, puff.size, haze);
         ctx.restore();
+      }
+      for (const rock of run.asteroids) {
+        if (rock.hp <= 0) continue;
+        ctx.save();
+        ctx.translate(rock.x, rock.y);
+        const r = rock.size;
+        polygon(ctx, [[-r * .76, 0], [-r * .6 - rock.vx * .12, -r * 3.3], [r * .8, 0]],
+          rock.green ? '#80fc4a56' : '#fc995355');
+        ctx.rotate(rock.spin);
+        ctx.shadowColor = rock.green ? '#98ff61' : '#ffad79';
+        ctx.shadowBlur = rock.green ? 18 : 6;
+        polygon(ctx, [[-r, .1 * r], [-.67 * r, -.7 * r], [.17 * r, -r], [.89 * r, -.42 * r],
+          [r, .28 * r], [.3 * r, .93 * r], [-.63 * r, .65 * r]], rock.green ? '#72cb3a' : '#79606c');
+        ctx.shadowBlur = 0;
+        disc(ctx, r * .22, r * .1, r * .28, rock.green ? '#c5ff77' : '#a58a87');
+        disc(ctx, -r * .43, -r * .24, r * .17, rock.green ? '#427439' : '#543e51');
+        ctx.restore();
+      }
+      for (const shot of run.slimeShots) {
+        disc(ctx, shot.x - shot.vx * 8, shot.y - shot.vy * 8, 4, '#65d75188');
+        disc(ctx, shot.x, shot.y, 6, '#65d751');
+        disc(ctx, shot.x + 1, shot.y - 2, 2, '#c4ff8e');
       }
       for (const shot of run.hostile) {
         disc(ctx, shot.x, shot.y, 7, '#e1516355');

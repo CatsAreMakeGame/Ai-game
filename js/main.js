@@ -511,7 +511,7 @@
           () => tutorialIndex === tutorial.length - 1 ? dismiss() : showSlide(tutorialIndex + 1), { primary: true }));
       body.append(slide, nav);
     } else if (armoryPanels.includes(panelKind)) {
-      const titles = { hangar: 'Hangar', shop: 'Shop', inventory: 'Inventory', outfit: 'Ship Loadout', craft: 'Crafting', recipes: 'Recipes', shipPicker: 'Select a ship', merchant: 'Merchant', autoBoost: 'Boost Cycle' };
+      const titles = { hangar: 'Hangar', shop: 'Shop', inventory: 'Inventory', outfit: 'Ship Loadout', craft: 'Crafting', recipes: 'Recipes', shipPicker: 'Select a ship', merchant: 'Merchant', autoBoost: AG.itemName(armory.relayItem ?? 'boostRelay') };
       setText(title, titles[panelKind]);
       AG.renderArmory({ kind: panelKind, state: armory, game, body, button, element, dismiss,
         open: navigate, refresh: () => drawPanel(true) });
@@ -592,7 +592,7 @@
       }
       for (const [name, bindings] of [
         ['Alien Spaceship', [['extend', 'Extend tendril'], ['retract', 'Release controlled ship or retract tendril']]],
-        ['Equipment', [['laser', 'Lightning Beacon'], ['relay', 'Toggle Boost Cycle']]]
+        ['Equipment', [['laser', 'Lightning Beacon'], ['relay', 'Toggle Auto Boost']]]
       ]) {
         const section = element('section', '', 'keybind-section');
         const grid = element('div', '', 'settings-grid');
@@ -837,10 +837,16 @@
   let previous = performance.now();
   let accumulated = 0;
   const tick = 1 / 120;
+  let contentLive = AG.contentActive();
   function frame(now) {
     const dt = Math.min(0.05, (now - previous) / 1000);
     previous = now;
     const wallTime = Date.now();
+    const unlocked = AG.contentActive(wallTime);
+    if (unlocked !== contentLive) {
+      contentLive = unlocked;
+      if (armoryPanels.includes(panelKind) || panelKind === 'admin') drawPanel(true);
+    }
     if (wallTime >= nextMerchantCheck) {
       game.merchantStock(game.now());
       nextMerchantCheck = wallTime + 1000;

@@ -5,11 +5,17 @@
   const MODES = { easy: 20, medium: 30, hard: 50, endless: MAX_WAVE };
   const EVENT_END = Date.parse('2026-12-01T00:00:00+11:00');
   const MATERIALS = {
+    slime: { name: 'Slime', rarity: 'common', glyph: '●', description: 'Dropped by green Grunts. Used to craft a Slime Cannon.' },
+    uranium: { name: 'Uranium Ore', rarity: 'epic', glyph: '◆', description: 'Found in green asteroids. Used to craft a Radioactive Smoke Bomb.' },
     alienCell: { name: 'Alien Cell', rarity: 'rare', description: 'Used in both Alien recipes.' },
     alienMind: { name: 'Alien Mind', rarity: 'legendary', description: 'Crafted from nine Alien Cells. Place below the ship used in the recipe to craft an Alien Ship.' },
     alienSerum: { name: 'Alien Mind Serum', rarity: 'mythical', description: 'Use in the crafting grid to make an Alien ship or give an Alien ship Mind Control.' }
   };
   const RECIPES = {
+    twinCannon: { name: 'Twin Cannon', output: 'twinCannon', pattern: ['cannon', '', 'cannon', '', 'cannon', '', '', '', ''], shift: true },
+    tripleCannon: { name: 'Triple Cannon', output: 'tripleCannon', pattern: ['cannon', 'cannon', 'cannon', '', 'rail', '', '', '', ''], shift: true },
+    slimeCannon: { name: 'Slime Cannon', output: 'slimeCannon', ingredients: ['cannon', 'rocket', 'slime'] },
+    radioactiveSmoke: { name: 'Radioactive Smoke Bomb', output: 'radioactiveSmoke', pattern: ['', 'nova', '', 'uranium', 'smokeBomb', 'uranium', '', '', ''] },
     ship: { name: 'Alien Ship', event: true, pattern: ['alienCell', 'alienSerum', 'alienCell', 'alienCell', 'donor', 'alienCell', 'alienCell', 'alienMind', 'alienCell'] },
     mind: { name: 'Alien Mind', event: true, pattern: Array(9).fill('alienCell') },
     serum: { name: 'Alien Mind Serum', event: true, pattern: ['alienCell', 'alienCell', 'alienCell', 'alienCell', 'alienMind', 'alienCell', 'alienCell', 'alienCell', 'alienCell'] },
@@ -19,6 +25,7 @@
   Object.assign(ITEMS, MATERIALS);
   for (const [id, icon] of Object.entries({
   "shipCrate": "Items/Chest/Chest 1/Chest Large 1 256.png",
+  "enemyCrate": "Items/Chest/Chest 2/Chest Large 2 256.png",
   "upgradeCrate": "Items/Crate/Crate Gold 256.png",
   "shield": "Weapons/Shield/Shield 256.png",
   "fortress": "Weapons/Shield/Shield Gold 256.png",
@@ -40,6 +47,16 @@
   "beacon": "General/Lightning Bolt/Lightning Bolt 256.png",
   "smokeBomb": "Nature/Cloud/Cloud 256.png",
   "magnet": "Tools/Magnet/Magnet 256.png",
+  "boostBundle": "Clothing/Backpack/Backpack Blue 256.png",
+  "upgradeBundle": "Items/Crate/Crate Silver 256.png",
+  "boostCascade": "General/Lightning Bolt/Lightning Bolt Yellow 256.png",
+  "boostOverdrive": "General/Lightning Bolt/Lightning Bolt Purple 256.png",
+  "radioactiveSmoke": "UI/Radioactive Sign/Radioactive Sign 256.png",
+  "slime": "General/Slime/Slime Green 256.png",
+  "uranium": "Currency/Gem/Gem Green 256.png",
+  "slimeCannon": "General/Slime/Slime Blue 256.png",
+  "twinCannon": "Weapons/Target/Target 2 256.png",
+  "tripleCannon": "Weapons/Rocket Launcher/Rocket Launcher 256.png",
   "boostRelay": "Clothing/Backpack/Backpack Blue 256.png",
   "alienCell": "Nature/DNA/DNA 256.png",
   "alienMind": "Player/Brain/Brain 256.png",
@@ -49,7 +66,7 @@
     ITEMS[id].glyph ??= '◆';
   }
   const clone = value => JSON.parse(JSON.stringify(value));
-  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn'];
+  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn', 'asteroidDelay', 'asteroidField', 'asteroids'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
   const mainBoss = wave => wave >= 10 && wave % 10 === 0 ? Object.keys(BOSSES)[Math.min(wave / 10 - 1, 4)] : null;
 
@@ -127,7 +144,7 @@
   }
 
   function createAlien(donor) {
-    const name = 'Alien ' + (donor.alien ? donor.name.slice(6) : donor.name);
+    const name = 'Alien ' + donor.name;
     const hull = Number((donor.hull * 1.1).toFixed(2));
     const damage = Number((donor.damage * 1.1).toFixed(3));
     return { name, hull, damage, speed: donor.speed * 1.1, delay: donor.delay / 1.1,
@@ -161,7 +178,9 @@
       const saved = clone(this.profile.checkpoint);
       this.start(saved.mode, saved.shipId);
       for (const key of checkpointKeys) if (key !== 'level' && key !== 'xp' && Object.hasOwn(saved, key)) this.run[key] = saved[key];
+      if (!Object.hasOwn(saved, 'asteroidDelay')) this.run.asteroidDelay = null;
       Object.assign(this.run.player, saved.player);
+      this.run.player.hp = Math.min(this.run.player.hp, this.run.ship.hull);
       this.run.enemies = saved.allies;
       this.run.energy = clamp(this.run.energy, 0, this.run.energyCap);
       this.run.tendrils = (saved.anchors ?? []).map(anchor => ({ ...anchor, captures: new Map() }));
@@ -190,8 +209,21 @@
       if (items.alienCell >= 9 && RECIPES.mind.pattern.every((id, index) => grid[index] === id)) return 'mind';
       if (items.alienMind > 0 && items.alienCell >= 8 && RECIPES.serum.pattern.every((id, index) => grid[index] === id)) return 'serum';
       if (this.controlRecipeShip(grid)) return 'control';
-      if (this.shipCount(donor) && items.alienMind > 0 && items.alienSerum > 0 && items.alienCell >= 6 &&
+      if (this.shipCount(donor) && !SHIPS[donor].alien && items.alienMind > 0 && items.alienSerum > 0 && items.alienCell >= 6 &&
           RECIPES.ship.pattern.every((id, index) => grid[index] === (id === 'donor' ? donor : id))) return 'ship';
+      if (!AG.contentActive()) return '';
+      const placed = Array.from(grid, id => id || '');
+      const selected = placed.filter(Boolean);
+      const needed = {};
+      for (const id of selected) needed[id] = (needed[id] ?? 0) + 1;
+      if (Object.entries(needed).some(([id, count]) => this.itemCount(id) < count)) return '';
+      for (const [key, spec] of Object.entries(RECIPES)) {
+        if (!spec.output) continue;
+        if (spec.pattern) {
+          const matches = pattern => pattern.every((id, index) => id === placed[index]);
+          if (matches(spec.pattern) || (spec.shift && matches(['', '', '', ...spec.pattern.slice(0, 6)]))) return key;
+        } else if (selected.length === spec.ingredients.length && spec.ingredients.every(id => needed[id] === 1)) return key;
+      }
       return '';
     },
 
@@ -205,6 +237,7 @@
     },
 
     addAlien(donor) {
+      if (!donor || donor.alien) return '';
       let nextId = 1;
       while (this.profile.alienShips['alien-' + nextId]) nextId++;
       const id = 'alien-' + nextId;
@@ -218,10 +251,21 @@
       if (!recipe) return '';
       const profile = this.profile;
       const donor = grid[4];
+      const output = RECIPES[recipe].output;
+      if (output) {
+        if (!Number.isSafeInteger(this.itemCount(output) + 1)) return '';
+        for (const part of grid.filter(Boolean)) this.itemStock(part)[part]--;
+        for (const [id, mounts] of Object.entries(profile.loadouts)) {
+          profile.loadouts[id] = AG.fitLoadout(SHIPS[id], mounts, profile.upgrades);
+        }
+        this.grantItem(output);
+        return output;
+      }
       if (recipe === 'mind' || recipe === 'serum') {
+        const id = recipe === 'mind' ? 'alienMind' : 'alienSerum';
+        if (!Number.isSafeInteger(this.itemCount(id) + 1)) return '';
         profile.materials.alienCell -= recipe === 'mind' ? 9 : 8;
         if (recipe === 'serum') profile.materials.alienMind--;
-        const id = recipe === 'mind' ? 'alienMind' : 'alienSerum';
         this.grantItem(id);
         return id;
       }
@@ -259,14 +303,15 @@
 
     grantEverything() {
       if (!this.testing) return false;
-      for (const id of Object.keys(BASE_SHIPS)) if (!this.shipCount(id)) this.grantItem(id);
-      for (const ship of Object.values(BASE_SHIPS)) {
+      for (const id of Object.keys(BASE_SHIPS).filter(AG.itemAvailable)) if (!this.shipCount(id)) this.grantItem(id);
+      for (const [id, ship] of Object.entries(BASE_SHIPS)) {
+        if (!AG.itemAvailable(id)) continue;
         if (!Object.values(this.profile.alienShips).some(alien => alien.donor === ship.name)) {
           this.grantItem(this.addAlien(ship));
         }
       }
       for (const [bucket, specs] of [['materials', MATERIALS], ['upgrades', AG.UPGRADES], ['boosts', BOOSTS], ['crates', AG.CRATES]]) {
-        for (const id of Object.keys(specs)) this.profile[bucket][id] = Math.max(999, this.profile[bucket][id] ?? 0);
+        for (const id of Object.keys(specs).filter(AG.itemAvailable)) this.profile[bucket][id] = Math.max(999, this.profile[bucket][id] ?? 0);
       }
       this.profile.credits = Math.max(this.profile.credits, 1000000);
       this.profile.gems = Math.max(this.profile.gems, 1000000);
@@ -564,5 +609,5 @@
     }
   });
 
-  Object.assign(AG, { MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, crateTotals, syncShips });
+  Object.assign(AG, { createAlien, MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, crateTotals, syncShips });
 })();

@@ -86,7 +86,7 @@
       tooltipId = id;
       const item = ITEMS[id];
       const tier = item.rarity ?? 'common';
-      const crate = CRATES[id];
+      const crate = AG.liveCrate(id);
       const label = document.createElement('strong');
       label.textContent = AG.itemName(id) + (item.alien ? ' · Alienated' : '');
       const rarity = document.createElement('small');
@@ -96,13 +96,13 @@
       tooltip.setAttribute('role', 'tooltip');
       tooltip.style.setProperty('--rarity', RARITIES[tier]);
       tooltip.append(label, rarity);
-      if (Object.hasOwn(AG.MATERIALS, id)) {
+      if (['alienCell', 'alienMind', 'alienSerum'].includes(id)) {
         const eventTag = document.createElement('span');
         eventTag.className = 'event-tag';
         eventTag.textContent = 'Event';
         tooltip.append(eventTag);
       }
-      if (crate) {
+      if (crate?.outcomes) {
         const list = document.createElement('ul');
         for (const outcome of crate.outcomes) for (const reward of outcome.items) {
           const row = document.createElement('li');
@@ -160,7 +160,7 @@
 
   function revealCrate(crateId, batch, element, button, game) {
     const { count, featured: result, rewards } = batch;
-    const crate = CRATES[crateId];
+    const crate = AG.liveCrate(crateId);
     const item = ITEMS[result.type];
     const protectedReveal = !game.profile.allowRareCrateSkip && ['mythical', 'godly'].includes(item.rarity);
     const dialog = element('dialog', '', 'crate-reveal');
@@ -248,8 +248,10 @@
   }
 
   function renderCraft({ game, state, element, button, body, refresh }) {
-    const available = id => SHIPS[id] ? game.shipCount(id) : (game.profile.materials[id] ?? 0);
-    const choices = [...game.profile.unlocked, 'alienCell', 'alienMind', 'alienSerum'].filter(available);
+    const available = id => AG.itemAvailable(id) ? game.itemCount(id) : 0;
+    const recipesAvailable = Object.entries(AG.RECIPES).filter(([, spec]) => spec.event || AG.contentActive());
+    const parts = new Set(recipesAvailable.flatMap(([, recipe]) => recipe.pattern ?? recipe.ingredients));
+    const choices = [...game.profile.unlocked, ...parts].filter(id => ITEMS[id] && available(id));
     const grid = element('div', '', 'craft-grid');
     const ingredients = element('div', '', 'ingredient-bank');
     const missing = state.missing ??= [];
@@ -291,7 +293,7 @@
       const controls = element('div', '', 'recipe-autofill');
       const recipes = element('select');
       recipes.setAttribute('aria-label', 'Recipe to autofill');
-      for (const [id, recipe] of Object.entries(AG.RECIPES)) {
+      for (const [id, recipe] of recipesAvailable) {
         const option = element('option', recipe.name);
         option.value = id;
         recipes.append(option);
@@ -301,7 +303,7 @@
       ships.setAttribute('aria-label', 'Spaceship for recipe');
       function shipChoices() {
         const mode = recipes.value;
-        const eligible = game.profile.unlocked.filter(id => mode !== 'control' || SHIPS[id]?.alien && !SHIPS[id].mindControl);
+        const eligible = game.profile.unlocked.filter(id => mode === 'ship' ? !SHIPS[id].alien : SHIPS[id].alien && !SHIPS[id].mindControl);
         ships.hidden = !['ship', 'control'].includes(mode);
         ships.replaceChildren();
         for (const id of eligible) {
@@ -325,6 +327,7 @@
         state.missing = [];
         state.ingredient = '';
         pattern.forEach((part, index) => {
+          if (!part) return;
           const id = part === 'donor' || part === 'alienShip' ? ships.value || 'alienShip' : part;
           allocated[id] = (allocated[id] ?? 0) + 1;
           if (allocated[id] <= available(id)) state.grid[index] = id;
@@ -337,7 +340,7 @@
     const recipe = game.recipe(state.grid);
     const label = recipe === 'ship' ? 'Consume ' + AG.itemName(state.grid[4]) + ' and craft Alien Ship' :
       recipe === 'mind' ? 'Craft Alien Mind' : recipe === 'serum' ? 'Craft Alien Mind Serum' :
-        recipe === 'control' ? 'Add Mind Control' : 'Craft';
+        recipe === 'control' ? 'Add Mind Control' : recipe ? 'Craft ' + AG.RECIPES[recipe].name : 'Craft';
     const actions = element('div', '', 'home-actions');
     actions.append(button(label, () => {
       const id = game.craft(state.grid);
@@ -355,9 +358,9 @@
   function renderRecipes(body, element, game) {
     const active = AG.eventActive(game.now());
     const lists = { normal: element('div', '', 'recipe-list'), event: element('div', '', 'recipe-list') };
-    const ships = Object.keys(SHIPS);
-    const example = game.profile.ship;
-    const alienExample = ships.find(id => SHIPS[id].alien) ?? example;
+    const ships = Object.keys(AG.BASE_SHIPS).filter(AG.itemAvailable);
+    const example = ships.includes(game.profile.ship) ? game.profile.ship : ships[0];
+    const alienExample = game.profile.unlocked.find(id => SHIPS[id].alien) ?? example;
     const ingredients = {
       ship: [['alienCell', 'Alien Cells ×6'], [example, 'Any owned spaceship ×1'],
         ['alienMind', 'Alien Mind ×1'], ['alienSerum', 'Alien Mind Serum ×1']],
@@ -366,12 +369,14 @@
       control: [[alienExample, 'Any Alien spaceship ×1'], ['alienSerum', 'Alien Mind Serum ×1'], ['alienMind', 'Alien Mind ×1']]
     };
     for (const [key, recipe] of Object.entries(AG.RECIPES)) {
+      if (!recipe.event && !AG.contentActive()) continue;
       const card = element('article', '', 'recipe-card');
       card.append(element('h3', recipe.name));
       if (recipe.pattern) {
         const grid = element('div', '', 'craft-grid recipe-grid');
         for (const id of recipe.pattern) {
           const slot = element('div', '', 'recipe-slot');
+          if (!id) { grid.append(slot); continue; }
           const anyShip = id === 'donor';
           const name = anyShip ? 'Any owned spaceship' : AG.itemName(id);
           slot.setAttribute('role', 'img');
@@ -389,9 +394,13 @@
           grid.append(slot);
         }
         card.append(grid);
+        if (recipe.shift) card.append(element('p', 'The same pattern also fits one row lower.', 'panel-note'));
       } else card.append(element('p', 'Place the three ingredients anywhere in the grid.'));
       const legend = element('ul', '', 'recipe-legend');
-      for (const [id, label] of ingredients[key]) {
+      const counts = {};
+      for (const id of (recipe.pattern ?? recipe.ingredients).filter(Boolean)) counts[id] = (counts[id] ?? 0) + 1;
+      const labels = ingredients[key] ?? Object.entries(counts).map(([id, count]) => [id, AG.itemName(id) + ' ×' + count]);
+      for (const [id, label] of labels) {
         const row = element('li');
         row.append(graphic(id), element('span', label));
         legend.append(row);
@@ -431,6 +440,7 @@
     const base = game.canVisitBase();
     const cards = element('div', '', 'cards armory-cards');
     const tiles = element('div', '', 'inventory-tiles');
+    const eventTiles = element('div', '', 'inventory-tiles');
     const details = element('div', '', 'inventory-actions');
     const tileChoices = new Map();
 
@@ -520,7 +530,7 @@
         if (!updateStockClock()) { clearInterval(timer); refresh(); }
       }, 1000);
       for (const id of stock.ids) {
-        const price = AG.MERCHANT[id];
+        const price = AG.merchantCatalog()[id];
         const sold = stock.sold.includes(id);
         card(id, ITEMS[id].description, button(sold ? 'Out of stock' : AG.formatCurrency(price) + ' Credits', () => {
           if (game.buyMerchant(id)) state.result = ITEMS[id].name + ' purchased.';
@@ -537,18 +547,21 @@
         headings.append(tab);
       }
       const reserve = element('section', '', 'reserve-grid');
-      const types = Object.keys(profile.boostReserve).length;
-      reserve.append(element('p', types + '/3 boost types · up to 15 copies per type', 'panel-note'));
+      const relay = state.relayItem ?? 'boostRelay';
+      const { capacity, types: maxTypes } = UPGRADES[relay].boostRelay;
+      const stock = profile.boostReserves[relay];
+      const types = Object.keys(stock).length;
+      reserve.append(element('p', types + '/' + maxTypes + ' boost types · up to ' + capacity + ' copies per type', 'panel-note'));
       for (const [id, boost] of Object.entries(BOOSTS)) {
         const available = profile.boosts[id] ?? 0;
-        const stored = profile.boostReserve[id] ?? 0;
+        const stored = stock[id] ?? 0;
         const unloading = state.relayTab === 'queue';
         if (unloading ? !stored : !available) continue;
         const row = element('div', '', 'reserve-row');
         const action = button(unloading ? 'Unload' : 'Load', () => {
-          if (game.adjustBoostReserve(id, unloading ? -1 : 1)) refresh();
-        }, { disabled: !unloading && (stored >= 15 || (!stored && types >= 3)) });
-        row.append(graphic(id), element('span', boost.name + ' · ' + stored + '/15 loaded'), action);
+          if (game.adjustBoostReserve(id, unloading ? -1 : 1, relay)) refresh();
+        }, { disabled: !unloading && (stored >= capacity || (!stored && types >= maxTypes)) });
+        row.append(graphic(id), element('span', boost.name + ' · ' + stored + '/' + capacity + ' loaded'), action);
         reserve.append(row);
       }
       if (reserve.children.length === 1) reserve.append(element('p', 'No boosts here yet.'));
@@ -616,8 +629,18 @@
         featured.append(visual, details);
         shipGroup.append(featured);
         body.append(shipGroup);
+        if (AG.contentActive()) {
+          const id = 'boostOverdrive';
+          const item = UPGRADES[id];
+          card(id, item.description, button('Buy · ' + item.premium + ' Star Gems', () => {
+            if (game.buyPremiumUpgrade(id)) state.result = item.name + ' purchased.';
+            refresh();
+          }, { disabled: !base || profile.gems < item.premium }));
+          body.append(cards);
+        }
       } else {
         for (const [id, crate] of Object.entries(CRATES)) {
+          if (!crate.price || !AG.itemAvailable(id)) continue;
           const limit = game.cratePurchaseLimit(id);
           const controls = element('div', '', 'crate-batch-controls');
           const quantity = element('input');
@@ -718,15 +741,23 @@
           card(id, BOOSTS[id].description, button('Use', () => { state.selectedItem = id; assigned.firstElementChild?.focus(); }), profile.boosts[id]);
         }
       } else if (tab === 'items') {
-        body.append(element('h3', 'Event', 'inventory-subsection'));
         for (const id of sortItems(AG.MATERIALS, () => 0)) {
-          if (!profile.materials[id]) continue;
+          if (!AG.itemAvailable(id) || !profile.materials[id]) continue;
           card(id, ITEMS[id].description, null, profile.materials[id]);
+          if (id.startsWith('alien')) eventTiles.append(tileChoices.get(id).tile);
         }
       } else {
         for (const id of sortItems(CRATES, crate => crate.price)) {
-          if (!profile.crates[id]) continue;
+          if (!AG.itemAvailable(id) || !profile.crates[id]) continue;
           const count = profile.crates[id];
+          if (CRATES[id].bundle) {
+            card(id, '', button('Open bundle', () => {
+              const rewards = game.openBundle(id);
+              state.result = rewards ? Object.entries(rewards).map(([id, quantity]) => AG.itemName(id) + ' ×' + quantity).join(' · ') : 'Bundle could not be opened.';
+              refresh();
+            }, { primary: true }), count);
+            continue;
+          }
           const limit = Math.min(count, game.crateBatchLimit());
           function openBatch(quantity) {
             const batch = game.openCrates(id, quantity);
@@ -761,7 +792,8 @@
         const scroll = element('div', '', 'inventory-scroll');
         scroll.setAttribute('aria-label', 'Collected ' + tab);
         if (tileChoices.size) {
-          scroll.append(tiles);
+          if (tiles.children.length) scroll.append(tiles);
+          if (eventTiles.children.length) scroll.append(element('h3', 'Event', 'inventory-subsection'), eventTiles);
           shell.append(scroll, details);
           body.append(shell);
           if (tileChoices.has(state.selectedItem) && state.showItemDetails) selectTile(state.selectedItem);
@@ -812,7 +844,8 @@
           ' · ' + Number((spec.damage + effects.damage).toFixed(3)) + ' damage' +
           (effects.missile ? ' · ' + (effects.missile === 'homing' ? 'Heat-Seeking Missile' : 'Blast Missile') : '') +
           (effects.laser ? ' · Lightning Beacon' : '') + (effects.magnet ? ' · Loot Magnet' : '') +
-          (effects.boostRelay ? ' · Boost Cycle' : '');
+          (effects.boostRelay ? ' · ' + AG.itemName(effects.boostRelay) : '') +
+          (effects.barrels > 1 ? ' · ' + effects.barrels + ' projectiles per volley' : '');
       };
       preview.textContent = describe(current);
       const indicators = [];
@@ -843,8 +876,8 @@
         mount.addEventListener('pointerenter', predict);
         mount.addEventListener('focus', predict);
         if (mounted) mount.append(graphic(mounted));
-        if (mounted === 'boostRelay') mount.addEventListener('contextmenu', event => {
-          event.preventDefault(); open('autoBoost', { ship });
+        if (UPGRADES[mounted]?.boostRelay) mount.addEventListener('contextmenu', event => {
+          event.preventDefault(); open('autoBoost', { ship, relayItem: mounted });
         });
         mount.append(element('small', locked ? 'Unavailable' :
           mounted ? AG.itemName(mounted) : 'Empty'));
@@ -881,7 +914,9 @@
       }
       if (!parts.children.length) parts.append(element('p', 'Collect upgrades in flight or open an Upgrade Crate.', 'panel-note'));
       body.append(element('h3', AG.itemName(ship)));
-      if (Object.values(crafts).includes('boostRelay')) body.append(button('Configure Boost Cycle', () => open('autoBoost', { ship })));
+      for (const id of new Set(Object.values(crafts))) {
+        if (UPGRADES[id]?.boostRelay) body.append(button('Configure ' + AG.itemName(id), () => open('autoBoost', { ship, relayItem: id })));
+      }
       const presets = element('div', '', 'loadout-presets');
       for (let i = 0; i < profile.presets.length; i++) {
         const row = element('div');

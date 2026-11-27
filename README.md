@@ -20,11 +20,11 @@ A browser-based shooter with four flight modes, returning boss fleets, unlockabl
 
 ## Rewards
 
-Campaign wins grant credits, gems, crates and a rotating selection of upgrades and boosts. Eligible milestone clears roll separately for a Legendary bonus (10%) and a Mythical bonus (3%). Endless bonus rewards scale every tenth wave cleared, with Spaceship Crates every fiftieth wave. Open Rewards on the results screen to see your payout. Milestone rewards settle when you finish or quit.
+Campaign wins grant credits, gems, crates and a rotating selection of upgrades and boosts. Eligible milestone clears roll separately for a Legendary bonus (10%) and a Mythical bonus (3%). Endless bonus rewards grow every tenth wave and triple every 50 waves, up to a 1,000× multiplier. The bonus pays 12 Star Gems at wave 50 and 36 at wave 100. Boost Bundles and Upgrade Bundles also appear in payouts and as uncommon enemy drops. Open Rewards on the results screen to see your payout. Milestone rewards settle when you finish or quit.
 
 ## Loot crates
 
-Spaceship Crates have a 1% chance to contain Singularity.
+Spaceship Crates have an 8% chance to contain Zenith and a 1% chance to contain Singularity. Enemy Crates contain Grunt (34%), Shooter (25%), Diver (19%), Tank (14%) and Smoke Ninja (8%). Open Boost Bundles and Upgrade Bundles from Inventory → Crates.
 
 Smoke Ninja can appear from wave 30, with a 10% chance per campaign wave or 3% per Endless wave. It drops a Smoke Bomb upgrade 60% of the time and a crate 45% of the time. Its purple smoke lasts ten seconds and deals two damage per half second within the cloud.
 
@@ -32,10 +32,18 @@ The lead bosses at waves 10, 20, 30, 40 and 50 have a 20%, 30%, 40%, 50% and 60%
 
 ## Shop and Ship Loadout
 
-- Spend Credits on ships. Spend Star Gems on Spaceship or Upgrade Crates. Hover over a crate to see each possible item and its odds. Crate duplicates add copies, and the opening screen displays batch quantities for every reward. Credit Shop ships are purchasable only while you own zero copies. Purchased crates go into Inventory. The custom Admin opener accepts up to one trillion owned crates in a batch.
+- Spend Credits on ships. Spend Star Gems on Spaceship, Upgrade or Enemy Crates. Hover over a crate to see each possible item and its odds. Crate duplicates add copies, and the opening screen displays batch quantities for every reward. Credit Shop ships are purchasable only while you own zero copies. Purchased crates go into Inventory. The custom Admin opener accepts up to one trillion owned crates in a batch.
 - Open **Ship Loadout** and choose a ship. Drag upgrades onto compatible slots, or select a part and then its slot. Ships with two engines have left and right engine slots. Save an arrangement into a preset to apply its compatible parts to another ship.
-- The Merchant is the only gameplay source for Boost Cycle, Heat-Seeking Missile, Vector Engine and Loot Magnet. It stocks one copy each of two upgrades every five minutes.
+- Boost Cycle comes from the Upgrade Crate. The Merchant carries Boost Cascade, Heat-Seeking Missile, Vector Engine and Loot Magnet, and stocks one copy each of two upgrades every five minutes. Boost Overdrive costs 75 Star Gems in the Premium Shop. All three Auto Boost tiers start switched off.
 - Your ships, inventory, loadouts, currency and records save in this browser.
+
+## Crafting and asteroid fields
+
+Twin Cannon, Triple Cannon, Slime Cannon and Radioactive Smoke Bomb are permanent recipes. A ship can be alienated once. You can still add Mind Control to an Alien ship with its separate recipe.
+
+A new run has a 1% chance to encounter a 20-asteroid field. Each asteroid has a 5% chance to be green. Break green asteroids for 1–3 Uranium Ore and triple the Credits and Star Gems. Admin can summon a field during flight.
+
+This content unlocks in-game on 28 November 2026 at 11:15 a.m. AEST (12:15 p.m. AEDT).
 
 ## Local testing
 

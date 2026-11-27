@@ -106,6 +106,7 @@
       ['Currency', { credit: AG.ITEMS.credit, gem: AG.ITEMS.gem }]
     ];
     const choices = categories.flatMap(([category, catalog]) => Object.entries(catalog)
+      .filter(([id]) => AG.itemAvailable(id))
       .sort(([, a], [, b]) => a.name.localeCompare(b.name))
       .map(([id, spec]) => [id, category + ' · ' + AG.itemName(id)]));
     const item = select(items, 'Item', choices);
@@ -273,6 +274,13 @@
       const combat = group('Enemy testing');
       const enemy = select(combat, 'Enemy type', Object.keys(AG.ENEMIES)
         .map(id => [id, AG.BOSSES[id]?.name ?? (id[0].toUpperCase() + id.slice(1))]));
+      if (AG.contentActive()) actions(combat, button('Summon asteroid field', () => {
+        if (game.summonAsteroidField()) {
+          game.state = phase;
+          resumeFlight();
+        }
+        else status.textContent = 'An asteroid field is already active or flight is unavailable.';
+      }));
       actions(combat, button('Spawn enemy', () => {
         game.spawn(enemy.value, true);
         status.textContent = 'Enemy spawned.';

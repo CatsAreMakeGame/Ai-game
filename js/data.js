@@ -25,6 +25,12 @@ window.AG = (() => {
     comet: ['Comet', 100, 605, .21, 1, 2, 'needle', '#6edaff', 'rare', null],
     eclipse: ['Eclipse', 138, 525, .22, 3, 2, 'fang', '#e0a1ff', 'epic', null],
     singularity: ['Singularity', 165, 560, .19, 4, 3, 'star', '#ff81bf', 'mythical', null],
+    zenith: ['Zenith', 153, 590, .195, 4, 3, 'zenith', '#f9c383', 'legendary', null],
+    enemyGrunt: ['Grunt', 105, 430, .27, 1, 1, 'enemyGrunt', '#a4e991', 'common', null],
+    enemyShooter: ['Shooter', 117, 455, .22, 2, 2, 'enemyShooter', '#c99dff', 'rare', null],
+    enemyDiver: ['Diver', 112, 615, .21, 2, 2, 'enemyDiver', '#ff927c', 'epic', null],
+    enemyTank: ['Tank', 195, 390, .27, 4, 3, 'enemyTank', '#fbd575', 'epic', null],
+    enemySmokeNinja: ['Smoke Ninja', 166, 570, .19, 4, 3, 'enemySmokeNinja', '#cbb4e5', 'legendary', null],
     supernova: ['Supernova', 205, 630, .17, 5, 3, 'supernova', '#b99aff', 'godly', null]
   };
   const SHIPS = Object.fromEntries(Object.entries(shipRows).map(([id, row]) => {
@@ -89,25 +95,51 @@ window.AG = (() => {
       description: 'Launches toward a target’s current position. Its blast can hit several enemies.' },
     seeker: { name: 'Heat-Seeking Missile', slot: 'Weapon', rarity: 'legendary', glyph: '➶', missile: 'homing',
       description: 'Steers after its target and can retarget if the original enemy is destroyed.' },
-    smokeBomb: { name: 'Smoke Bomb', slot: 'Engine', rarity: 'rare', glyph: '☁', smoke: true,
-      description: 'Surrounds your ship with a wider smoke trail. Each cloud lasts five seconds and deals 1 damage every half second.' },
+    smokeBomb: { name: 'Smoke Bomb', slot: 'Engine', rarity: 'rare', glyph: '☁', smoke: 8,
+      description: 'Leaves a five-second smoke trail with range 8. Deals 3 damage every half second.' },
+    radioactiveSmoke: { name: 'Radioactive Smoke Bomb', slot: 'Engine', rarity: 'mythical', glyph: '☢', smoke: 6, radioactive: true,
+      description: 'Leaves radioactive smoke with range 6. Poisons enemies for four seconds after exposure and deals 4 damage every half second.' },
+    slimeCannon: { name: 'Slime Cannon', slot: 'Wings', rarity: 'epic', glyph: '●', slime: true,
+      description: 'Fires slime balls that splash and slow enemies by 50% for four seconds.' },
+    twinCannon: { name: 'Twin Cannon', slot: 'Weapon', rarity: 'epic', glyph: 'Ⅱ', barrels: 2,
+      description: 'Fires two parallel projectiles per shot.' },
+    tripleCannon: { name: 'Triple Cannon', slot: 'Weapon', rarity: 'legendary', glyph: 'Ⅲ', barrels: 3,
+      description: 'Fires three parallel projectiles per shot.' },
     beacon: { name: 'Lightning Beacon', slot: 'Special', rarity: 'godly', glyph: '⚡', laser: true,
       description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold the Lightning Beacon key. Each 0.1-second pulse uses 1% energy and deals shot damage divided by 2.75.' },
     magnet: { name: 'Loot Magnet', slot: 'Ability', rarity: 'legendary', glyph: '∪', magnet: true,
       description: 'Makes drops accelerate toward your ship much faster after their one-second pause.' },
-    boostRelay: { name: 'Boost Cycle', slot: 'Ability', rarity: 'epic', glyph: '▣', boostRelay: true,
-      description: 'Holds up to 15 each of three boost types, with two seconds between activations. Right-click its equipped slot in Ship Loadout to configure it. Switch it on manually during flight.' }
+    boostRelay: { name: 'Boost Cycle', slot: 'Ability', rarity: 'epic', glyph: '▣', boostRelay: { types: 3, capacity: 15, interval: 2 },
+      description: 'Holds up to 15 each of three boost types, with two seconds between activations. Right-click its equipped slot in Ship Loadout to configure it. Switch it on manually during flight.' },
+    boostCascade: { name: 'Boost Cascade', slot: 'Ability', rarity: 'legendary', glyph: '▣',
+      boostRelay: { types: 5, capacity: 30, interval: .5 },
+      description: 'Holds up to 30 each of five boost types, with half a second between activations.' },
+    boostOverdrive: { name: 'Boost Overdrive', slot: 'Ability', rarity: 'mythical', glyph: '▣', premium: 75,
+      boostRelay: { types: 3, capacity: 150, interval: 0 },
+      description: 'Holds up to 150 each of three boost types and activates eligible boosts without a delay.' }
   };
   const CRATES = {
     shipCrate: { name: 'Spaceship Crate', rarity: 'epic', glyph: '▣', price: 3, outcomes: [
-      { rarity: 'rare', weight: 76, items: ['comet'] }, { rarity: 'epic', weight: 23, items: ['eclipse'] },
+      { rarity: 'rare', weight: 68, items: ['comet'] }, { rarity: 'epic', weight: 23, items: ['eclipse'] },
+      { rarity: 'legendary', weight: 8, items: ['zenith'] },
       { rarity: 'mythical', weight: 1, items: ['singularity'] }
+    ] },
+    enemyCrate: { name: 'Enemy Crate', rarity: 'epic', glyph: '▣', price: 4, outcomes: [
+      { rarity: 'common', weight: 34, items: ['enemyGrunt'] },
+      { rarity: 'rare', weight: 25, items: ['enemyShooter'] },
+      { rarity: 'epic', weight: 19, items: ['enemyDiver'] },
+      { rarity: 'epic', weight: 14, items: ['enemyTank'] },
+      { rarity: 'legendary', weight: 8, items: ['enemySmokeNinja'] }
     ] },
     upgradeCrate: { name: 'Upgrade Crate', rarity: 'rare', glyph: '▧', price: 2, outcomes: [
       { rarity: 'rare', weight: 57.5, items: ['booster', 'wings', 'cannon', 'rocket', 'nova'] },
-      { rarity: 'epic', weight: 42, items: ['rail', 'fusion', 'carbon'] },
+      { rarity: 'epic', weight: 42, items: ['rail', 'fusion', 'carbon', 'boostRelay'] },
       { rarity: 'godly', weight: .5, items: ['beacon'] }
-    ] }
+    ] },
+    boostBundle: { name: 'Boost Bundle', rarity: 'rare', glyph: '▣', bundle: [5, 20],
+      pool: ['heal', 'rapidFire', 'doubleDamage', 'shield', 'overdrive', 'nanites'], description: 'Contains 5–20 boosts across several types.' },
+    upgradeBundle: { name: 'Upgrade Bundle', rarity: 'epic', glyph: '▣', bundle: [2, 4],
+      pool: ['booster', 'wings', 'cannon', 'rocket', 'nova', 'rail', 'fusion', 'carbon'], description: 'Contains 2–4 upgrades across several types.' }
   };
   const CURRENCIES = {
     credit: { name: 'Credits', rarity: 'common', glyph: '●', file: 'icons/currency/credit_gold.png' },
@@ -140,9 +172,23 @@ window.AG = (() => {
     return mounts;
   }
 
-  const SHIP_ORDER = ['supernova', 'singularity', 'aurora', 'leviathan', 'eclipse', 'solaris', 'tempest', 'bastion', 'comet', 'wraith', 'falcon', 'scout'];
+  const SHIP_ORDER = ['supernova', 'singularity', 'aurora', 'zenith', 'enemySmokeNinja', 'leviathan', 'enemyTank', 'eclipse', 'solaris', 'enemyDiver', 'tempest', 'bastion', 'enemyShooter', 'comet', 'wraith', 'falcon', 'enemyGrunt', 'scout'];
   const BOOST_LOCK = 'new-icons/vector-icon-pack/General/Lock/Lock 256.png';
-  const MERCHANT = { boostRelay: 1600, seeker: 2200, vector: 2400, magnet: 2000 };
+  const CONTENT_START = Date.parse('2026-11-28T11:15:00+10:00');
+  const contentActive = (now = Date.now()) => now >= CONTENT_START;
+  function liveCrate(id) {
+    const crate = CRATES[id];
+    if (contentActive() || !crate) return crate;
+    if (id === 'shipCrate') return { ...crate, outcomes: crate.outcomes.filter(tier => tier.rarity !== 'legendary')
+      .map(tier => tier.rarity === 'rare' ? { ...tier, weight: 76 } : tier) };
+    if (id !== 'upgradeCrate') return crate;
+    return { ...crate, outcomes: crate.outcomes.map(tier =>
+      tier.rarity === 'epic' ? { ...tier, items: tier.items.filter(item => item !== 'boostRelay') } : tier) };
+  }
+  const newContent = new Set(['zenith', 'enemyCrate', 'enemyGrunt', 'enemyShooter', 'enemyDiver', 'enemyTank', 'enemySmokeNinja', 'boostCascade', 'boostOverdrive', 'twinCannon', 'tripleCannon', 'slimeCannon', 'radioactiveSmoke', 'slime', 'uranium', 'boostBundle', 'upgradeBundle']);
+  const itemAvailable = id => contentActive() || !newContent.has(id);
+  const MERCHANT = { boostCascade: 3200, seeker: 2200, vector: 2400, magnet: 2000 };
+  const merchantCatalog = () => contentActive() ? MERCHANT : { boostRelay: 1600, seeker: 2200, vector: 2400, magnet: 2000 };
   const TARGET_MODES = { nearest: 'Closest to ship', bottom: 'Closest to bottom', strongest: 'Strongest', weakest: 'Weakest' };
   const SUPPLIES = {
     heal: { name: 'Hull repair', description: 'Restores up to 25 hull.', price: 150 },
@@ -178,7 +224,10 @@ window.AG = (() => {
       Object.values(shipRows).some(row => row[6] === ship.frame) && Number.isFinite(ship.damage) &&
       Number.isFinite(ship.hull) && Number.isFinite(ship.speed) && ship.delay > 0 && ship.engines >= 1 && ship.engines <= 3));
     for (const ship of Object.values(alienShips)) {
-      const original = Object.values(SHIPS).find(base => !base.alien && base.name === ship.donor?.replace(/^Alien /, ''));
+      const original = Object.values(SHIPS).find(base => !base.alien && base.name === ship.donor?.replace(/^(Alien )+/, ''));
+      if (original && ship.donor !== original.name) {
+        Object.assign(ship, window.AG.createAlien(original), { mindControl: ship.mindControl });
+      }
       ship.rarity = original?.rarity ?? (Object.hasOwn(RARITIES, ship.donorRarity) ? ship.donorRarity : ship.rarity);
       ship.mindControl = ship.mindControl === true || (saved?.serumUsed === true && saved?.mindControlPerShip !== true);
     }
@@ -226,10 +275,24 @@ window.AG = (() => {
     if (saved?.gems > 0) discoveries.add('gem');
     const reserve = {};
     const boostStock = counts('boosts', BOOSTS);
-    for (const [id, count] of Object.entries(counts('boostReserve', BOOSTS))) {
+    for (const [id, count] of Object.entries(saved?.boostReserves?.boostRelay ?? counts('boostReserve', BOOSTS))) {
+      if (!Object.hasOwn(BOOSTS, id) || !Number.isSafeInteger(count) || count <= 0) continue;
+      discoveries.add(id);
       const loaded = Object.keys(reserve).length < 3 ? Math.min(count, 15) : 0;
       if (loaded) reserve[id] = loaded;
       if (count > loaded) boostStock[id] = Math.min(Number.MAX_SAFE_INTEGER, (boostStock[id] ?? 0) + count - loaded);
+    }
+    const boostReserves = { boostRelay: reserve };
+    for (const id of ['boostCascade', 'boostOverdrive']) {
+      const { types, capacity } = UPGRADES[id].boostRelay;
+      const target = boostReserves[id] = {};
+      for (const [type, count] of Object.entries(saved?.boostReserves?.[id] ?? {})) {
+        if (!Object.hasOwn(BOOSTS, type) || !Number.isSafeInteger(count) || count <= 0) continue;
+        const loaded = Object.keys(target).length < types ? Math.min(count, capacity) : 0;
+        if (loaded) target[type] = loaded;
+        if (count > loaded) boostStock[type] = Math.min(Number.MAX_SAFE_INTEGER, (boostStock[type] ?? 0) + count - loaded);
+        discoveries.add(type);
+      }
     }
     const bindings = { extend: saved?.bindings?.extend || 'e', retract: saved?.bindings?.retract || 'q', laser: saved?.bindings?.laser || 'f' };
     const usedKeys = Object.values(bindings);
@@ -261,7 +324,7 @@ window.AG = (() => {
           .filter(([key, id]) => Object.hasOwn(SLOTS, key) && Object.hasOwn(UPGRADES, id))) : null;
       }),
       nameStyle: ['original', 'roman', 'numeric'].includes(saved?.nameStyle) ? saved.nameStyle : 'original',
-      bindings, boostReserve: reserve, discoveries: [...discoveries],
+      bindings, boostReserves, discoveries: [...discoveries],
       mode: Object.hasOwn(window.AG?.MODES ?? {}, saved?.mode) ? saved.mode : 'hard',
       checkpoint, modeRecords: saved?.modeRecords ?? {},
       credits: readNumber('credits'), gems: readNumber('gems'), upgrades, loadouts,
@@ -295,6 +358,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();
