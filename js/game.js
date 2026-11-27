@@ -97,7 +97,7 @@
       const ship = SHIPS[shipId];
       this.releaseInput();
       this.run = {
-        wave: 0, level: 1, xp: 0, score: 0, boosts: {}, boostRelayOn: true, ship, shipId, mode, mindCooldown: 0, alienTick: 0, tendrils: [],
+        wave: 0, level: 1, xp: 0, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostRelayOn: true, ship, shipId, mode, mindCooldown: 0, alienTick: 0, tendrils: [],
         stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisShield: 0, smoke: [], smokeIn: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
@@ -163,8 +163,36 @@
       this.state = 'intermission';
       run.allyShots = [];
       while (this.retractTendril()) {}
+      run.cleared++;
+      this.awardMilestone();
       this.save();
       this.notify('wave', 'Wave ' + run.wave + ' clear');
+    }
+
+    awardMilestone() {
+      const count = this.run.cleared;
+      if (count % 5) return;
+      const storedBoosts = ['heal', 'rapidFire', 'shield', 'doubleDamage', 'nanites'];
+      this.grantItem(storedBoosts[(count / 5 - 1) % storedBoosts.length]);
+      if (count % 10) return;
+      const tier = Math.min(5, count / 10);
+      const upgrades = ['wings', 'carbon', 'fusion', 'rail', 'nova'];
+      this.grantItem('credit', 100 * tier);
+      this.grantItem('gem', tier);
+      this.grantItem(upgrades[tier - 1]);
+      if (AG.eventActive()) this.grantItem(count % 20 ? 'alienCell' : 'alienMind');
+      this.notify('milestone', count + ' waves cleared · Rewards stored');
+    }
+
+    isDiscovered(type) {
+      return this.profile.discoveries.includes(type);
+    }
+
+    discoverItem(type, announce = true) {
+      if (this.isDiscovered(type)) return false;
+      this.profile.discoveries.push(type);
+      if (announce) this.notify('discovery', type);
+      return true;
     }
 
     finish(state) {
@@ -243,7 +271,7 @@
         (run.ship.damage + this.upgradeEffects().damage) * 2 ** this.boostCount('doubleDamage'));
     }
 
-    upgradeEffects(ship = this.run?.shipId ?? this.profile.ship, mounts = this.profile.loadouts[ship] ?? {}) {
+    upgradeEffects(ship, mounts = (ship ? this.profile.loadouts[ship] : this.run?.loadout ?? this.profile.loadouts[this.profile.ship]) ?? {}) {
       const effects = { speed: 1, damage: 0, vertical: false, vectors: 0, missile: null, laser: false, magnet: false, boostRelay: false, smoke: 0 };
       for (const id of Object.values(mounts)) {
         const upgrade = UPGRADES[id];
@@ -306,6 +334,7 @@
       if (!Object.hasOwn(AG.ITEMS, type) || !Number.isSafeInteger(amount) || amount < 1 ||
           !Number.isSafeInteger(this.itemCount(type) + amount) || this.run?.practice) return false;
       this.addItem(type, amount);
+      this.discoverItem(type);
       this.save();
       this.notify('loot', { type, amount });
       return true;
@@ -367,7 +396,7 @@
         const movement = Math.hypot(x - lastX, y - lastY);
         const back = movement > 0 ? 16 / movement : 0;
         run.smoke.push({ x: x + (lastX - x) * back, y: movement > 0 ? y + (lastY - y) * back : y + 14,
-          life: 2, size: 37 });
+          life: 4, size: 37 });
         run.smokeIn = .1;
       }
       for (let i = run.enemies.length - 1; i >= 0; i--) {
@@ -468,7 +497,10 @@
       if (rewards.some(({ type, amount }) => !Number.isSafeInteger(this.itemCount(type) + amount))) return false;
 
       profile.crates[type] -= count;
-      for (const { type, amount } of rewards) this.addItem(type, amount);
+      for (const reward of rewards) {
+        this.addItem(reward.type, reward.amount);
+        reward.discovered = this.discoverItem(reward.type, false);
+      }
       this.save();
       return { count, featured: rewards[0], rewards };
     }
@@ -516,6 +548,7 @@
       this.profile.copies[id] = copies + 1;
       this.profile.flagshipPurchases++;
       this.profile.flagshipTime = Date.now();
+      this.discoverItem(id);
       this.save();
       this.notify('loot', { type: id, amount: 1 });
       return true;
@@ -962,20 +995,22 @@
       this.dropItem('credit', enemy.x, enemy.y, boss ? 95 + boss.tier * 25 : Math.max(4, Math.ceil(score / 3)));
       if (boss) this.dropItem('gem', enemy.x + 12, enemy.y, 1);
       this.gainXp(boss ? 25 : 2);
-      if (boss || this.random() < .14) {
+      if (this.random() < (boss ? .10 : .014)) {
         const types = Object.keys(BOOSTS);
         this.dropItem(boss ? 'shield' : types[Math.floor(this.random() ** 1.65 * types.length)], enemy.x - 20, enemy.y);
       }
       let roll = this.random();
       for (const [type, upgrade] of Object.entries(UPGRADES)) {
-        roll -= upgrade.chance ?? 0;
+        roll -= (upgrade.chance ?? 0) / 10;
         if (roll >= 0) continue;
         this.dropItem(type, enemy.x + 21, enemy.y);
         break;
       }
-      const crateRoll = this.random();
-      if (crateRoll < (boss ? .06 : .001)) this.dropItem('shipCrate', enemy.x - 31, enemy.y);
-      else if (crateRoll < (boss ? .17 : .004)) this.dropItem('upgradeCrate', enemy.x - 31, enemy.y);
+      const lead = boss && !enemy.escort && enemy.bornWave === run.wave && AG.mainBoss(run.wave) === enemy.type;
+      const crateChance = lead ? Math.min(.6, (run.wave / 10 + 1) / 10) : boss ? 0 : .0005;
+      if (crateChance && this.random() < crateChance) {
+        this.dropItem(this.random() < .25 ? 'shipCrate' : 'upgradeCrate', enemy.x - 31, enemy.y);
+      }
     }
 
     dropItem(type, x, y, amount = 1) {
@@ -1008,7 +1043,12 @@
         const ranks = Object.keys(AG.RARITIES);
         const rank = id => ranks.indexOf(AG.ITEMS[id]?.rarity ?? 'common');
         if (!run.stats.rarest || rank(drop.type) > rank(run.stats.rarest)) run.stats.rarest = drop.type;
-        this.grantItem(drop.type, drop.amount);
+        if (Object.hasOwn(BOOSTS, drop.type)) {
+          this.discoverItem(drop.type);
+          for (let i = 0; i < drop.amount; i++) this.applyBoost(drop.type);
+          this.notify('loot', { type: drop.type, amount: drop.amount });
+          this.save();
+        } else this.grantItem(drop.type, drop.amount);
       }
     }
   }

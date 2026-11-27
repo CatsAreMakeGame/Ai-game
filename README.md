@@ -6,9 +6,9 @@ A browser-based shooter with four flight modes, returning boss fleets, unlockabl
 
 - Move with **A/D**, the left and right arrows, or a held drag. The ship fires automatically. Fit a **Vector Engine** to unlock vertical movement.
 - Open **Inventory** between runs. Drag boosts into its three flight slots, then click a slot during flight to use its boost. Extra slots unlock at pilot levels 5 and 10. Reach those levels once to assign boosts between runs. Credits, Star Gems, parts and other loot are collected by flying close to the floating icons.
-- Equip a **Loot Magnet** to pull drops toward your ship. Right-click an equipped **Auto Boost** in Ship Loadout to open Available Boosts and Loaded Boosts. It starts on each run and can be switched off with the **Auto** button or your Equipment keybind. Fit a **Smoke Bomb** in an engine slot for a damaging two-second trail.
-- The boss ladder adds a new boss on waves 10, 20, 30, 40 and 50. Each boss wave includes the previous bosses. Boss waves cannot be skipped.
-- Use **P** or **Esc** to pause. At pilot level 5, you can buy flight supplies during intermission.
+- Equip a **Loot Magnet** to pull drops toward your ship. Right-click an equipped **Auto Boost** in Ship Loadout to open Available Boosts and Loaded Boosts. It starts on each run and can be switched off with the **Auto** button or your Equipment keybind. Fit a **Smoke Bomb** in an engine slot for a damaging four-second trail.
+- The boss ladder adds a new boss on waves 10, 20, 30, 40 and 50. Each boss wave includes the previous bosses. Boss waves cannot be skipped. After every five clears you earn a stored boost. Every ten clears also award Credits, Star Gems, an upgrade and an Alien Event item while the event is active. Flight boost drops activate immediately.
+- Use **P** or **Esc** to pause. Continuing a saved run keeps its launch loadout. Equipment changes apply to new runs. At pilot level 5, you can buy flight supplies during intermission.
 
 ## Missions and crafting
 
@@ -17,6 +17,10 @@ A browser-based shooter with four flight modes, returning boss fleets, unlockabl
 - Craft an Alien Ship with an owned ship in the centre, Alien Serum above it, an Alien Mind below it, and six Alien Cells in the other slots. Craft an Alien Mind with Alien Serum in the centre and eight Alien Cells around it.
 - Alien Ships extend and retract tendrils with **E** and **Q**. The Lightning Beacon uses **F** or right-click. Change the keys in Settings. Select Alien Serum under Inventory → Items → Event and choose **Use on equipped Alien Ship** to unlock mind control permanently.
 - The Premium Store accepts Star Gems, including a one-way exchange for 250 Credits per gem. Supernova can be purchased again after an hour, at double the previous price.
+
+## Loot crates
+
+The lead bosses at waves 10, 20, 30, 40 and 50 have a 20%, 30%, 40%, 50% and 60% chance to drop one crate, respectively. In Endless, later lead bosses stay at 60%. Escorts have no crate chance. A regular enemy has a 0.05% chance. When a crate drops, it is a Spaceship Crate 25% of the time and an Upgrade Crate 75% of the time.
 
 ## Shop and Ship Loadout
 

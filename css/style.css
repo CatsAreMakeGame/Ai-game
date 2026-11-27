@@ -449,7 +449,6 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .mount-engine3 { grid-area: 4 / 3; }
 .mount-ability1 { grid-area: 5 / 1; }
 .mount-ability2 { grid-area: 5 / 2; }
-.mount-ability3 { grid-area: 5 / 3; }
 .outfit-parts { max-height: min(330px, 48dvh); overflow-y: auto; padding: 3px; }
 .loadout-presets { display: flex; flex-wrap: wrap; gap: 7px; margin: 9px 0; }
 .loadout-presets > div { display: flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 7px; padding: 4px 6px; }
@@ -481,7 +480,6 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .ship-diagram .mount-special { grid-area: 4 / 2; }
 .ship-diagram .mount-ability1 { grid-area: 1 / 1; }
 .ship-diagram .mount-ability2 { grid-area: 1 / 3; }
-.ship-diagram .mount-ability3 { grid-area: 4 / 3; }
 .boost-lock { object-fit: contain; width: 23px; height: 23px; }
 .drag-icon { position: fixed; top: -60px; left: 0; pointer-events: none; }
 .item-tooltip { position: fixed; z-index: 1000; pointer-events: none; color: #eff6fc; padding: 8px 10px;
@@ -495,3 +493,25 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .item-tooltip .item-icon, .item-tooltip .ship-graphic { width: 21px; height: 21px; border: 0; }
 .item-tooltip img { width: 17px; height: 17px; }
 @media (max-width: 620px) { .merchant-teaser { top: 47px; left: 4px; } .home { padding-top: 36px; } }
+
+.merchant-teaser { position: static; display: inline-flex; width: auto; overflow: visible; border-radius: 7px; padding: 7px 12px; }
+.merchant-teaser:hover, .merchant-teaser:focus-visible { width: auto; }
+.home { padding-top: 0; }
+.mount.mount-special { color: #e6deff; border: 1px solid #ae91fd; font-weight: 700;
+  background: linear-gradient(145deg, #3e2a68 0%, #253657 58%, #20354c 100%);
+  box-shadow: inset 0 0 10px #9661e63b, 0 0 9px #855acd55; }
+.mount.mount-special.compatible { border-color: #d9ffa6; }
+.outfit-parts .spent-part { opacity: .48; filter: grayscale(1); cursor: default; }
+.event-tag { display: inline-block; margin-top: 4px; padding: 1px 6px; border-radius: 3px; font-size: .68rem;
+  font-weight: 750; background: #1a3d2d; color: #b4f49e; }
+.side-notices { position: absolute; z-index: 6; top: 74px; right: 10px; width: min(215px, 43%); display: grid; gap: 6px; pointer-events: none; }
+.side-notice { display: flex; align-items: center; gap: 7px; background: #14252fef; color: #edffec;
+  border: 1px solid #71bd78; border-radius: 7px; padding: 7px; box-shadow: 0 5px 14px #05090890; }
+.side-notice strong, .side-notice small { display: block; }
+.side-notice .item-icon, .side-notice .ship-graphic { width: 29px; height: 29px; flex: 0 0 29px; }
+.side-notice img { width: 21px; height: 21px; }
+.combat-rim.critical-health::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 clamp(25px, 8vw, 95px) #ff244c; opacity: .15; animation: critical-breathe 1.25s ease-in-out infinite; }
+@keyframes critical-breathe { 50% { opacity: .64; } }
+@media (prefers-reduced-motion: reduce) { .combat-rim.critical-health::after { animation: none; opacity: .32; } }
+@media (max-width: 620px) { .side-notices { top: 48px; right: 5px; font-size: .68rem; } }

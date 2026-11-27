@@ -89,7 +89,7 @@ window.AG = (() => {
     seeker: { name: 'Heat-Seeking Missile', slot: 'Weapon', rarity: 'legendary', glyph: '➶', missile: 'homing',
       description: 'Steers after its target and can retarget if the original enemy is destroyed.' },
     smokeBomb: { name: 'Smoke Bomb', slot: 'Engine', rarity: 'rare', glyph: '☁', smoke: true, chance: .018,
-      description: 'Leaves a two-second smoke trail that deals 1 damage per second to enemies inside it.' },
+      description: 'Leaves a four-second smoke trail that deals 1 damage per second to enemies inside it.' },
     beacon: { name: 'Lightning Beacon', slot: 'Special', rarity: 'godly', glyph: '⚡', laser: true,
       description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold the Lightning Beacon key. Each pulse costs 3% and deals double shot damage.' },
     magnet: { name: 'Loot Magnet', slot: 'Ability', rarity: 'legendary', glyph: '∪', magnet: true,
@@ -116,7 +116,7 @@ window.AG = (() => {
   const SLOTS = {
     leftWing: ['Wings', 'Left wing'], rightWing: ['Wings', 'Right wing'],
     engine1: ['Engine', 'Centre engine'], engine2: ['Engine', 'Left engine'], engine3: ['Engine', 'Right engine'],
-    nose: ['Weapon', 'Nose'], special: ['Special', 'Ultimate ability'], ability1: ['Ability', 'Ability 1'], ability2: ['Ability', 'Ability 2'], ability3: ['Ability', 'Ability 3']
+    nose: ['Weapon', 'Nose'], special: ['Special', 'Ultimate ability'], ability1: ['Ability', 'Ability 1'], ability2: ['Ability', 'Ability 2']
   };
   function slotAvailable(ship, slot) {
     if (!Object.hasOwn(SLOTS, slot)) return false;
@@ -187,6 +187,8 @@ window.AG = (() => {
           !saved?.layoutVersion && catalog[ship].engines === 2 && slot.startsWith('engine') ? 'engine' + (+slot.slice(-1) + 1) : slot;
         mounts[key] = id;
       }
+      if (mounts.ability3 && !mounts.ability1) mounts.ability1 = mounts.ability3;
+      else if (mounts.ability3 && !mounts.ability2) mounts.ability2 = mounts.ability3;
       loadouts[ship] = fitLoadout(catalog[ship], mounts, upgrades);
     }
     const materials = counts('materials', window.AG?.MATERIALS ?? {});
@@ -202,6 +204,14 @@ window.AG = (() => {
       checkpoint.drops = checkpoint.drops.map(drop => ({ ...drop, type: canonicalMaterial(drop.type) }));
     }
     if (checkpoint?.stats?.rarest) checkpoint.stats.rarest = canonicalMaterial(checkpoint.stats.rarest);
+    const discoveries = new Set((Array.isArray(saved?.discoveries) ? saved.discoveries : [])
+      .filter(id => Object.hasOwn(ITEMS, id) || Object.hasOwn(catalog, id)));
+    for (const id of unlocked) discoveries.add(id);
+    for (const group of [upgrades, materials, counts('boosts', BOOSTS), counts('crates', CRATES), counts('boostReserve', BOOSTS)]) {
+      for (const id of Object.keys(group)) discoveries.add(id);
+    }
+    if (saved?.credits > 0) discoveries.add('credit');
+    if (saved?.gems > 0) discoveries.add('gem');
     const reserve = Object.fromEntries(Object.entries(counts('boostReserve', BOOSTS)).slice(0, 5)
       .map(([id, count]) => [id, Math.min(count, 5)]));
     const bindings = { extend: saved?.bindings?.extend || 'e', retract: saved?.bindings?.retract || 'q', laser: saved?.bindings?.laser || 'f' };
@@ -229,7 +239,7 @@ window.AG = (() => {
         return entry && typeof entry === 'object' ? Object.fromEntries(Object.entries(entry)
           .filter(([key, id]) => Object.hasOwn(SLOTS, key) && Object.hasOwn(UPGRADES, id))) : null;
       }),
-      bindings, boostReserve: reserve,
+      bindings, boostReserve: reserve, discoveries: [...discoveries],
       mode: Object.hasOwn(window.AG?.MODES ?? {}, saved?.mode) ? saved.mode : 'hard',
       checkpoint, modeRecords: saved?.modeRecords ?? {},
       credits: readNumber('credits'), gems: readNumber('gems'), upgrades, loadouts,

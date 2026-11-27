@@ -48,7 +48,7 @@
     ITEMS[id].glyph ??= '◆';
   }
   const clone = value => JSON.parse(JSON.stringify(value));
-  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostRelayOn'];
+  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostRelayOn', 'cleared', 'loadout'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
   const mainBoss = wave => wave >= 10 && wave % 10 === 0 ? Object.keys(BOSSES)[Math.min(wave / 10 - 1, 4)] : null;
 
@@ -104,6 +104,9 @@
       for (const key of checkpointKeys) if (Object.hasOwn(saved, key)) this.run[key] = saved[key];
       Object.assign(this.run.player, saved.player);
       this.run.enemies = saved.allies;
+      if (this.run.loadout.ability3 && !this.run.loadout.ability1) this.run.loadout.ability1 = this.run.loadout.ability3;
+      else if (this.run.loadout.ability3 && !this.run.loadout.ability2) this.run.loadout.ability2 = this.run.loadout.ability3;
+      delete this.run.loadout.ability3;
       if (!this.upgradeEffects().vertical) this.run.player.y = HEIGHT - 58;
       this.beginWave(saved.wave + 1);
       return true;
@@ -216,7 +219,7 @@
 
     alienHit(enemy, source, damage) {
       if (!this.run.practice && eventActive() && BOSSES[enemy.type] && damage > 0 &&
-          source !== 'ally' && this.random() < .03) this.dropItem('alienCell', enemy.x, enemy.y);
+          source !== 'ally' && this.random() < .003) this.dropItem('alienCell', enemy.x, enemy.y);
     },
 
     rewardAlien(enemy) {
@@ -234,10 +237,10 @@
         }
       }
       if (eventActive()) {
-        if (this.random() < (boss ? .2 : .005)) this.dropItem('alienCell', x, y);
+        if (this.random() < (boss ? .02 : .0005)) this.dropItem('alienCell', x, y);
         if (!boss) return;
-        if (this.random() < .2) this.dropItem('alienMind', x - 20, y);
-        if (run.wave === 50 && enemy.type === 'nexus' && !this.profile.serumUsed && this.random() < .05) {
+        if (this.random() < .02) this.dropItem('alienMind', x - 20, y);
+        if (run.wave === 50 && enemy.type === 'nexus' && !this.profile.serumUsed && this.random() < .005) {
           this.dropItem('alienSerum', x + 20, y);
         }
       } else if (boss) {

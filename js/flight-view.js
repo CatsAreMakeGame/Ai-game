@@ -358,7 +358,7 @@
       }
       for (const puff of run.smoke) {
         ctx.save();
-        ctx.globalAlpha = .23 * puff.life / 2;
+        ctx.globalAlpha = .23 * puff.life / 4;
         const haze = ctx.createRadialGradient(puff.x, puff.y, 2, puff.x, puff.y, puff.size);
         haze.addColorStop(0, '#c9d8ac');
         haze.addColorStop(.55, '#9da88d');

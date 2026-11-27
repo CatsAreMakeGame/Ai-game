@@ -23,6 +23,11 @@
   const panelHistory = [];
   let mindAim = false;
   let hoveredDrop = null;
+  const sideNotices = [];
+  let shopSeen = false;
+  let merchantHintSent = false;
+  let flightSeconds = 0;
+  let nextMerchantCheck = 0;
   const loot = new Map();
   let adminUnlocked = false;
   try { adminUnlocked = sessionStorage.getItem('alien-shooter.admin') === 'yes'; } catch {}
@@ -55,12 +60,30 @@
     if (element.textContent !== value) element.textContent = value;
   }
 
+  function sideNotice(title, value, graphic) {
+    const node = element('div', '', 'side-notice');
+    const label = element('div');
+    label.append(element('strong', title), element('small', value));
+    if (graphic) node.append(graphic);
+    node.append(label);
+    $('side-notices').append(node);
+    sideNotices.push({ node, until: performance.now() + 5500 });
+    if (sideNotices.length > 4) sideNotices.shift().node.remove();
+  }
+
   function notify(type, value) {
     const now = performance.now();
     if (game.profile.sound) audio.play(type);
     if (type === 'destroy') view.burst(value);
     if (type === 'blast') view.blast(value);
     if (type === 'enemy-damage') view.addDamageNumber(value);
+    if (type === 'discovery') {
+      const item = AG.ITEMS[value];
+      const category = AG.SHIPS[value] ? 'ship' : AG.UPGRADES[value] ? 'upgrade' :
+        AG.CRATES[value] ? 'crate' : AG.BOOSTS[value] ? 'boost' : 'item';
+      sideNotice('New ' + category, item.name, AG.itemGraphic(value, false));
+    }
+    if (type === 'milestone') sideNotice('Wave milestone', value);
     if (type === 'loot') {
       const { type: id, amount } = value;
       const strip = $('loot-strip');
@@ -106,6 +129,7 @@
   }
 
   function renderHUD(now) {
+    while (sideNotices.length && sideNotices[0].until <= now) sideNotices.shift().node.remove();
     if (!$('home').hidden) {
       const seconds = Math.max(0, Math.ceil((AG.EVENT_END - Date.now()) / 1000));
       const time = [Math.floor(seconds / 86400) + 'd', Math.floor(seconds / 3600) % 24 + 'h',
@@ -194,6 +218,7 @@
     rim.style.setProperty('--shield', run.aegisShield > 0 ? Math.max(.17, run.aegisShield / 15) :
       run.boosts.shield || run.boosts.fortress ? .65 : 0);
     rim.classList.toggle('nova-rim', run.aegisShield > 0);
+    rim.classList.toggle('critical-health', health < .1);
     setText($('hull-value'), Number(run.player.hp.toFixed(1)) + '/' + run.ship.hull);
     setText($('level'), 'LV ' + run.level);
     setText($('score'), run.score.toLocaleString());
@@ -292,6 +317,7 @@
   }
 
   function open(kind, rememberFocus = true) {
+    if (kind === 'merchant' || kind === 'shop') shopSeen = true;
     if (panelKind !== kind) resetPanelDraft();
     if (rememberFocus) returnFocus = document.activeElement;
     game.releaseInput();
@@ -399,6 +425,7 @@
   function exitTesting() {
     game.leaveTesting();
     $('loot-strip').replaceChildren();
+    for (const { node } of sideNotices.splice(0)) node.remove();
     loot.clear();
     syncAudio();
     adminReturn = null;
@@ -454,6 +481,12 @@
         modes.append(card);
       }
       modes.tabIndex = 0;
+      modes.addEventListener('wheel', event => {
+        if (modes.scrollWidth <= modes.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+        event.preventDefault();
+        const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? modes.clientWidth : 1;
+        modes.scrollLeft += event.deltaY * scale;
+      }, { passive: false });
       modes.setAttribute('aria-label', 'Flight modes, scroll sideways');
       const arrows = element('div', '', 'home-actions');
       arrows.append(button('← Previous', () => modes.scrollBy({ left: -215, behavior: 'smooth' })),
@@ -660,13 +693,21 @@
     if (hoveredDrop) AG.hideItemTooltip();
     hoveredDrop = null;
   });
-  canvas.addEventListener('pointermove', event => {
-    const aim = trackAim(event);
-    const drop = aim && event.pointerType !== 'touch' && !panelKind && game.run?.drops.find(item =>
-      Math.hypot(aim.x - item.x, aim.y - item.y) <= item.size);
+  function hoverFlightDrop(event, aim) {
+    const drop = aim && event.pointerType !== 'touch' && !panelKind && game.run?.drops.find(item => {
+      const rare = AG.CRATES[item.type] || ['legendary', 'mythical', 'godly'].includes(AG.ITEMS[item.type]?.rarity);
+      return (!(event.buttons & 1) || rare || !game.isDiscovered(item.type)) &&
+        Math.hypot(aim.x - item.x, aim.y - item.y) <= item.size;
+    });
     if (drop) AG.showItemTooltip(canvas, drop.type, event.clientX, event.clientY);
     else if (hoveredDrop) AG.hideItemTooltip();
     hoveredDrop = drop || null;
+  }
+  canvas.addEventListener('pointerdown', event => hoverFlightDrop(event, trackAim(event)));
+  canvas.addEventListener('pointerup', event => hoverFlightDrop(event, trackAim(event)));
+  canvas.addEventListener('pointermove', event => {
+    const aim = trackAim(event);
+    hoverFlightDrop(event, aim);
     if (aim && event.pointerId === pointerId) game.pointer = aim;
   });
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
@@ -729,6 +770,16 @@
   function frame(now) {
     const dt = Math.min(0.05, (now - previous) / 1000);
     previous = now;
+    const wallTime = Date.now();
+    if (wallTime >= nextMerchantCheck) {
+      game.merchantStock(wallTime);
+      nextMerchantCheck = wallTime + 1000;
+    }
+    if (!panelKind && ['playing', 'intermission'].includes(game.state)) flightSeconds += dt;
+    if (!shopSeen && !merchantHintSent && flightSeconds >= 120 && game.run?.level >= 10) {
+      sideNotice('Merchant available', 'Visit the Merchant from the main menu for useful upgrades.');
+      merchantHintSent = true;
+    }
     const gameDt = dt * game.simulationSpeed;
     accumulated += panelKind ? 0 : gameDt;
     while (accumulated >= tick) {

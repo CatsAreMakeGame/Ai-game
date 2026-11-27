@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A browser-based alien shooter with 50 escalating waves, Mothership bosses, pilot upgrades and unlockable ships.">
   <title>Alien Shooter</title>
-  <link rel="stylesheet" href="css/style.css?v=merchant-stock">
-  <script defer src="js/data.js?v=merchant-stock"></script>
-  <script defer src="js/game.js?v=merchant-stock"></script>
-  <script defer src="js/expansion.js?v=merchant-stock"></script>
-  <script defer src="js/flight-view.js?v=merchant-stock"></script>
-  <script defer src="js/admin.js?v=merchant-stock"></script>
-  <script defer src="js/armory.js?v=merchant-stock"></script>
-  <script defer src="js/main.js?v=merchant-stock"></script>
+  <link rel="stylesheet" href="css/style.css?v=wave-rewards">
+  <script defer src="js/data.js?v=wave-rewards"></script>
+  <script defer src="js/game.js?v=wave-rewards"></script>
+  <script defer src="js/expansion.js?v=wave-rewards"></script>
+  <script defer src="js/flight-view.js?v=wave-rewards"></script>
+  <script defer src="js/admin.js?v=wave-rewards"></script>
+  <script defer src="js/armory.js?v=wave-rewards"></script>
+  <script defer src="js/main.js?v=wave-rewards"></script>
 </head>
 <body>
   <main class="console">
@@ -24,7 +24,6 @@
         <button id="sound" class="quiet" type="button" aria-pressed="false">Sound off</button>
       </div>
     </header>
-    <button id="merchant-open" class="merchant-teaser" type="button" aria-label="Visit Merchant"><img class="menu-icon" src="new-icons/vector-icon-pack/General/Shopping%20Basket/Shopping%20Basket%20Green%20256.png" alt=""><span>Visit Merchant</span></button>
     <div id="flight-layout" class="flight-layout">
     <section class="stage" aria-label="Flight deck">
       <canvas id="sky" width="900" height="600" aria-label="Alien Shooter playfield"></canvas>
@@ -48,6 +47,7 @@
       </div>
       <div id="boosts" class="boosts" hidden></div>
       <div id="ship-ability" class="ship-ability" hidden></div>
+      <aside id="side-notices" class="side-notices" aria-live="polite"></aside>
       <div id="loot-strip" class="loot-strip" aria-live="polite"></div>
       <p id="alert" class="alert" role="status" hidden></p>
       <div id="wave-message" class="wave-message" hidden></div>
@@ -64,6 +64,7 @@
             <button id="inventory-home"><img class="menu-icon" src="new-icons/vector-icon-pack/Clothing/Backpack/Backpack%20256.png" alt="">Inventory</button>
             <button id="craft-open"><img class="menu-icon" src="new-icons/vector-icon-pack/Tools/Hammer/Hammer%20256.png" alt="">Crafting</button>
             <button id="shop-open"><img class="menu-icon" src="new-icons/vector-icon-pack/General/Shopping%20Basket/Shopping%20Basket%20Green%20256.png" alt="">Shop</button>
+            <button id="merchant-open" class="merchant-teaser" type="button" aria-label="Visit Merchant"><img class="menu-icon" src="new-icons/vector-icon-pack/General/Shopping%20Basket/Shopping%20Basket%20Green%20256.png" alt=""><span>Visit Merchant</span></button>
             <button id="outfit-open"><img class="menu-icon" src="new-icons/vector-icon-pack/Tools/Wrench/Wrench%20256.png" alt="">Ship Loadout</button>
             <button id="help"><img class="menu-icon" src="new-icons/vector-icon-pack/UI/Question%20Mark/Question%20Mark%20256.png" alt="">How to play</button>
           </div>

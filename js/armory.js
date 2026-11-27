@@ -96,6 +96,12 @@
       tooltip.setAttribute('role', 'tooltip');
       tooltip.style.setProperty('--rarity', RARITIES[tier]);
       tooltip.append(label, rarity);
+      if (Object.hasOwn(AG.MATERIALS, id)) {
+        const eventTag = document.createElement('span');
+        eventTag.className = 'event-tag';
+        eventTag.textContent = 'Event';
+        tooltip.append(eventTag);
+      }
       if (crate) {
         const list = document.createElement('ul');
         for (const outcome of crate.outcomes) for (const reward of outcome.items) {
@@ -217,7 +223,10 @@
     dialog.addEventListener('close', () => {
       animation?.cancel();
       dialog.remove();
-      for (const reward of rewards) game.notify('loot', reward);
+      for (const reward of rewards) {
+        game.notify('loot', reward);
+        if (reward.discovered) game.notify('discovery', reward.type);
+      }
     }, { once: true });
     dialog.showModal();
     const end = centered(winner);
@@ -779,11 +788,17 @@
       for (const id of sortItems(UPGRADES, item => item.speed ?? item.damage ?? 0)) {
         if (!profile.upgrades[id]) continue;
         const part = UPGRADES[id];
-        const choose = button('', () => { state.part = state.part === id ? '' : id; state.selectedUpgrade = id; refresh(); });
+        const exhausted = Object.values(crafts).filter(mounted => mounted === id).length >= profile.upgrades[id];
+        const choose = button('', () => {
+          if (exhausted) return;
+          state.part = state.part === id ? '' : id; state.selectedUpgrade = id; refresh();
+        });
+        choose.classList.toggle('spent-part', exhausted);
+        if (exhausted) choose.setAttribute('aria-disabled', 'true');
         choose.append(graphic(id, false), element('span', part.name));
         choose.style.setProperty('--rarity', RARITIES[part.rarity]);
         itemHover(choose, id);
-        choose.draggable = true;
+        choose.draggable = !exhausted;
         choose.setAttribute('aria-pressed', String(state.part === id));
         choose.addEventListener('dragstart', event => {
           state.part = id;

@@ -119,6 +119,10 @@
     if (run) itemActions.push(button('Spawn item pickup', () => {
       const count = quantity();
       if (count === null) return;
+      if (Object.hasOwn(AG.BOOSTS, item.value) && count > 100) {
+        feedback.textContent = 'Spawn up to 100 boosts at a time.';
+        return;
+      }
       game.dropItem(item.value, run.player.x, run.player.y - 100, count);
       feedback.textContent = AG.ITEMS[item.value].name + ' dropped in the flight lane.';
     }));
