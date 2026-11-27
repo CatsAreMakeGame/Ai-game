@@ -679,7 +679,7 @@
     }
 
     cratePurchasePrice(type, count, now = Date.now()) {
-      const price = CRATES[type]?.price ?? 0;
+      const price = AG.crateUnitPrice(type, now);
       const discount = type === 'enemyCrate' && AG.CRATE_BUY_AMOUNTS.includes(count) && AG.enemyCrateSaleActive(now);
       return count * price * (discount ? .75 : 1);
     }
@@ -693,7 +693,7 @@
 
     cratePurchaseLimit(type) {
       if (!CRATES[type]?.price || !AG.itemAvailable(type) || !this.canVisitBase()) return 0;
-      const regularLimit = Math.min(Math.floor(this.profile.gems / CRATES[type].price),
+      const regularLimit = Math.min(Math.floor(this.profile.gems / AG.crateUnitPrice(type)),
         Number.MAX_SAFE_INTEGER - this.itemCount(type));
       return Math.max(regularLimit, ...AG.CRATE_BUY_AMOUNTS.filter(count => this.canBuyCrates(type, count)));
     }
@@ -1306,7 +1306,7 @@
 
     hasSingularityBarrage() {
       const run = this.run;
-      return Boolean(AG.contentActive() && run?.ship.barrage && !run.loadout?.special);
+      return Boolean(AG.contentActive() && run?.ship.barrage && !run.ship.alien && !run.loadout?.special);
     }
 
     updateBarrage(dt) {

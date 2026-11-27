@@ -172,7 +172,7 @@
       const state = run.aegisShield > 0 ? Number(run.aegisShield.toFixed(1)) + ' shield' : run.aegisCooldown > 0 ? Math.ceil(run.aegisCooldown) + 's' : 'Ready';
       setText($('ship-ability'), run.ship.ability.name + ' · ' + state);
     }
-    if (AG.contentActive() && run.ship.barrage) {
+    if (AG.contentActive() && !run.ship.alien && run.ship.barrage) {
       const spec = run.ship.barrage;
       const state = !game.hasSingularityBarrage() ? 'Disabled by fitted ultimate' :
         run.barrage ? Math.max(0, spec.duration - run.barrage.elapsed).toFixed(1) + 's firing' :

@@ -67,7 +67,7 @@
     if (item.alien) return item.hull + ' hull · ' + Math.round(item.speed) + ' speed · ' + item.damage +
       ' damage · ' + item.engines + (item.engines === 1 ? ' engine' : ' engines') + ' · ' + AG.energyCapacity(item) + '% energy';
     if (!SHIPS[id]) return item.description ?? '';
-    const barrage = AG.contentActive() && item.barrage;
+    const barrage = AG.contentActive() && !item.alien && item.barrage;
     return item.description + ' · ' + AG.energyCapacity(item) + '% energy' +
       (barrage ? ' · ' + barrage.name + ' fires ' + barrage.shots + ' shots at 115% energy with at least two-thirds of the wave left. Requires an empty Ultimate slot.' : '');
   };
@@ -801,7 +801,8 @@
       } else if (AG.contentActive()) {
         body.append(renderCrateShop(game, state, element, button, refresh));
       } else {
-        for (const [id, crate] of Object.entries(CRATES)) {
+        for (const id of Object.keys(CRATES)) {
+          const crate = AG.liveCrate(id);
           if (!crate.price || !AG.itemAvailable(id)) continue;
           const limit = game.cratePurchaseLimit(id);
           const controls = element('div', '', 'crate-batch-controls');

@@ -121,7 +121,7 @@ window.AG = (() => {
       description: 'Holds up to 150 each of three boost types and activates eligible boosts without a delay.' }
   };
   const CRATES = {
-    shipCrate: { name: 'Spaceship Crate', rarity: 'epic', glyph: '▣', price: 3, outcomes: [
+    shipCrate: { name: 'Spaceship Crate', rarity: 'epic', glyph: '▣', price: 4, outcomes: [
       { rarity: 'rare', weight: 68, items: ['comet'] }, { rarity: 'epic', weight: 23, items: ['eclipse'] },
       { rarity: 'legendary', weight: 8, items: ['zenith'] },
       { rarity: 'mythical', weight: 1, items: ['singularity'] }
@@ -191,10 +191,11 @@ window.AG = (() => {
     { wait: 180000, rewards: { upgradeBundle: 1, boostBundle: 1 } },
     { wait: 300000, rewards: { shipCrate: 2, upgradeCrate: 2, enemyCrate: 2 } }
   ];
+  const crateUnitPrice = (id, now = Date.now()) => id === 'shipCrate' && !contentActive(now) ? 3 : (CRATES[id]?.price ?? 0);
   function liveCrate(id) {
     const crate = CRATES[id];
     if (contentActive() || !crate) return crate;
-    if (id === 'shipCrate') return { ...crate, outcomes: crate.outcomes.filter(tier => tier.rarity !== 'legendary')
+    if (id === 'shipCrate') return { ...crate, price: crateUnitPrice(id), outcomes: crate.outcomes.filter(tier => tier.rarity !== 'legendary')
       .map(tier => tier.rarity === 'rare' ? { ...tier, weight: 76 } : tier) };
     if (id !== 'upgradeCrate') return crate;
     return { ...crate, outcomes: crate.outcomes.map(tier =>
@@ -239,6 +240,7 @@ window.AG = (() => {
       Object.values(shipRows).some(row => row[6] === ship.frame) && Number.isFinite(ship.damage) &&
       Number.isFinite(ship.hull) && Number.isFinite(ship.speed) && ship.delay > 0 && ship.engines >= 1 && ship.engines <= 3));
     for (const ship of Object.values(alienShips)) {
+      delete ship.barrage;
       const original = Object.values(SHIPS).find(base => !base.alien && base.name === ship.donor?.replace(/^(Alien )+/, ''));
       if (original && ship.donor !== original.name) {
         Object.assign(ship, window.AG.createAlien(original), { mindControl: ship.mindControl });
@@ -381,6 +383,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { aegisCapacity, CONTENT_START, enemyCrateSaleActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { aegisCapacity, crateUnitPrice, CONTENT_START, enemyCrateSaleActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();
