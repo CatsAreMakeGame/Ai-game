@@ -158,16 +158,16 @@
     const speed = element('input');
     speed.type = 'number';
     speed.min = '.25';
-    speed.max = '10';
+    speed.max = '1000';
     speed.step = 'any';
     speed.value = String(game.simulationSpeed);
     speedLabel.append(speed);
     const speedStatus = element('p', 'Current speed · ' + game.simulationSpeed + '×', 'panel-note');
     speedStatus.setAttribute('role', 'status');
-    wave.append(speedLabel, speedStatus);
+    wave.append(speedLabel, speedStatus, element('p', 'Very high speeds are limited by browser performance.', 'panel-note'));
     actions(wave, button('Apply speed', () => {
       speedStatus.textContent = game.setTestSpeed(speed.valueAsNumber)
-        ? 'Current speed · ' + game.simulationSpeed + '×' : 'Enter a multiplier from 0.25× to 10×.';
+        ? 'Current speed · ' + game.simulationSpeed + '×' : 'Enter a multiplier from 0.25× to 1,000×.';
     }), button('Reset to 1×', () => {
       game.setTestSpeed(1);
       speed.value = '1';

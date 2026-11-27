@@ -20,7 +20,7 @@ A browser-based shooter with four flight modes, returning boss fleets, unlockabl
 
 ## Rewards
 
-Campaign wins grant guaranteed credits, gems, crates, upgrades and repair boosts. Endless bonus rewards scale every tenth wave cleared, with Spaceship Crates every fiftieth wave. Open Rewards on the results screen to see your payout. Milestone rewards settle when you finish or quit.
+Campaign wins grant credits, gems, crates and a rotating selection of upgrades and boosts. Eligible milestone clears roll separately for a Legendary bonus (10%) and a Mythical bonus (3%). Endless bonus rewards scale every tenth wave cleared, with Spaceship Crates every fiftieth wave. Open Rewards on the results screen to see your payout. Milestone rewards settle when you finish or quit.
 
 ## Loot crates
 
@@ -32,14 +32,14 @@ The lead bosses at waves 10, 20, 30, 40 and 50 have a 20%, 30%, 40%, 50% and 60%
 
 ## Shop and Ship Loadout
 
-- Spend Credits on ships. Spend Star Gems on Spaceship or Upgrade Crates. Hover over a crate to see each possible item and its odds. Crate duplicates add copies, and the opening screen displays batch quantities for every reward. Credit Shop ships are purchasable only while you own zero copies. Purchased crates go into Inventory.
+- Spend Credits on ships. Spend Star Gems on Spaceship or Upgrade Crates. Hover over a crate to see each possible item and its odds. Crate duplicates add copies, and the opening screen displays batch quantities for every reward. Credit Shop ships are purchasable only while you own zero copies. Purchased crates go into Inventory. The custom Admin opener accepts up to one trillion owned crates in a batch.
 - Open **Ship Loadout** and choose a ship. Drag upgrades onto compatible slots, or select a part and then its slot. Ships with two engines have left and right engine slots. Save an arrangement into a preset to apply its compatible parts to another ship.
 - The Merchant is the only gameplay source for Boost Cycle, Heat-Seeking Missile, Vector Engine and Loot Magnet. It stocks one copy each of two upgrades every five minutes.
 - Your ships, inventory, loadouts, currency and records save in this browser.
 
 ## Local testing
 
-Open **Admin** and enter `ADMIN99` once per tab session. **Ship energy** accepts test values above the ship's normal capacity, such as 5,000%. **Test clock** can skip ahead for the Alien Event, Supernova availability and Merchant restocks. **Wave controls** can run the entire game from **0.25× to 10×** during testing. Admin wave jumps past the selected campaign’s limit enable a test override up to **2,147,483,647**. Regular campaign tests stop at the chosen mode’s final wave. Higher input is capped at that value. High-wave spawns scale within fixed limits to keep the browser responsive. **Clear all testing data** resets the isolated test inventory, currency and run after confirmation. **Exit testing** restores the normal game.
+Open **Admin** and enter `ADMIN99` once per tab session. **Ship energy** accepts test values above the ship's normal capacity, such as 5,000%. **Test clock** can skip ahead for the Alien Event, Supernova availability and Merchant restocks. **Wave controls** can run the entire game from **0.25× to 1,000×** during testing. The browser can limit the achieved speed on busy waves. Admin wave jumps past the selected campaign’s limit enable a test override up to **2,147,483,647**. Regular campaign tests stop at the chosen mode’s final wave. Higher input is capped at that value. High-wave spawns scale within fixed limits to keep the browser responsive. **Clear all testing data** resets the isolated test inventory, currency and run after confirmation. **Exit testing** restores the normal game.
 
 ## Source
 

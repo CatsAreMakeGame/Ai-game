@@ -59,6 +59,63 @@
     return { id: tier.items[Math.floor(random() * tier.items.length)], rarity: tier.rarity };
   }
 
+  function gamma(shape, random) {
+    const d = shape - 1 / 3;
+    const c = 1 / Math.sqrt(9 * d);
+    for (let attempt = 0; ; attempt++) {
+      const rng = attempt < 32 ? random : Math.random;
+      const normal = Math.sqrt(-2 * Math.log(Math.max(Number.MIN_VALUE, 1 - rng()))) * Math.cos(2 * Math.PI * rng());
+      const base = 1 + c * normal;
+      if (base <= 0) continue;
+      const v = base ** 3;
+      const u = rng();
+      if (u < 1 - .0331 * normal ** 4 ||
+          Math.log(u) < .5 * normal ** 2 + d * (1 - v + Math.log(v))) return d * v;
+    }
+  }
+
+  function binomial(count, probability, random) {
+    let successes = 0;
+    // Split by a beta-distributed order statistic to avoid one roll per crate.
+    while (count > 64 && probability > 0 && probability < 1) {
+      const split = Math.floor(count / 2) + 1;
+      const left = gamma(split, random);
+      const right = gamma(count - split + 1, random);
+      const pivot = left / (left + right);
+      if (pivot <= probability) {
+        successes += split;
+        count -= split;
+        probability = (probability - pivot) / (1 - pivot);
+      } else {
+        count = split - 1;
+        probability /= pivot;
+      }
+    }
+    if (probability >= 1) return successes + count;
+    if (probability > 0) for (let i = 0; i < count; i++) if (random() < probability) successes++;
+    return successes;
+  }
+
+  function crateTotals(crate, count, random) {
+    const totals = new Map();
+    if (count <= 1000) {
+      for (let i = 0; i < count; i++) {
+        const { id } = crateRoll(crate, random);
+        totals.set(id, (totals.get(id) ?? 0) + 1);
+      }
+      return totals;
+    }
+    const outcomes = crate.outcomes.flatMap(tier => tier.items.map(id => [id, tier.weight / tier.items.length]));
+    let remainingWeight = outcomes.reduce((sum, [, weight]) => sum + weight, 0);
+    for (const [index, [id, weight]] of outcomes.entries()) {
+      const amount = index === outcomes.length - 1 ? count : binomial(count, weight / remainingWeight, random);
+      if (amount) totals.set(id, (totals.get(id) ?? 0) + amount);
+      count -= amount;
+      remainingWeight -= weight;
+    }
+    return totals;
+  }
+
   function syncShips(profile) {
     for (const id of Object.keys(SHIPS)) {
       if (Object.hasOwn(BASE_SHIPS, id)) continue;
@@ -349,10 +406,12 @@
 
     updateAlien(dt) {
       const run = this.run;
+      if (!run.tendrils.length) return;
+      const live = new Set(run.enemies);
+      const intersections = new Map();
       for (const tendril of run.tendrils) {
         for (const [enemy, capture] of tendril.captures) {
-          const index = run.enemies.indexOf(enemy);
-          if (index < 0 || enemy.allied) {
+          if (!live.has(enemy) || enemy.allied) {
             this.releaseCapture(tendril, enemy);
             continue;
           }
@@ -361,7 +420,8 @@
             capture.ticks++;
             if (capture.ticks === 4) this.gainEnergy(1);
             capture.drained += Math.min(enemy.hp, 1);
-            this.hitEnemy(index, 1, 'tendril');
+            this.hitEnemy(run.enemies.indexOf(enemy), 1, 'tendril');
+            if (enemy.hp <= 0) live.delete(enemy);
           }
           if (capture.ticks === 8 || enemy.hp <= 0) {
             (enemy.freed ??= new WeakSet()).add(tendril);
@@ -369,13 +429,30 @@
           }
         }
         const { anchorX, anchorY } = tendril;
-        const dx = run.player.x - anchorX;
-        const dy = run.player.y - anchorY;
-        const lengthSquared = dx * dx + dy * dy;
-        for (const enemy of run.enemies) {
-          if (enemy.allied || enemy.y < 0 || tendril.captures.has(enemy) || enemy.freed?.has(tendril)) continue;
-          const t = clamp(((enemy.x - anchorX) * dx + (enemy.y - anchorY) * dy) / lengthSquared, 0, 1);
-          if (Math.hypot(enemy.x - anchorX - dx * t, enemy.y - anchorY - dy * t) > enemy.size + 9) continue;
+        const key = anchorX + ':' + anchorY;
+        let candidates = intersections.get(key);
+        if (!candidates) {
+          candidates = [];
+          intersections.set(key, candidates);
+          const dx = run.player.x - anchorX;
+          const dy = run.player.y - anchorY;
+          const lengthSquared = dx * dx + dy * dy;
+          const minX = Math.min(anchorX, run.player.x);
+          const maxX = Math.max(anchorX, run.player.x);
+          const minY = Math.min(anchorY, run.player.y);
+          const maxY = Math.max(anchorY, run.player.y);
+          for (const enemy of run.enemies) {
+            const radius = enemy.size + 9;
+            if (enemy.allied || enemy.y < 0 || enemy.x < minX - radius || enemy.x > maxX + radius ||
+                enemy.y < minY - radius || enemy.y > maxY + radius) continue;
+            const x = enemy.x - anchorX;
+            const y = enemy.y - anchorY;
+            const t = lengthSquared ? clamp((x * dx + y * dy) / lengthSquared, 0, 1) : 0;
+            if ((x - dx * t) ** 2 + (y - dy * t) ** 2 <= radius ** 2) candidates.push(enemy);
+          }
+        }
+        for (const enemy of candidates) {
+          if (!live.has(enemy) || tendril.captures.has(enemy) || enemy.freed?.has(tendril)) continue;
           enemy.grips = (enemy.grips ?? 0) + 1;
           tendril.captures.set(enemy, { time: 0, ticks: 0, drained: 0 });
         }
@@ -487,5 +564,5 @@
     }
   });
 
-  Object.assign(AG, { MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, syncShips });
+  Object.assign(AG, { MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, crateTotals, syncShips });
 })();

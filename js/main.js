@@ -851,13 +851,21 @@
       merchantHintSent = true;
     }
     const gameDt = dt * game.simulationSpeed;
-    accumulated += panelKind ? 0 : gameDt;
+    if (!panelKind && ['playing', 'intermission'].includes(game.state)) accumulated += gameDt;
+    else accumulated = 0;
+    const started = performance.now();
+    let steps = 0;
     while (accumulated >= tick) {
       if (!panelKind) game.update(tick);
       accumulated -= tick;
+      steps++;
+      if (game.simulationSpeed > 10 && steps % 16 === 0 && performance.now() - started > 10) {
+        accumulated %= tick;
+        break;
+      }
     }
     if (!panelKind && ['gameover', 'victory'].includes(game.state)) open('result');
-    view.draw(game, panelKind && game.run ? 0 : game.run ? gameDt : dt);
+    view.draw(game, panelKind && game.run ? 0 : game.run ? (game.simulationSpeed > 10 ? steps * tick : gameDt) : dt);
     renderHUD(now);
     if (hoveredDrop && !game.run?.drops.includes(hoveredDrop)) { hoveredDrop = null; AG.hideItemTooltip(); }
     requestAnimationFrame(frame);

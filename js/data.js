@@ -84,7 +84,7 @@ window.AG = (() => {
     carbon: { name: 'Carbon Wing', slot: 'Wings', rarity: 'epic', chance: .009, color: '#c597ff', glyph: '◀', speed: .32, description: 'Adds 32% movement speed.' },
     rail: { name: 'Rail Lance', slot: 'Weapon', rarity: 'epic', chance: .008, color: '#c597ff', glyph: '↑', damage: 2, description: 'Adds 2 damage to every shot.' },
     fusion: { name: 'Fusion Drive', slot: 'Engine', rarity: 'epic', chance: .007, color: '#c597ff', glyph: '☼', speed: .26, description: 'Adds 26% movement speed.' },
-    nova: { name: 'Nova Emitter', slot: 'Weapon', rarity: 'mythical', chance: .002, color: '#ff7ba7', glyph: '✹', damage: 4, description: 'Adds 4 damage to every shot.' },
+    nova: { name: 'Nova Emitter', slot: 'Weapon', rarity: 'rare', chance: .002, color: '#75df95', glyph: '✹', damage: 4, description: 'Adds 4 damage to every shot.' },
     rocket: { name: 'Blast Missile', slot: 'Weapon', rarity: 'rare', chance: .015, glyph: '◆', missile: 'blast',
       description: 'Launches toward a target’s current position. Its blast can hit several enemies.' },
     seeker: { name: 'Heat-Seeking Missile', slot: 'Weapon', rarity: 'legendary', glyph: '➶', missile: 'homing',
@@ -104,8 +104,8 @@ window.AG = (() => {
       { rarity: 'mythical', weight: 1, items: ['singularity'] }
     ] },
     upgradeCrate: { name: 'Upgrade Crate', rarity: 'rare', glyph: '▧', price: 2, outcomes: [
-      { rarity: 'rare', weight: 56, items: ['booster', 'wings', 'cannon', 'rocket'] },
-      { rarity: 'epic', weight: 42, items: ['rail', 'fusion', 'carbon'] }, { rarity: 'mythical', weight: 1.5, items: ['nova'] },
+      { rarity: 'rare', weight: 57.5, items: ['booster', 'wings', 'cannon', 'rocket', 'nova'] },
+      { rarity: 'epic', weight: 42, items: ['rail', 'fusion', 'carbon'] },
       { rarity: 'godly', weight: .5, items: ['beacon'] }
     ] }
   };

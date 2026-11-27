@@ -230,7 +230,7 @@
       const offset = (this.damageOffset++ % 5 - 2) * 5;
       this.damageNumbers.push({
         x: x + offset, y: Math.max(103, y - size - 3),
-        label: amount.toLocaleString(), size: laser ? 23 : 17,
+        label: amount.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }), size: laser ? 23 : 17,
         color: laser ? '#ff5267' : source === 'missile' ? '#ffc185' : '#fff0cf',
         life: laser ? .78 : .64, age: 0
       });
@@ -405,14 +405,22 @@
           ctx.restore();
         }
       }
-      for (const tendril of run.tendrils) {
+      const tendrilVisuals = new Map();
+      for (const { anchorX, anchorY, captures } of run.tendrils) {
+        const key = anchorX + ':' + anchorY;
+        if (!tendrilVisuals.has(key)) tendrilVisuals.set(key, { anchorX, anchorY, captures: new Set() });
+        const visual = tendrilVisuals.get(key);
+        for (const enemy of captures.keys()) visual.captures.add(enemy);
+      }
+      const detailedTendrils = tendrilVisuals.size <= 12;
+      for (const tendril of tendrilVisuals.values()) {
         const dx = run.player.x - tendril.anchorX;
         const dy = run.player.y - tendril.anchorY;
         const length = Math.hypot(dx, dy);
         if (!length) continue;
         const nx = -dy / length;
         const ny = dx / length;
-        const segments = Math.max(8, Math.ceil(length / 20));
+        const segments = Math.max(8, Math.ceil(length / (detailedTendrils ? 20 : 48)));
         const point = (t, shift = 0) => {
           const twist = Math.sin(t * 28 - this.time * 7 + shift) * Math.sin(Math.PI * t) * 3;
           return [tendril.anchorX + dx * t + nx * twist, tendril.anchorY + dy * t + ny * twist];
@@ -428,12 +436,12 @@
         ctx.save();
         ctx.lineCap = 'round';
         ctx.shadowColor = '#57ed98';
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = detailedTendrils ? 10 : 0;
         strand(0, '#236b4e', 10);
         ctx.shadowBlur = 2;
         strand(0, '#86ec7a', 4);
-        strand(Math.PI, '#cfed87', 1.35);
-        for (let i = 1; i < segments; i += 3) {
+        if (detailedTendrils) strand(Math.PI, '#cfed87', 1.35);
+        for (let i = 1; detailedTendrils && i < segments; i += 3) {
           const [x, y] = point(i / segments);
           const direction = i % 2 ? 1 : -1;
           ctx.strokeStyle = '#8df597aa';

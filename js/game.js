@@ -47,7 +47,7 @@
     get simulationSpeed() { return this.testing ? this.testSpeed : 1; }
 
     setTestSpeed(speed) {
-      if (!this.testing || !Number.isFinite(speed) || speed < .25 || speed > 10) return false;
+      if (!this.testing || !Number.isFinite(speed) || speed < .25 || speed > 1000) return false;
       this.testSpeed = speed;
       return true;
     }
@@ -187,6 +187,7 @@
       run.cleared++;
       this.awardMilestone();
       this.awardEndlessWave();
+      if (run.cleared % 5 === 0 || (run.mode === 'endless' && run.wave % 10 === 0) || run.wave === this.waveLimit) this.rollBonusRewards();
       this.save();
       this.notify('wave', 'Wave ' + run.wave + ' clear');
     }
@@ -194,34 +195,45 @@
     awardMilestone() {
       const count = this.run.cleared;
       if (count % 5) return;
-      const pending = this.profile.pendingMilestones;
-      const add = (id, amount = 1) => { pending[id] = (pending[id] ?? 0) + amount; };
-      const storedBoosts = ['heal', 'rapidFire', 'shield', 'doubleDamage', 'nanites'];
-      add(storedBoosts[(count / 5 - 1) % storedBoosts.length], 3);
+      const boosts = ['heal', 'rapidFire', 'shield', 'doubleDamage', 'nanites', 'overdrive'];
+      const rewards = { [this.rewardPick(boosts)]: 3 };
       if (count % 10 === 0) {
         const tier = Math.min(5, count / 10);
-        const upgrades = ['wings', 'carbon', 'fusion', 'rail', 'nova'];
-        add('credit', 500 * tier);
-        add('gem', 3 * tier);
-        add(upgrades[tier - 1], Math.min(3, tier));
-        add('upgradeCrate', tier);
-        if (AG.eventActive(this.now())) add(count % 20 ? 'alienCell' : 'alienMind');
+        Object.assign(rewards, { credit: 500 * tier, gem: 3 * tier, upgradeCrate: tier,
+          [this.rewardPick(['wings', 'carbon', 'fusion', 'rail', 'nova', 'booster', 'cannon', 'rocket'])]: Math.min(3, tier) });
+        if (AG.eventActive(this.now())) rewards.alienCell = tier;
       }
+      this.queueRewards(rewards);
       this.notify('milestone', count + ' waves cleared · Rewards earned');
     }
 
-    queueRewards(rewards) {
+    rewardPick(pool) {
+      return pool[Math.floor(this.random() * pool.length)] ?? pool[0];
+    }
+
+    queueRewards(rewards, reduce = true) {
       const pending = this.profile.pendingMilestones;
-      for (const [id, amount] of Object.entries(rewards)) pending[id] = (pending[id] ?? 0) + amount;
+      for (const [id, amount] of Object.entries(rewards)) {
+        const quantity = reduce ? Math.max(1, Math.round(amount * 2 / 3)) : amount;
+        pending[id] = (pending[id] ?? 0) + quantity;
+      }
+    }
+
+    rollBonusRewards() {
+      const active = AG.eventActive(this.now());
+      if (this.random() < .10) this.queueRewards({ [this.rewardPick(active ? ['fortress', 'alienMind'] : ['fortress'])]: 1 }, false);
+      if (this.random() < .03) this.queueRewards({ [this.rewardPick(active ? ['alienSerum', 'singularity'] : ['singularity'])]: 1 }, false);
     }
 
     awardModeClear() {
       const { mode } = this.run;
       if (mode === 'endless' || this.run.unlimitedTest) return;
       const tier = { easy: 1, medium: 2, hard: 3 }[mode];
+      const upgrade = this.rewardPick(tier === 1 ? ['cannon', 'wings', 'rocket'] :
+        ['rail', 'fusion', 'nova', 'carbon']);
+      const boost = this.rewardPick(['nanites', 'overdrive', 'doubleDamage']);
       const rewards = { credit: 4000 * tier, gem: 12 * tier, upgradeCrate: 5 * tier,
-        nanites: 4 * tier, [['rail', 'fusion', 'nova'][tier - 1]]: 2 * tier };
-      rewards.shipCrate = [2, 5, 10][tier - 1];
+        [boost]: 4 * tier, [upgrade]: 2 * tier, shipCrate: [2, 5, 10][tier - 1] };
       if (AG.eventActive(this.now())) rewards.alienCell = tier * 2;
       this.queueRewards(rewards);
     }
@@ -230,8 +242,9 @@
       const wave = this.run.wave;
       if (this.run.mode !== 'endless' || wave % 10 !== 0) return;
       const scale = Math.floor(Math.sqrt(wave / 10));
-      const rewards = { credit: wave * 100, gem: scale * 8, upgradeCrate: scale * 4, nanites: scale * 3,
-        [wave >= 100 ? 'nova' : 'rail']: scale * 2 };
+      const upgrade = this.rewardPick(wave >= 100 ? ['nova', 'carbon', 'fusion', 'rail'] : ['rail', 'fusion', 'carbon', 'rocket']);
+      const boost = this.rewardPick(['nanites', 'overdrive', 'shield', 'doubleDamage']);
+      const rewards = { credit: wave * 100, gem: scale * 8, upgradeCrate: scale * 4, [boost]: scale * 3, [upgrade]: scale * 2 };
       if (wave % 50 === 0) rewards.shipCrate = scale * 3;
       if (AG.eventActive(this.now())) rewards.alienCell = scale;
       this.queueRewards(rewards);
@@ -604,7 +617,7 @@
     }
 
     crateBatchLimit() {
-      return this.testing || this.adminUnlocked ? 10000 : 10;
+      return this.testing || this.adminUnlocked ? 1000000000000 : 10;
     }
 
     openCrates(type, count) {
@@ -613,12 +626,7 @@
       if (!Object.hasOwn(CRATES, type) || !Number.isSafeInteger(count) || count < 1 || this.run?.practice ||
           count > this.crateBatchLimit() || count > (profile.crates[type] ?? 0)) return false;
 
-      const totals = new Map();
-      for (let index = 0; index < count; index++) {
-        const { id } = AG.crateRoll(crate, this.random);
-        if (!Object.hasOwn(AG.ITEMS, id)) return false;
-        totals.set(id, (totals.get(id) ?? 0) + 1);
-      }
+      const totals = AG.crateTotals(crate, count, this.random);
       const rarityOrder = Object.keys(AG.RARITIES);
       const rank = id => rarityOrder.indexOf(AG.ITEMS[id].rarity ?? 'common');
       const rewards = [...totals].sort(([a], [b]) => rank(b) - rank(a))
