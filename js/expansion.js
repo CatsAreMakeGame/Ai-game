@@ -426,7 +426,7 @@
       } else {
         if (run.energy < run.energyCap) run.overdriveSuppressed = false;
         if (run.tendrils.length) run.energy = Math.max(0, run.energy + (.5 - run.tendrils.length) * dt);
-        else this.gainEnergy(.5 * dt, AG.contentActive() ? Math.min(100, run.energyCap) : run.energyCap);
+        else this.gainEnergy(.5 * dt, Math.min(100, run.energyCap));
       }
       if (run.energy <= 1e-8 && run.tendrils.length) while (this.retractTendril()) {}
       if (run.ship.mindControl && run.mindCooldown > 0) {

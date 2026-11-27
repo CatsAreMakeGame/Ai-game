@@ -257,6 +257,7 @@
       energyInput.value = String(run.energy);
       energyLabel.append(energyInput);
       energy.append(energyLabel);
+      if (game.hasSingularityBarrage()) energy.append(element('p', 'Barrage needs 115% energy and at least two-thirds of the wave remaining.', 'panel-note'));
       actions(energy, button('Set custom energy', () => {
         const value = energyInput.valueAsNumber;
         if (!game.setTestEnergy(value)) {

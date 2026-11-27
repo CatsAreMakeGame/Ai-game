@@ -40,7 +40,7 @@
       this.run.energy = value;
       this.run.energyOverdrive = false;
       this.run.overdriveTick = 0;
-      this.run.overdriveSuppressed = false;
+      this.run.overdriveSuppressed = value >= this.run.energyCap;
       return true;
     }
 
@@ -1320,7 +1320,7 @@
 
     hasSingularityBarrage() {
       const run = this.run;
-      return Boolean(AG.contentActive() && run?.ship.barrage && !run.ship.alien && !run.loadout?.special);
+      return Boolean((this.testing || AG.contentActive()) && run?.ship.barrage && !run.ship.alien && !run.loadout?.special);
     }
 
     updateBarrage(dt) {

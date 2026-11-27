@@ -173,13 +173,13 @@
     const boss = active && run.enemies.find(enemy => (run.practice ? AG.BOSSES[enemy.type] : enemy.type === AG.mainBoss(run.wave) && !enemy.escort) && enemy.y > 65 && !enemy.allied);
     $('boss').hidden = !boss;
     $('boosts').hidden = !active || !Object.keys(run.boosts).length;
-    $('ship-ability').hidden = !active || !(run.ship.ability || run.ship.alien || (AG.contentActive() && run.ship.barrage));
+    $('ship-ability').hidden = !active || !(run.ship.ability || run.ship.alien || ((game.testing || AG.contentActive()) && run.ship.barrage));
     if (!active) return;
     if (run.ship.ability) {
       const state = run.aegisShield > 0 ? Number(run.aegisShield.toFixed(1)) + ' shield' : run.aegisCooldown > 0 ? Math.ceil(run.aegisCooldown) + 's' : 'Ready';
       setText($('ship-ability'), run.ship.ability.name + ' · ' + state);
     }
-    if (AG.contentActive() && !run.ship.alien && run.ship.barrage) {
+    if ((game.testing || AG.contentActive()) && !run.ship.alien && run.ship.barrage) {
       const spec = run.ship.barrage;
       const state = !game.hasSingularityBarrage() ? 'Disabled by fitted ultimate' :
         run.barrage ? Math.max(0, spec.duration - run.barrage.elapsed).toFixed(1) + 's firing' :
