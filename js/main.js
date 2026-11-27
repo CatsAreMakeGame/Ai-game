@@ -367,7 +367,7 @@
     const kind = panelKind;
     mindAim = false;
     if (kind === 'craft') { armory.grid.fill(''); armory.missing = []; armory.ingredient = ''; armory.ingredientScroll = 0; }
-    if ((armoryPanels.includes(kind) || kind === 'settings' || kind === 'keybinds' || kind === 'uiSettings' || kind === 'launchMode' || kind === 'tutorial') && panelHistory.length) {
+    if ((armoryPanels.includes(kind) || kind === 'settings' || kind === 'keybinds' || kind === 'uiSettings' || kind === 'launchMode' || kind === 'tutorial' || kind === 'rewards') && panelHistory.length) {
       const parent = panelHistory.pop();
       resetPanelDraft();
       Object.assign(armory, { inventoryTab: parent.inventoryTab, shopTab: parent.shopTab, part: parent.part, ship: parent.ship });
@@ -482,7 +482,14 @@
     note.hidden = true;
     body.replaceChildren();
     const title = $('panel-title');
-    if (panelKind === 'queuedRewards') {
+    if (panelKind === 'rewards') {
+      setText(title, 'Rewards');
+      const ended = ['gameover', 'victory', 'quit'].includes(game.state);
+      const earned = ended ? (game.run?.milestoneRewards ?? []) : Object.entries(game.profile.lastRewards);
+      if (earned.length) appendMilestoneRewards(earned);
+      else body.append(element('p', 'Finish a campaign or reach a wave milestone to earn rewards.', 'panel-note'));
+      body.append(button('Back', dismiss));
+    } else if (panelKind === 'queuedRewards') {
       setText(title, 'Previous run ended');
       appendMilestoneRewards(abandonedRewards);
       body.append(button('Launch', start, { primary: true }), button('Main menu', showHome));
@@ -628,7 +635,8 @@
           'Rarest pickup · ' + (stats.rarest ? AG.itemName(stats.rarest) : 'None')]) if (entry) summary.append(element('li', entry));
         body.append(summary);
         appendMilestoneRewards(game.run.milestoneRewards);
-        actions.append(button('Launch again', () => navigate('launchMode'), { primary: true }));
+        actions.append(button('Launch again', () => navigate('launchMode'), { primary: true }),
+          button('Rewards', () => navigate('rewards')));
       }
       actions.append(game.run.practice ? button('Exit practice', () => {
         showHome();
@@ -667,6 +675,7 @@
     else if (panelKind) navigate('settings');
     else open('settings');
   });
+  $('rewards-open').addEventListener('click', () => open('rewards'));
   $('merchant-open').addEventListener('click', () => { if (game.canVisitBase()) open('merchant'); });
   $('hud-toggle').addEventListener('click', () => { hideTopMenu = !hideTopMenu; });
   $('outfit-open').addEventListener('click', () => open('shipPicker'));

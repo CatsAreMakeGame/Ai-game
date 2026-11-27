@@ -281,6 +281,15 @@
       }, { disabled: phase !== 'playing' }));
     }
 
+    if (!run) {
+      const progression = group('Pilot progression');
+      const level = element('p', 'Level ' + game.profile.bestPilotLevel, 'panel-note');
+      progression.append(level);
+      actions(progression, button('+1 pilot level', () => {
+        if (game.grantTestLevel()) level.textContent = 'Level ' + game.profile.bestPilotLevel;
+      }));
+    }
+
     const profile = group('Shop testing');
     actions(profile, button('Reset Merchant', () => {
       const stock = game.resetMerchant();

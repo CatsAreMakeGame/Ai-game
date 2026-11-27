@@ -6,7 +6,7 @@ A browser-based shooter with four flight modes, returning boss fleets, unlockabl
 
 - Move with **A/D**, the left and right arrows, or a held drag. The ship fires automatically. Fit a **Vector Engine** to unlock vertical movement.
 - Open **Inventory** between runs. Drag boosts into its three flight slots, then click a slot during flight to use its boost. Extra slots unlock at pilot levels 5 and 10. Reach those levels once to assign boosts between runs. Credits, Star Gems, parts and other loot are collected by flying close to the floating icons.
-- Equip a **Loot Magnet** to pull drops toward your ship. Right-click an equipped **Boost Cycle** in Ship Loadout to configure it. It starts off and can be enabled during flight with the **Auto** button or your Equipment keybind. It holds up to 15 of each of three boost types and activates one every two seconds when eligible. Fit a **Smoke Bomb** in an engine slot for a damaging four-second trail.
+- Equip a **Loot Magnet** to pull drops toward your ship. Right-click an equipped **Boost Cycle** in Ship Loadout to configure it. It starts off and can be enabled during flight with the **Auto** button or your Equipment keybind. It holds up to 15 of each of three boost types and activates one every two seconds when eligible. Fit a **Smoke Bomb** in an engine slot for a five-second trail that damages enemies every half second.
 - The boss ladder adds a new boss on waves 10, 20, 30, 40 and 50. Each boss wave includes the previous bosses. Boss waves cannot be skipped. Every five clears earn a boost. Every ten clears also earn Credits, Star Gems, an upgrade and an Alien Event item while the event is active. You'll receive these milestone rewards together when the run ends. Flight boost drops activate immediately.
 - Pilot level and XP save across runs. Use the top arrow to reduce the flight HUD to wave and health. Use **P** or **Esc** to pause. Continuing a saved run keeps its launch loadout. Equipment changes apply to new runs. At pilot level 5, you can buy flight supplies during intermission.
 
@@ -18,7 +18,13 @@ A browser-based shooter with four flight modes, returning boss fleets, unlockabl
 - All ships recover 0.5 energy per second and gain 1 per enemy destroyed until full. An eligible ship enters Overdrive automatically at full energy. It drains 1% of capacity every quarter second and suspends energy gain until it ends. Alien variants inherit the original ship’s energy capacity. Alien Ships extend and retract wall-anchored tendrils with **E** and **Q**. Extending costs 30 energy, and each anchor draws 1 per second. Captured enemies are held for four seconds and award 1 energy after two seconds. The Lightning Beacon uses **F** or right-click. It pulses every 0.1 seconds for normal shot damage divided by 2.75. Change the keys in Settings. To give an Alien Ship Mind Control, add that ship, an Alien Mind Serum and an Alien Mind to any three slots of the crafting grid. Press Q to release one controlled ship or retract a tendril.
 - Supernova is sold for Star Gems in Shop → Premium Shop. It can be purchased again after an hour, at double the previous price.
 
+## Rewards
+
+Campaign wins grant guaranteed credits, gems, crates, upgrades and repair boosts. Endless bonus rewards scale every tenth wave cleared, with Spaceship Crates every fiftieth wave. Rewards shows your most recent completed run's payout. Milestone rewards settle when you finish or quit.
+
 ## Loot crates
+
+Smoke Ninja can appear from wave 30, with a 10% chance per campaign wave or 3% per Endless wave. It drops a Smoke Bomb upgrade 60% of the time and a crate 45% of the time. Its purple smoke lasts ten seconds and deals two damage per half second within the cloud.
 
 The lead bosses at waves 10, 20, 30, 40 and 50 have a 20%, 30%, 40%, 50% and 60% chance to drop one crate, respectively. In Endless, later lead bosses stay at 60%. Escorts have no crate chance. A regular enemy has a 0.05% chance. When a crate drops, it is a Spaceship Crate 25% of the time and an Upgrade Crate 75% of the time.
 

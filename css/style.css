@@ -523,8 +523,6 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .merchant-widget button { min-height: 36px; white-space: nowrap; }
 #merchant-tab { border-color: #ac82ed; color: #e8d6ff; background: #25213c; display: grid; place-items: center; padding: 4px 8px; z-index: 1; }
 #merchant-tab img { width: 25px; height: 25px; object-fit: contain; }
-#merchant-open { transform: translateX(108%); transition: transform .18s ease, opacity .18s ease; opacity: 0; pointer-events: none; }
-.merchant-widget.expanded #merchant-open { transform: translateX(0); opacity: 1; pointer-events: auto; }
 .supernova-shop { margin-top: 13px; }
 @media (max-width: 570px) {
   .merchant-widget { top: -5px; }
@@ -559,7 +557,6 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .top-menu-hidden .hud { width: min(265px, calc(100% - 49px)); right: auto !important; justify-content: flex-start; }
 .top-menu-hidden .hud > div:not(.health-hud, .wave-hud),
 .top-menu-hidden #wave-actions, .top-menu-hidden #boss, .top-menu-hidden #boosts, .top-menu-hidden #ship-ability { display: none; }
-.console:has(.top-menu-hidden) > .top { display: none; }
 .top-menu-hidden .hud > .health-hud { flex-grow: 1; }
 .inventory-actions { display: flex; gap: 6px; margin-top: 6px; }
 .recipe-autofill { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }

@@ -47,7 +47,7 @@ window.AG = (() => {
     if (wave % 10) return [];
     const types = Object.keys(BOSSES);
     const tiers = Math.floor(wave / 10);
-    const count = tiers <= 5 ? tiers : Math.min(28, 5 + Math.ceil(Math.log2(tiers - 4)));
+    const count = tiers <= 5 ? tiers : Math.min(48, 5 + Math.ceil(9 * Math.log10(wave / 50)));
     return Array.from({ length: count }, (_, i) => types[i % types.length]);
   }
 
@@ -56,6 +56,7 @@ window.AG = (() => {
     shooter: { hp: 3, size: 21, unlock: 3, speed: 0.72, color: '#c99dff', score: 28 },
     diver: { hp: 2, size: 17, unlock: 5, speed: 1.55, color: '#ff927c', score: 18 },
     tank: { hp: 7, size: 27, unlock: 8, speed: 0.52, color: '#fbd575', score: 55 },
+    smokeNinja: { name: 'Smoke Ninja', hp: 28, size: 24, unlock: 30, speed: .67, color: '#cbb4e5', score: 170 },
     ...BOSSES
   };
   const BOOSTS = {
@@ -88,8 +89,8 @@ window.AG = (() => {
       description: 'Launches toward a target’s current position. Its blast can hit several enemies.' },
     seeker: { name: 'Heat-Seeking Missile', slot: 'Weapon', rarity: 'legendary', glyph: '➶', missile: 'homing',
       description: 'Steers after its target and can retarget if the original enemy is destroyed.' },
-    smokeBomb: { name: 'Smoke Bomb', slot: 'Engine', rarity: 'rare', glyph: '☁', smoke: true, chance: .018,
-      description: 'Leaves a four-second smoke trail that deals 1 damage per second to enemies inside it.' },
+    smokeBomb: { name: 'Smoke Bomb', slot: 'Engine', rarity: 'rare', glyph: '☁', smoke: true,
+      description: 'Surrounds your ship with a wider smoke trail. Each cloud lasts five seconds and deals 1 damage every half second.' },
     beacon: { name: 'Lightning Beacon', slot: 'Special', rarity: 'godly', glyph: '⚡', laser: true,
       description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold the Lightning Beacon key. Each 0.1-second pulse uses 1% energy and deals shot damage divided by 2.75.' },
     magnet: { name: 'Loot Magnet', slot: 'Ability', rarity: 'legendary', glyph: '∪', magnet: true,
@@ -103,7 +104,7 @@ window.AG = (() => {
       { rarity: 'mythical', weight: 5, items: ['singularity'] }
     ] },
     upgradeCrate: { name: 'Upgrade Crate', rarity: 'rare', glyph: '▧', price: 2, outcomes: [
-      { rarity: 'rare', weight: 56, items: ['booster', 'wings', 'cannon', 'rocket', 'smokeBomb'] },
+      { rarity: 'rare', weight: 56, items: ['booster', 'wings', 'cannon', 'rocket'] },
       { rarity: 'epic', weight: 42, items: ['rail', 'fusion', 'carbon'] }, { rarity: 'mythical', weight: 1.5, items: ['nova'] },
       { rarity: 'godly', weight: .5, items: ['beacon'] }
     ] }
@@ -154,11 +155,17 @@ window.AG = (() => {
     const step = Math.min(wave, 50) - 1;
     const extra = Math.max(0, Math.log10(wave / 50));
     return {
-      count: Math.ceil(6 * 1.05 ** step + 28 * extra),
-      health: 1.045 ** step * (1 + .5 * extra),
+      count: Math.ceil(6 * 1.05 ** step * (1 + extra * 3.8)),
+      damage: 1 + .012 * step + .58 * extra,
+      bossHealth: 1 + 1.25 * extra,
+      pack: Math.min(12, 1 + Math.floor(3 * extra)),
+      bossPack: Math.min(5, 1 + Math.floor(extra)),
+      bossCap: Math.min(12, 5 + Math.floor(2 * extra)),
+      bossSpawn: Math.max(.35, 1.35 / (1 + extra)),
+      health: 1.045 ** step * (1 + 1.45 * extra),
       speed: Math.min(175, 48 * 1.027 ** step),
-      spawn: Math.max(0.19, 0.9 * 0.963 ** step),
-      fire: Math.max(0.78, 3.5 * 0.955 ** step),
+      spawn: Math.max(.12, .9 * .963 ** step / (1 + .65 * extra)),
+      fire: Math.max(.36, 3.5 * .955 ** step / (1 + .42 * extra)),
       boss: wave % 10 === 0
     };
   }
@@ -244,6 +251,7 @@ window.AG = (() => {
       bestPilotLevel: Math.min(50, Math.max(1, readNumber('bestPilotLevel'), Number.isInteger(checkpoint?.level) ? checkpoint.level : 1)),
       pilotXp: saved?.pilotXp === undefined ? Math.max(0, Number.isSafeInteger(checkpoint?.xp) ? checkpoint.xp : 0) : readNumber('pilotXp'),
       pendingMilestones: counts('pendingMilestones', window.AG?.ITEMS ?? {}),
+      lastRewards: counts('lastRewards', window.AG?.ITEMS ?? {}),
       merchant: saved?.merchant ?? null,
       boostSide: saved?.boostSide === 'left' ? 'left' : 'right',
       layoutVersion: 1,

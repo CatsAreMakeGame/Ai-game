@@ -186,6 +186,7 @@
       if (!this.sprite('enemies/' + type, size * 1.18)) {
         ctx.scale(size / 20, size / 20);
         const hulls = {
+          smokeNinja: [[-22,-7], [-12,-17], [0,-21], [12,-17], [22,-7], [9,0], [15,16], [0,10], [-15,16], [-9,0]],
           grunt: [[-19, -5], [-11, -14], [11, -14], [19, -5], [13, 9], [0, 16], [-13, 9]],
           diver: [[-20, -17], [0, -9], [20, -17], [11, 4], [0, 19], [-11, 4]],
           shooter: [[-19, -5], [-9, -17], [9, -17], [19, -5], [16, 12], [0, 16], [-16, 12]],
@@ -356,9 +357,19 @@
         this.ship(685, 321 + drift, '#d5fa74', 2.8, game.profile.ship);
         return;
       }
+      for (const puff of run.enemySmoke) {
+        const haze = ctx.createRadialGradient(puff.x, puff.y, puff.size * .13, puff.x, puff.y, puff.size);
+        haze.addColorStop(0, '#9f73c274');
+        haze.addColorStop(.65, '#784a9c59');
+        haze.addColorStop(1, '#5e3f7900');
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, puff.life);
+        disc(ctx, puff.x, puff.y, puff.size, haze);
+        ctx.restore();
+      }
       for (const puff of run.smoke) {
         ctx.save();
-        ctx.globalAlpha = .23 * puff.life / 4;
+        ctx.globalAlpha = .23 * puff.life / 5;
         const haze = ctx.createRadialGradient(puff.x, puff.y, 2, puff.x, puff.y, puff.size);
         haze.addColorStop(0, '#c9d8ac');
         haze.addColorStop(.55, '#9da88d');

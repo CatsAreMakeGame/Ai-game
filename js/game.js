@@ -107,7 +107,7 @@
       this.releaseInput();
       this.run = {
         wave: 0, level: this.profile.bestPilotLevel, xp: this.profile.pilotXp, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostCycleOn: false, boostCycleDelay: 0, ship, shipId, mode, mindCooldown: 30, controlSequence: 0, tendrils: [],
-        stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisShield: 0, smoke: [], smokeIn: 0,
+        stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: 0, aegisShield: 0, smoke: [], smokeIn: 0, enemySmoke: [], smokeDamageIn: .5,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
         missiles: [], missileIn: 0, targetMode: 'nearest', energy: 0, energyCap: AG.energyCapacity(ship), energyOverdrive: false, overdriveTick: 0, overdriveSuppressed: false,
@@ -125,10 +125,13 @@
       run.pending = AG.bossLineup(number);
       const lead = AG.mainBoss(number);
       if (lead) run.pending.unshift(...run.pending.splice(run.pending.indexOf(lead), 1));
-      const pool = Object.keys(ENEMIES).filter(type => !BOSSES[type] && ENEMIES[type].unlock <= number);
+      const pool = Object.keys(ENEMIES).filter(type => type !== 'smokeNinja' && !BOSSES[type] && ENEMIES[type].unlock <= number);
       const count = diff.boss ? Math.ceil(diff.count * 0.42) : diff.count;
       for (let index = 0; index < count; index++) {
         run.pending.push(pool[Math.floor(this.random() * pool.length)]);
+      }
+      if (number >= 30 && !run.practice && this.random() < (run.mode === 'endless' ? .03 : .1)) {
+        run.pending.splice(lead ? 1 : 0, 0, 'smokeNinja');
       }
       run.total = run.pending.length;
       run.spawned = 0;
@@ -174,6 +177,7 @@
       for (const tendril of run.tendrils) for (const enemy of tendril.captures.keys()) this.releaseCapture(tendril, enemy);
       run.cleared++;
       this.awardMilestone();
+      this.awardEndlessWave();
       this.save();
       this.notify('wave', 'Wave ' + run.wave + ' clear');
     }
@@ -196,6 +200,33 @@
       this.notify('milestone', count + ' waves cleared · Rewards earned');
     }
 
+    queueRewards(rewards) {
+      const pending = this.profile.pendingMilestones;
+      for (const [id, amount] of Object.entries(rewards)) pending[id] = (pending[id] ?? 0) + amount;
+    }
+
+    awardModeClear() {
+      const { mode } = this.run;
+      if (mode === 'endless' || this.run.unlimitedTest) return;
+      const tier = { easy: 1, medium: 2, hard: 3 }[mode];
+      const rewards = { credit: 750 * tier, gem: 3 * tier, upgradeCrate: tier,
+        nanites: tier, [['rail', 'fusion', 'nova'][tier - 1]]: 1 };
+      if (tier >= 2) rewards.shipCrate = tier - 1;
+      if (AG.eventActive(this.now())) rewards.alienCell = tier * 2;
+      this.queueRewards(rewards);
+    }
+
+    awardEndlessWave() {
+      const wave = this.run.wave;
+      if (this.run.mode !== 'endless' || wave % 10 !== 0) return;
+      const scale = Math.floor(Math.sqrt(wave / 10));
+      const rewards = { credit: wave * 25, gem: scale * 2, upgradeCrate: scale, nanites: scale,
+        [wave >= 100 ? 'nova' : 'rail']: scale };
+      if (wave % 50 === 0) rewards.shipCrate = scale;
+      if (AG.eventActive(this.now())) rewards.alienCell = scale;
+      this.queueRewards(rewards);
+    }
+
     settleMilestones() {
       const earned = Object.entries(this.profile.pendingMilestones);
       const settled = [];
@@ -215,6 +246,7 @@
     abandonSavedRun() {
       this.profile.checkpoint = null;
       const rewards = this.settleMilestones();
+      if (rewards.length) this.profile.lastRewards = Object.fromEntries(rewards);
       this.save();
       return rewards;
     }
@@ -242,7 +274,9 @@
       this.profile.checkpoint = null;
       this.releaseInput();
       this.state = state;
+      if (state === 'victory') this.awardModeClear();
       run.milestoneRewards = this.settleMilestones();
+      if (run.milestoneRewards.length) this.profile.lastRewards = Object.fromEntries(run.milestoneRewards);
       this.save();
     }
 
@@ -441,17 +475,56 @@
         const movement = Math.hypot(x - lastX, y - lastY);
         const back = movement > 0 ? 16 / movement : 0;
         run.smoke.push({ x: x + (lastX - x) * back, y: movement > 0 ? y + (lastY - y) * back : y + 14,
-          life: 4, size: 37 });
+          life: 5, size: 66 });
         run.smokeIn = .1;
       }
       for (let i = run.enemies.length - 1; i >= 0; i--) {
         const enemy = run.enemies[i];
         if (enemy.allied || !run.smoke.some(puff => touches(enemy, puff))) continue;
         enemy.smokeExposure = (enemy.smokeExposure ?? 0) + dt;
-        if (enemy.smokeExposure + 1e-8 < 1) continue;
-        enemy.smokeExposure -= 1;
+        if (enemy.smokeExposure + 1e-8 < .5) continue;
+        enemy.smokeExposure -= .5;
         this.hitEnemy(i, count || 1, 'smoke');
       }
+    }
+
+    spreadEnemySmoke(enemy) {
+      const { enemySmoke } = this.run;
+      enemySmoke.push({ x: enemy.x, y: enemy.y, size: 98, life: 10 });
+      for (let i = 0; i < 9; i++) {
+        enemySmoke.push({ x: (i % 3 + .5) * WIDTH / 3 + (this.random() - .5) * 80,
+          y: (Math.floor(i / 3) + .5) * HEIGHT / 3 + (this.random() - .5) * 65,
+          size: 92 + this.random() * 30, life: 10 });
+      }
+      if (enemySmoke.length > 60) enemySmoke.splice(0, enemySmoke.length - 60);
+      this.notify('wave', 'Smoke Ninja · Hazardous smoke');
+    }
+
+    updateEnemySmoke(dt) {
+      const run = this.run;
+      const exposed = run.enemySmoke.some(puff => touches(run.player, puff));
+      for (const puff of run.enemySmoke) puff.life -= dt;
+      run.enemySmoke = run.enemySmoke.filter(puff => puff.life > 1e-8);
+      run.smokeDamageIn = Math.max(0, run.smokeDamageIn - dt);
+      if (!exposed) {
+        run.smokeDamageIn = .5;
+        return;
+      }
+      if (run.smokeDamageIn > 1e-8) return;
+      run.smokeDamageIn = .5;
+      this.hurt(2, 'Smoke Ninja smoke', true);
+    }
+
+    grantTestLevel() {
+      if (!this.testing || this.run?.practice) return false;
+      const level = this.run?.level ?? this.profile.bestPilotLevel;
+      if (level >= 50) return false;
+      if (this.run) this.gainXp(xpForLevel(level) - this.run.xp);
+      else {
+        this.profile.bestPilotLevel++;
+        this.profile.pilotXp = 0;
+      }
+      return true;
     }
 
     adjustBoostReserve(type, amount) {
@@ -621,11 +694,11 @@
       if (formation === 'diagonal') x = 240 + run.spawned % 12 * 110;
       if (formation === 'cluster') x = WIDTH / 2 + (run.spawned % 10 - 1.5) * 34;
       if (formation === 'pair') x = WIDTH / 2 + (run.spawned % 8 ? 45 : -45);
-      const hp = boss ? Math.round(spec.hp * (1 + .25 * Math.max(0, Math.log10(run.wave / 50)))) : Math.ceil(spec.hp * run.diff.health);
+      const hp = boss ? Math.round(spec.hp * run.diff.bossHealth) : Math.ceil(spec.hp * run.diff.health);
       run.enemies.push({
         type, x, origin: x, y: -spec.size, size: spec.size, hp, maxHp: hp,
         speed: run.diff.speed * (spec.speed ?? 0), lane: (run.spawned + 2) % 5, fireIn: 1 + this.random() * run.diff.fire,
-        fireDelay: run.diff.fire, age: 0, bornWave: run.wave, flash: 0, volley: 0, formation,
+        fireDelay: run.diff.fire, damageScale: run.diff.damage, smokeIn: 0, age: 0, bornWave: run.wave, flash: 0, volley: 0, formation,
         escort: Boolean(boss && (run.spawned !== 0 || extra))
       });
       if (extra) run.total++;
@@ -672,6 +745,10 @@
       this.updateSmoke(dt, x, y);
       this.updateEnergy(dt);
       if (this.state === 'intermission') {
+        if (run.wave < this.waveLimit) {
+          this.updateEnemySmoke(dt);
+          if (run.player.hp <= 0) { this.finish('gameover'); return; }
+        }
         for (const enemy of run.enemies) if (enemy.allied) this.actAsAlly(enemy, dt, true);
         this.updatePlayerShots(dt);
         this.updateMissiles(dt);
@@ -687,11 +764,18 @@
       this.tickBoosts(dt);
       this.updateBoostRelay(dt);
       run.spawnIn = Math.max(0, run.spawnIn - dt);
-      if (run.pending.length && run.spawnIn === 0 &&
-        (!BOSSES[run.pending[0]] || run.enemies.filter(enemy => BOSSES[enemy.type]).length < 5)) {
-        const type = run.pending.shift();
-        this.spawn(type);
-        run.spawnIn = BOSSES[type] ? 1.35 : run.diff.spawn;
+      if (run.pending.length && run.spawnIn === 0) {
+        const bossBatch = !!BOSSES[run.pending[0]];
+        const limit = bossBatch ? run.diff.bossPack : run.diff.pack;
+        let activeBosses = bossBatch ? run.enemies.filter(enemy => BOSSES[enemy.type]).length : 0;
+        for (let i = 0; i < limit && run.pending.length; i++) {
+          const type = run.pending[0];
+          if (Boolean(BOSSES[type]) !== bossBatch || (bossBatch && activeBosses >= run.diff.bossCap)) break;
+          run.pending.shift();
+          this.spawn(type);
+          if (bossBatch) activeBosses++;
+        }
+        run.spawnIn = bossBatch ? run.diff.bossSpawn : run.diff.spawn;
       }
       if (this.profile.auto && this.canSkip() && run.spawned / run.total >= AUTO_SKIP_AT) this.skip();
 
@@ -708,6 +792,7 @@
       if (!this.laserActive()) this.launchMissile(dt);
       this.updateAlien(dt);
       this.moveEnemies(dt);
+      this.updateEnemySmoke(dt);
       this.updateProjectiles(dt);
       this.updateMissiles(dt);
       this.updateLaser(dt);
@@ -752,12 +837,16 @@
           enemy.x = clamp(enemy.origin + Math.sin(enemy.age * (diver ? 4.2 : 1.5)) * (diver ? 73 : 17), enemy.size, WIDTH - enemy.size);
         }
 
+        if (enemy.type === 'smokeNinja' && enemy.y > 45) {
+          enemy.smokeIn -= dt;
+          if (enemy.smokeIn <= 0) { this.spreadEnemySmoke(enemy); enemy.smokeIn = 12; }
+        }
         if (enemy.y > HEIGHT + enemy.size) {
           this.removeEnemy(index, false, true);
           continue;
         }
         if (touches(enemy, player)) {
-          this.hurt(boss ? 24 : 16, (boss?.name ?? enemy.type) + ' collision');
+          this.hurt(Math.round((boss ? 24 : 16) * (enemy.damageScale ?? run.diff.damage)), (boss?.name ?? enemy.type) + ' collision');
           if (!boss) this.removeEnemy(index, false);
           continue;
         }
@@ -797,7 +886,7 @@
         const shotSpeed = enemy.type === 'prism' && index % 2 ? speed * 1.32 :
           enemy.type === 'nexus' && index % 2 ? speed * .72 : speed;
         hostile.push({ x: enemy.x, y: enemy.y + 4, size: 6, vx: Math.cos(angle) * shotSpeed,
-          vy: Math.sin(angle) * shotSpeed, damage: boss ? 12 + boss.tier : 9,
+          vy: Math.sin(angle) * shotSpeed, damage: Math.round((boss ? 12 + boss.tier : 9) * (enemy.damageScale ?? this.run.diff.damage)),
           color: ENEMIES[enemy.type].color, source: (boss?.name ?? enemy.type) + ' fire', splitIn: enemy.type === 'prism' && index % 2 === 0 ? .53 : null });
       }
     }
@@ -996,9 +1085,9 @@
       });
     }
 
-    hurt(damage, source = 'Enemy fire') {
+    hurt(damage, source = 'Enemy fire', damageOverTime = false) {
       const { player, boosts } = this.run;
-      if ((this.testing && this.run.godMode) || player.invulnerable > 0 || boosts.shield || boosts.fortress) return;
+      if ((this.testing && this.run.godMode) || (!damageOverTime && player.invulnerable > 0) || boosts.shield || boosts.fortress) return;
       const run = this.run;
       const ability = run.ship.ability;
       if (ability && damage > 0 && !run.aegisShield && run.aegisCooldown === 0) {
@@ -1012,12 +1101,12 @@
         if (run.aegisShield === 0) run.aegisCooldown = ability.interval;
       }
       if (!damage) {
-        player.invulnerable = .78;
+        if (!damageOverTime) player.invulnerable = .78;
         return;
       }
       player.hp = Math.max(0, player.hp - damage);
       this.run.stats.lastHit = source;
-      player.invulnerable = 0.78;
+      if (!damageOverTime) player.invulnerable = 0.78;
       this.notify('hit');
     }
 
@@ -1026,7 +1115,7 @@
       const [enemy] = run.enemies.splice(index, 1);
       if (!enemy.allied && enemy.bornWave === run.wave) run.resolved++;
       if (!killed) {
-        if (escaped) this.hurt(5, 'An escaped enemy');
+        if (escaped) this.hurt(Math.round(5 * (enemy.damageScale ?? run.diff.damage)), 'An escaped enemy');
         return;
       }
       const boss = BOSSES[enemy.type];
@@ -1055,7 +1144,9 @@
         break;
       }
       const lead = boss && !enemy.escort && enemy.bornWave === run.wave && AG.mainBoss(run.wave) === enemy.type;
-      const crateChance = lead ? Math.min(.6, (run.wave / 10 + 1) / 10) : boss ? 0 : .0005;
+      const ninja = enemy.type === 'smokeNinja';
+      if (ninja && this.random() < .6) this.dropItem('smokeBomb', enemy.x + 27, enemy.y);
+      const crateChance = ninja ? .45 : lead ? Math.min(.6, (run.wave / 10 + 1) / 10) : boss ? 0 : .0005;
       if (crateChance && this.random() < crateChance) {
         this.dropItem(this.random() < .25 ? 'shipCrate' : 'upgradeCrate', enemy.x - 31, enemy.y);
       }
