@@ -35,6 +35,15 @@
       return true;
     }
 
+    setTestEnergy(value) {
+      if (!this.testing || !this.run || !Number.isFinite(value) || value < 0 || value > Number.MAX_SAFE_INTEGER) return false;
+      this.run.energy = value;
+      this.run.energyOverdrive = false;
+      this.run.overdriveTick = 0;
+      this.run.overdriveSuppressed = false;
+      return true;
+    }
+
     get simulationSpeed() { return this.testing ? this.testSpeed : 1; }
 
     setTestSpeed(speed) {
@@ -1154,7 +1163,7 @@
 
     dropItem(type, x, y, amount = 1) {
       this.run.drops.push({ type, amount, x: clamp(x, 22, WIDTH - 22),
-        y: clamp(y, 100, FLIGHT_LANE), age: 0, size: 16 });
+        y: clamp(y, 22, HEIGHT - 22), age: 0, size: 16 });
     }
 
     collectDrops(dt) {
@@ -1162,15 +1171,18 @@
       const collected = [];
       const magnet = this.upgradeEffects().magnet;
       run.drops = run.drops.filter(drop => {
+        const oldAge = drop.age;
         drop.age += dt;
-        if (magnet) {
-          const dx = run.player.x - drop.x;
-          const dy = run.player.y - drop.y;
-          const distance = Math.hypot(dx, dy);
-          const step = Math.min(1, 1450 * dt / Math.max(1, distance));
-          drop.x += dx * step;
-          drop.y += dy * step;
-        } else drop.y = Math.min(FLIGHT_LANE, drop.y + 140 * dt);
+        if (drop.age + 1e-8 < 1) return true;
+        const movingFor = Math.max(0, drop.age - 1);
+        const elapsed = Math.min(dt, Math.max(0, drop.age - Math.max(1, oldAge)));
+        const speed = Math.min(magnet ? 800 : 340, movingFor * (magnet ? 750 : 310));
+        const dx = run.player.x - drop.x;
+        const dy = run.player.y - drop.y;
+        const distance = Math.hypot(dx, dy);
+        const step = Math.min(1, speed * elapsed / Math.max(1, distance));
+        drop.x += dx * step;
+        drop.y += dy * step;
         if (touches(drop, run.player)) {
           if (drop.type !== 'alienSerum' || !this.profile.serumUsed || !AG.eventActive(this.now())) collected.push(drop);
           return false;

@@ -94,14 +94,14 @@ window.AG = (() => {
     beacon: { name: 'Lightning Beacon', slot: 'Special', rarity: 'godly', glyph: '⚡', laser: true,
       description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold the Lightning Beacon key. Each 0.1-second pulse uses 1% energy and deals shot damage divided by 2.75.' },
     magnet: { name: 'Loot Magnet', slot: 'Ability', rarity: 'legendary', glyph: '∪', magnet: true,
-      description: 'Pulls enemy loot to your ship and collects it when it arrives.' },
+      description: 'Makes drops accelerate toward your ship much faster after their one-second pause.' },
     boostRelay: { name: 'Boost Cycle', slot: 'Ability', rarity: 'epic', glyph: '▣', boostRelay: true,
       description: 'Holds up to 15 each of three boost types, with two seconds between activations. Right-click its equipped slot in Ship Loadout to configure it. Switch it on manually during flight.' }
   };
   const CRATES = {
     shipCrate: { name: 'Spaceship Crate', rarity: 'epic', glyph: '▣', price: 3, outcomes: [
-      { rarity: 'rare', weight: 72, items: ['comet'] }, { rarity: 'epic', weight: 23, items: ['eclipse'] },
-      { rarity: 'mythical', weight: 5, items: ['singularity'] }
+      { rarity: 'rare', weight: 76, items: ['comet'] }, { rarity: 'epic', weight: 23, items: ['eclipse'] },
+      { rarity: 'mythical', weight: 1, items: ['singularity'] }
     ] },
     upgradeCrate: { name: 'Upgrade Crate', rarity: 'rare', glyph: '▧', price: 2, outcomes: [
       { rarity: 'rare', weight: 56, items: ['booster', 'wings', 'cannon', 'rocket'] },

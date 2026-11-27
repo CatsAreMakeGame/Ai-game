@@ -252,22 +252,20 @@
       const energyInput = element('input');
       energyInput.type = 'number';
       energyInput.min = '0';
-      energyInput.max = String(run.energyCap);
       energyInput.step = 'any';
       energyInput.value = String(run.energy);
       energyLabel.append(energyInput);
       energy.append(energyLabel);
       actions(energy, button('Set custom energy', () => {
         const value = energyInput.valueAsNumber;
-        if (!Number.isFinite(value) || value < 0 || value > run.energyCap) {
-          status.textContent = 'Enter an energy percentage from 0 to ' + run.energyCap + '.';
+        if (!game.setTestEnergy(value)) {
+          status.textContent = 'Enter a valid non-negative percentage, such as 5000.';
           energyInput.focus();
           return;
         }
-        run.energy = value;
         status.textContent = 'Ship energy set to ' + value + '%.';
       }), button('Charge to full', () => {
-        run.energy = run.energyCap;
+        game.setTestEnergy(run.energyCap);
         energyInput.value = String(run.energyCap);
         status.textContent = 'Ship fully charged.';
       }));

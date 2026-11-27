@@ -268,7 +268,8 @@
     },
 
     canEnergyOverdrive() {
-      return !!this.run && !this.run.ship.alien && !this.upgradeEffects().laser;
+      return !!this.run && this.run.energy <= this.run.energyCap + 1e-8 &&
+        !this.run.ship.alien && !this.upgradeEffects().laser;
     },
 
     overdriveStacks() {
@@ -277,7 +278,7 @@
 
     gainEnergy(amount) {
       const run = this.run;
-      if (run.energyOverdrive) return;
+      if (run.energyOverdrive || run.energy > run.energyCap) return;
       run.energy = Math.min(run.energyCap, run.energy + amount);
       this.tryEnergyOverdrive();
     },

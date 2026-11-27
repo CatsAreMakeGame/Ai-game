@@ -5,8 +5,8 @@ A browser-based shooter with four flight modes, returning boss fleets, unlockabl
 ## Flight
 
 - Move with **A/D**, the left and right arrows, or a held drag. The ship fires automatically. Fit a **Vector Engine** to unlock vertical movement.
-- Open **Inventory** between runs. Drag boosts into its three flight slots, then click a slot during flight to use its boost. Extra slots unlock at pilot levels 5 and 10. Reach those levels once to assign boosts between runs. Credits, Star Gems, parts and other loot are collected by flying close to the floating icons.
-- Equip a **Loot Magnet** to pull drops toward your ship. Right-click an equipped **Boost Cycle** in Ship Loadout to configure it. It starts off and can be enabled during flight with the **Auto** button or your Equipment keybind. It holds up to 15 of each of three boost types and activates one every two seconds when eligible. Fit a **Smoke Bomb** in an engine slot for a five-second trail that damages enemies every half second.
+- Open **Inventory** between runs. Drag boosts into its three flight slots, then click a slot during flight to use its boost. Extra slots unlock at pilot levels 5 and 10. Reach those levels once to assign boosts between runs. Loot pauses for one second and then accelerates toward your ship.
+- Equip a **Loot Magnet** to pull drops toward your ship faster. Right-click an equipped **Boost Cycle** in Ship Loadout to configure it. It starts off and can be enabled during flight with the **Auto** button or your Equipment keybind. It holds up to 15 of each of three boost types and activates one every two seconds when eligible. Fit a **Smoke Bomb** in an engine slot for a five-second trail that damages enemies every half second.
 - The boss ladder adds a new boss on waves 10, 20, 30, 40 and 50. Each boss wave includes the previous bosses. Boss waves cannot be skipped. Every five clears earn a boost. Every ten clears also earn Credits, Star Gems, an upgrade and an Alien Event item while the event is active. You'll receive these milestone rewards together when the run ends. Flight boost drops activate immediately.
 - Pilot level and XP save across runs. Use the top arrow to reduce the flight HUD to wave and health. Use **P** or **Esc** to pause. Continuing a saved run keeps its launch loadout. Equipment changes apply to new runs. At pilot level 5, you can buy flight supplies during intermission.
 
@@ -24,6 +24,8 @@ Campaign wins grant guaranteed credits, gems, crates, upgrades and repair boosts
 
 ## Loot crates
 
+Spaceship Crates have a 1% chance to contain Singularity.
+
 Smoke Ninja can appear from wave 30, with a 10% chance per campaign wave or 3% per Endless wave. It drops a Smoke Bomb upgrade 60% of the time and a crate 45% of the time. Its purple smoke lasts ten seconds and deals two damage per half second within the cloud.
 
 The lead bosses at waves 10, 20, 30, 40 and 50 have a 20%, 30%, 40%, 50% and 60% chance to drop one crate, respectively. In Endless, later lead bosses stay at 60%. Escorts have no crate chance. A regular enemy has a 0.05% chance. When a crate drops, it is a Spaceship Crate 25% of the time and an Upgrade Crate 75% of the time.
@@ -37,7 +39,7 @@ The lead bosses at waves 10, 20, 30, 40 and 50 have a 20%, 30%, 40%, 50% and 60%
 
 ## Local testing
 
-Open **Admin** and enter `ADMIN99` once per tab session. **Test clock** can skip ahead for the Alien Event, Supernova availability and Merchant restocks. **Wave controls** can run the entire game from **0.25× to 10×** during testing. Admin wave jumps past the selected campaign’s limit enable a test override up to **2,147,483,647**. Regular campaign tests stop at the chosen mode’s final wave. Higher input is capped at that value. High-wave spawns scale within fixed limits to keep the browser responsive. **Clear all testing data** resets the isolated test inventory, currency and run after confirmation. **Exit testing** restores the normal game.
+Open **Admin** and enter `ADMIN99` once per tab session. **Ship energy** accepts test values above the ship's normal capacity, such as 5,000%. **Test clock** can skip ahead for the Alien Event, Supernova availability and Merchant restocks. **Wave controls** can run the entire game from **0.25× to 10×** during testing. Admin wave jumps past the selected campaign’s limit enable a test override up to **2,147,483,647**. Regular campaign tests stop at the chosen mode’s final wave. Higher input is capped at that value. High-wave spawns scale within fixed limits to keep the browser responsive. **Clear all testing data** resets the isolated test inventory, currency and run after confirmation. **Exit testing** restores the normal game.
 
 ## Source
 
