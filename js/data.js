@@ -176,7 +176,7 @@ window.AG = (() => {
 
   const SHIP_ORDER = ['supernova', 'singularity', 'aurora', 'zenith', 'enemySmokeNinja', 'leviathan', 'enemyTank', 'eclipse', 'solaris', 'enemyDiver', 'tempest', 'bastion', 'enemyShooter', 'comet', 'wraith', 'falcon', 'enemyGrunt', 'scout'];
   const BOOST_LOCK = 'new-icons/vector-icon-pack/General/Lock/Lock 256.png';
-  const CONTENT_START = Date.parse('2026-11-28T11:30:00+11:00');
+  const CONTENT_START = Date.parse('2026-11-28T12:15:00+11:00');
   const contentActive = (now = Date.now()) => now >= CONTENT_START;
   const LAUNCH_DEALS_END = Date.parse('2026-11-29T00:00:00+11:00');
   const SHIP_CRATE_OFFER_PRICE = CRATES.shipCrate.price / 4;
