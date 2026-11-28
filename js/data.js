@@ -44,6 +44,7 @@ window.AG = (() => {
     gemPrice: 100,
     ability: { name: 'Nova Aegis', interval: 24, capacity: 50 }
   });
+  SHIPS.singularity.gemPrice = 100;
   SHIPS.singularity.barrage = { name: 'Singularity Barrage', energy: 115, shots: 960, duration: 8, sweepPasses: 6, arcDegrees: 120, damageScale: 1.25 };
   const aegisCapacity = ship => contentActive() ? ship.hull * 1.5 : ship.ability?.capacity ?? 0;
   for (const id of ['enemyGrunt', 'enemyShooter', 'enemyDiver', 'enemyTank', 'enemySmokeNinja']) SHIPS[id].enemyFrame = true;
@@ -77,7 +78,7 @@ window.AG = (() => {
   const questsActive = (now = Date.now()) => now >= QUESTS_START;
   const BOOSTS = {
     goldenTrident: { name: 'Golden Trident', rarity: 'legendary', duration: 0, coreWeapon: true, glyph: '♆',
-      description: 'Use from a boost slot against the lead Nexus Overlord on wave 50 to expose its Energy Core.' },
+      description: 'Use from an item slot to halve the health of enemies already spawned in the current wave. Exposes the Energy Core on the lead Nexus Overlord at wave 50.' },
     snowCrystal: { name: 'Snow Crystal', rarity: 'rare', duration: 0, snowfall: true,
       glyph: '❄', description: 'Summons snowfall from a boost slot. 90-second cooldown.' },
     quickload: { name: 'Quickload Cache', rarity: 'epic', duration: 8, barrels: 2, pickupChance: .0025,
@@ -210,9 +211,9 @@ window.AG = (() => {
   });
   const updateGiftDay = now => giftCalendar.format(now);
   const UPDATE_GIFTS = [
-    { wait: 0, rewards: { credit: 100, gem: 1 } },
-    { wait: 180000, rewards: { upgradeBundle: 1, boostBundle: 1 } },
-    { wait: 360000, rewards: { shipCrate: 2, upgradeCrate: 2, enemyCrate: 2 } }
+    { wait: 180000, rewards: { credit: 50, gem: 1 } },
+    { wait: 300000, rewards: { credit: 100, gem: 2, upgradeBundle: 1, boostBundle: 1 } },
+    { wait: 720000, rewards: { credit: 150, gem: 3, shipCrate: 1, upgradeCrate: 1, enemyCrate: 1, upgradeBundle: 3, boostBundle: 3 } }
   ];
   const crateUnitPrice = (id, now = Date.now()) => id === 'shipCrate' && !contentActive(now) ? 3 : (CRATES[id]?.price ?? 0);
   function liveCrate(id) {
@@ -352,24 +353,27 @@ window.AG = (() => {
     const claimed = Number.isSafeInteger(giftSave?.claimed) ? Math.min(UPDATE_GIFTS.length, Math.max(0, giftSave.claimed)) : 0;
     let nextAt = Number.isSafeInteger(giftSave?.nextAt) ? Math.max(0, giftSave.nextAt) : 0;
     if (giftSave?.version !== 2 && claimed === 2 && nextAt > 0 && nextAt <= 8640000000000000 - 60000) nextAt += 60000;
-    // An older save only recorded the deadline for the next gift.
+    // Older saves used three- and six-minute follow-up waits.
+    if (giftSave?.version !== 3 && nextAt > 0) nextAt += claimed === 1 ? 120000 : claimed === 2 ? 360000 : 0;
     const previousClaim = nextAt - (UPDATE_GIFTS[claimed]?.wait ?? 0);
     const giftDay = typeof giftSave?.day === 'string' ? giftSave.day :
       claimed && nextAt <= 8640000000000000 && previousClaim > 0 ? updateGiftDay(previousClaim) : '';
     return {
       unlocked, ship: unlocked.includes(saved?.ship) ? saved.ship : unlocked[0], alienShips,
       materials,
-      copies: counts('copies', catalog), flagshipPurchases: Math.max(0, readNumber('flagshipPurchases') || Number(unlocked.includes('supernova'))),
-      flagshipTime: readNumber('flagshipTime'), boostOverdriveTime: readNumber('boostOverdriveTime'), serumUsed: saved?.serumUsed === true, mindControlPerShip: true,
+      copies: counts('copies', catalog), flagshipPurchases: Math.max(0, saved?.flagshipPurchases === undefined ? Number(unlocked.includes('supernova')) : readNumber('flagshipPurchases')),
+      flagshipTime: readNumber('flagshipTime'), boostOverdriveTime: readNumber('boostOverdriveTime'),
+      boostOverdrivePurchases: saved?.boostOverdrivePurchases === undefined ? Number(readNumber('boostOverdriveTime') > 0) : readNumber('boostOverdrivePurchases'),
+      singularityTime: readNumber('singularityTime'), singularityPurchases: readNumber('singularityPurchases'), serumUsed: saved?.serumUsed === true, mindControlPerShip: true,
       quests: saved?.quests ?? null,
       questSupernovaTime: readNumber('questSupernovaTime'),
-      updateGifts: { version: 2, day: giftDay, claimed, nextAt },
+      updateGifts: { version: 3, day: giftDay, claimed, nextAt },
       shipCrateOfferUsed: saved?.shipCrateOfferUsed === true,
       allowRareCrateSkip: saved?.allowRareCrateSkip === true,
       bounties: (Array.isArray(saved?.bounties) ? saved.bounties : []).filter(id => Object.hasOwn(BOSSES, id)),
       boostSlots: Array.from({ length: 3 }, (_, i) => {
         const id = (saved?.boostSlots ?? saved?.favoriteBoosts)?.[i];
-        return Object.hasOwn(BOOSTS, id) ? id : '';
+        return Object.hasOwn(BOOSTS, id) || Object.hasOwn(window.AG?.MATERIALS ?? {}, id) ? id : '';
       }),
       bestPilotLevel: Math.min(50, Math.max(1, readNumber('bestPilotLevel'), Number.isInteger(checkpoint?.level) ? checkpoint.level : 1)),
       pilotXp: saved?.pilotXp === undefined ? Math.max(0, Number.isSafeInteger(checkpoint?.xp) ? checkpoint.xp : 0) : readNumber('pilotXp'),

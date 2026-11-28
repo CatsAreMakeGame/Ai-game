@@ -83,7 +83,7 @@
       const questStatus = element('p', '', 'admin-status');
       quests.append(questStatus);
       actions(quests, button('Finished 1 quest', () => {
-        questStatus.textContent = game.finishTestQuest() ? 'Completed ' + game.questCount() + ' quests today.' : 'No unlocked quest remaining.';
+        questStatus.textContent = game.finishTestQuest() ? 'Completed ' + game.questDay().completed + ' quests today.' : 'No unlocked quest remaining.';
       }));
     }
     const timeGroup = group('Test clock');

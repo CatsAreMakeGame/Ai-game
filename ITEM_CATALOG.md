@@ -28,8 +28,8 @@ Speeds include the 20% base movement reduction. A dash in the price column means
 | Supernova | godly | 205 | 504 | 0.17 | 5 | 3 | 110% | — |
 | Snowman | mythical | 165 | 448 | 0.22 | 4 | 3 | 105% | — |
 
-- **Supernova:** 100 Star Gems initially, price doubles after each purchase, one-hour purchase cooldown. Permanently out of stock from 1 December 2026 at midnight AEDT. Owned ships stay playable. Nova Aegis starts with a 24-second cooldown and absorbs 1.5× max hull. Recharges 24 seconds after breaking.
-- **Singularity:** Barrage uses 115% energy if at least two-thirds of the wave remains. Fires 960 shots over 8 seconds in six passes over an 80° forward arc. Shots deal 1.25× base damage, benefit from boosts, and can hit three enemies or reflect off side walls. Rapid Fire at activation can raise the shot count up to 4×. A fitted Ultimate disables Barrage. The main gun pauses during Barrage.
+- **Supernova:** 100 Star Gems initially, price and restock wait double after every purchase, starting with a one-hour wait. Permanently out of stock from 1 December 2026 at midnight AEDT. Owned ships stay playable. Nova Aegis starts with a 24-second cooldown and absorbs 1.5× max hull. Recharges 24 seconds after breaking.
+- **Singularity:** Premium Shop starts at 100 Star Gems. Price and restock wait double after each purchase, starting with one hour. Barrage uses 115% energy if at least two-thirds of the wave remains. Fires 960 shots over 8 seconds in six passes over an 80° forward arc. Shots deal 1.25× base damage, benefit from boosts, and can hit three enemies or reflect off side walls. Rapid Fire at activation can raise the shot count up to 4×. A fitted Ultimate disables Barrage. The main gun pauses during Barrage.
 - **Alien variants:** Any obtainable regular ship can be alienated once. Its rarity and energy cap carry over. Hull, movement speed, base damage, and firing rate are 1.1× the donor’s. Alien ships use tendrils and can gain Mind Control by crafting. They lose the donor’s native ultimate.
 
 ## Upgrades
@@ -55,7 +55,7 @@ Speeds include the 20% base movement reduction. A dash in the price column means
 | Loot Magnet | legendary | Ability | Makes drops accelerate toward your ship much faster after their one-second pause. | — |
 | Boost Cycle | epic | Ability | Holds up to 15 each of three boost types, with two seconds between activations. Right-click its equipped slot in Ship Loadout to configure it. Switch it on manually during flight. | — |
 | Boost Cascade | legendary | Ability | Holds up to 30 each of five boost types, with half a second between activations. | — |
-| Boost Overdrive | mythical | Ability | Holds up to 150 each of three boost types and activates eligible boosts without a delay. Costs 75 Star Gems, one-hour cooldown. | — |
+| Boost Overdrive | mythical | Ability | Holds up to 150 each of three boost types and activates eligible boosts without a delay. Starts at 75 Star Gems. Price and restock wait double after each purchase, starting with a one-hour wait. | — |
 
 Twin Cannon and Triple Cannon fire at half the normal volley rate. Smoke Bomb and Radioactive Smoke Bomb boost range and duration with multiple fitted copies, without multiplying damage. Merchant credits prices are Boost Cascade 3,200, Heat-Seeking Missile 2,200, Vector Engine 2,400, Loot Magnet 2,000.
 
@@ -120,15 +120,29 @@ Bundle size is uniform in the listed range. Each bundle cycles through distinct 
 ## December snowfall
 
 - **Natural snowfall:** 10% chance at each tenth wave in December 2026, Melbourne time. Each snowfall lasts 18 seconds and releases 15–30 Common Snowflakes. The Mythical Snowman has a 1% chance per snowfall. It shines white as a pickup. Uncaught pickups fall offscreen.
-- **Snow Crystal:** Rare, crafted with five Snowflakes in a plus pattern. Triggers snowfall from a boost slot, with a 90-second cooldown. Crafted crystals can be used year-round.
+- **Snow Crystal:** Rare, crafted with five Snowflakes in a plus pattern. Triggers snowfall from a boost slot, with a 90-second cooldown. Crafted crystals can summon snowfall only during December 2026.
 - **Snowman:** Fires homing snowballs that prioritize the hostile enemy closest to the bottom. Every 25th projectile is a crystal that targets the highest-HP hostile enemy and freezes it for 10 seconds on impact, including bosses. Each projectile in a multi-shot volley counts. Snowfall boosts base hull, movement speed, damage and fire rate by 1.5×. Its energy cap stays at 105%.
 - **Wave and run payouts:** Credits, Star Gems, and crates from finish rewards and milestones pay 25% of their previous quantities, rounded down. Wave-clear Credits follow the same reduction.
 
 
 ## Daily quests
 
-- Unlocks at 3:00 p.m. AEDT on 28 November 2026. Quests reset at midnight Melbourne time. There are 30 daily objectives across enemies, loot, waves cleared, deepest wave cleared and bosses. Fresh pilots have 10 unlocked, with all 30 open at level 20. Most quests award 20–45 Credits. Quests 10 and 30 award 1 Star Gem each.
-- **Golden Trident:** Legendary single-use boost-slot weapon from quest 20. Targets the lead Nexus Overlord on wave 50, removes its enemies and pending reinforcements, and exposes its core. Its health becomes two-thirds of normal. It deals 1.5× damage, moves 1.5× faster and fires at 1.5× cadence.
+- Unlocks at 3:00 p.m. AEDT on 28 November 2026. Quests reset at midnight Melbourne time. There are 30 daily objectives across enemies, loot, waves cleared, deepest wave cleared and bosses. Fresh pilots have 10 unlocked, with all 30 open at level 20. Complete objectives sequentially, then claim their rewards manually. Quests 11–29 pay 1 Star Gem each, with the milestone totals below replacing that amount for quests 10, 20 and 30.
+- **Golden Trident:** Legendary single-use item-slot weapon from quest 20. Works on any wave. Golden arcs halve the health of enemies already spawned in that wave. On wave 50 it also exposes the lead Nexus Overlord’s core. It deals 1.5× damage, moves 1.5× faster and fires at 1.5× cadence.
 - **Energy Core:** Mythical material. Drops from the lead Nexus Overlord after Golden Trident exposure. Catch it before it falls offscreen.
 - **Quest Supernova:** Once Premium Shop stock ends on 1 December, claim a Supernova for 1 Energy Core after completing all 30 quests on the same Melbourne day. 24-hour cooldown between claims.
 - **Snow Crystal recipe:** Appears in Event Recipes from 1 December 2026 onward.
+
+## Quest and gift payouts
+
+| Quest | Credits | Star Gems | Bundles | Crates | Extra |
+| --- | ---: | ---: | --- | --- | --- |
+| 10 | 250 | 3 | 2 of each | 1 random | |
+| 20 | 500 | 5 | 5 of each | 1 of each | Golden Trident |
+| 30 | 1,500 | 15 | 20 of each | 3 of each | |
+
+| Daily gift | Wait | Credits | Star Gems | Bundles | Crates |
+| --- | --- | ---: | ---: | --- | --- |
+| Small | 3 minutes after first viewing Premium Shop that day | 50 | 1 | — | — |
+| Medium | 5 minutes after claiming Small | 100 | 2 | 1 of each | — |
+| Large | 12 minutes after claiming Medium | 150 | 3 | 3 of each | 1 of each |

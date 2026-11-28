@@ -137,29 +137,38 @@
     if (run && game.hasEnergyOverdriveBoost()) ids.push('energyOverdrive');
     display.hidden = !ids.length;
     const signature = ids.join('|');
-    if (display.dataset.effects === signature) return;
-    display.dataset.effects = signature;
-    display.replaceChildren(...ids.map(id => {
+    if (display.dataset.effects !== signature) {
+      display.dataset.effects = signature;
+      display.replaceChildren(...ids.map(id => {
       const icon = AG.itemGraphic(id);
       icon.tabIndex = 0;
       icon.removeAttribute('aria-hidden');
       icon.setAttribute('aria-label', AG.itemName(id));
-      return icon;
-    }));
+        const row = element('div', '', 'active-boost-row');
+        row.append(icon, element('small'));
+        return row;
+      }));
+    }
+    for (const [index, id] of ids.entries()) {
+      const timers = run.boosts[id] ?? [];
+      const seconds = id === 'energyOverdrive' ? (run.energy - run.energyCap / 4) / 6 :
+        id === 'shield' || id === 'fortress' ? timers.reduce((sum, time) => sum + time, 0) : Math.max(0, ...timers);
+      setText(display.children[index].lastElementChild, Math.ceil(Math.max(0, seconds)) + 's');
+    }
   }
 
   let questPanelSignature = '';
   function renderQuestPanel() {
     const anchor = $('quest-anchor');
     const drawer = $('quest-panel');
-    anchor.hidden = !AG.questsActive(game.now());
+    anchor.hidden = !AG.questsActive(game.now()) || Boolean(panelKind) || game.state !== 'home';
     if (anchor.hidden || drawer.hidden) return;
     const daily = game.questDay();
-    const completed = game.questCount();
+    const completed = daily.completed;
     const unlocked = game.questLimit();
     const retirement = game.now() >= AG.SNOW_START;
     const available = game.canClaimQuestSupernova();
-    const key = [daily.day, unlocked, daily.claimed.join(','), JSON.stringify(daily.progress), retirement, available, game.itemCount('energyCore'), game.profile.questSupernovaTime].join('|');
+    const key = [daily.day, unlocked, completed, daily.claimed.join(','), JSON.stringify(daily.progress), retirement, available, game.itemCount('energyCore'), game.profile.questSupernovaTime].join('|');
     if (key === questPanelSignature) return;
     questPanelSignature = key;
     const scroll = drawer.scrollTop;
@@ -167,15 +176,18 @@
     for (const quest of AG.QUESTS) {
       const locked = quest.id > unlocked;
       const done = daily.claimed.includes(quest.id);
-      const progress = Math.min(quest.target, daily.progress[quest.key] ?? 0);
-      const [item, quantity] = quest.reward;
+      const finished = quest.id <= completed;
+      const progress = finished ? quest.target : quest.id === completed + 1 ? Math.min(quest.target, daily.progress) : 0;
       const row = element('article', '', 'quest-row');
       row.append(element('strong', quest.id + '. ' + quest.label + ' ' + quest.target),
-        element('small', locked ? 'Locked' : done ? 'Completed' : progress + '/' + quest.target));
+        element('small', locked ? 'Locked' : done ? 'Claimed' : finished ? 'Ready to claim' : quest.id > completed + 1 ? 'Complete previous quest' : progress + '/' + quest.target));
       const reward = element('div', '', 'quest-reward');
-      reward.append(AG.itemGraphic(item), element('span', quantity + ' × ' + AG.itemName(item)));
+      for (const [item, quantity] of Object.entries(quest.reward)) {
+        if (item === 'randomCrate') reward.append(element('span', quantity + ' × Random crate'));
+        else reward.append(AG.itemGraphic(item), element('span', quantity + ' × ' + AG.itemName(item)));
+      }
       row.append(reward);
-      if (!locked && !done && progress >= quest.target) row.append(button('Claim', () => {
+      if (!locked && !done && finished) row.append(button('Claim', () => {
         if (game.claimQuest(quest.id)) renderQuestPanel();
       }));
       drawer.append(row);
@@ -241,6 +253,7 @@
     $('flight-layout').classList.toggle('compact-energy', active && hideTopMenu && AG.balanceActive());
     $('flight-layout').classList.toggle('boost-left', game.profile.boostSide === 'left');
     $('combat-rim').hidden = !active;
+    $('flight-layout').classList.toggle('snow-active', active && run.snowfall > 0);
     setText($('admin'), game.testing ? 'Admin · Testing' : 'Admin');
     alert.hidden = !active || Boolean(panelKind) || now >= Math.max(rewardUntil, creditUntil);
     banner.hidden = !active || Boolean(panelKind) || now >= waveUntil;
@@ -300,7 +313,7 @@
       const slot = $('flight-boost-' + i);
       const ready = game.boostSlotOpen(i);
       slot.disabled = Boolean(panelKind) || !ready || !id || !game.canUseBoost(id);
-      const caption = !ready ? 'Lv ' + [1, 5, 10][i] : id === 'snowCrystal' && run.snowCooldown > 0 ? Math.ceil(run.snowCooldown) + 's' : id ? '×' + (game.profile.boosts[id] ?? 0) : 'Empty';
+      const caption = !ready ? 'Lv ' + [1, 5, 10][i] : id === 'snowCrystal' && run.snowCooldown > 0 ? Math.ceil(run.snowCooldown) + 's' : id ? '×' + game.itemCount(id) : 'Empty';
       if (slot.dataset.item !== (ready ? id : 'locked')) {
         slot.dataset.item = ready ? id : 'locked';
         const lock = element('img', '', 'boost-lock');
@@ -309,7 +322,7 @@
         slot.replaceChildren(...(!ready ? [lock] : id ? [AG.itemGraphic(id)] : []), element('small'));
       }
       setText(slot.lastElementChild, caption);
-      const name = ready ? (AG.BOOSTS[id]?.name ?? 'Empty boost slot') : 'Unlocks at pilot level ' + [1, 5, 10][i];
+      const name = ready ? (AG.ITEMS[id]?.name ?? 'Empty item slot') : 'Unlocks at pilot level ' + [1, 5, 10][i];
       slot.title = name;
       slot.setAttribute('aria-label', name);
     }

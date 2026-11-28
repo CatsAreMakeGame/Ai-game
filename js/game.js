@@ -538,19 +538,28 @@
       return this.merchantStock();
     }
 
+    premiumWait(last, purchases) {
+      return last ? Math.max(0, last + AG.PREMIUM_PURCHASE_COOLDOWN * 2 ** Math.max(0, purchases - 1) - this.now()) : 0;
+    }
+
+    premiumUpgradePrice(id) {
+      return UPGRADES[id]?.premium * 2 ** this.profile.boostOverdrivePurchases;
+    }
+
     premiumUpgradeWait() {
-      return Math.max(0, this.profile.boostOverdriveTime + AG.PREMIUM_PURCHASE_COOLDOWN - this.now());
+      return this.premiumWait(this.profile.boostOverdriveTime, this.profile.boostOverdrivePurchases);
     }
 
     canBuyPremiumUpgrade(id) {
-      const price = UPGRADES[id]?.premium;
-      return Boolean(AG.contentActive() && price && this.canVisitBase() && this.profile.gems >= price &&
+      const price = this.premiumUpgradePrice(id);
+      return Boolean(AG.contentActive() && Number.isSafeInteger(price) && this.canVisitBase() && this.profile.gems >= price &&
         this.premiumUpgradeWait() === 0 && Number.isSafeInteger(this.itemCount(id) + 1));
     }
 
     buyPremiumUpgrade(id) {
       if (!this.canBuyPremiumUpgrade(id)) return false;
-      this.profile.gems -= UPGRADES[id].premium;
+      this.profile.gems -= this.premiumUpgradePrice(id);
+      this.profile.boostOverdrivePurchases++;
       this.profile.boostOverdriveTime = this.now();
       return this.grantItem(id);
     }
@@ -694,6 +703,26 @@
       return true;
     }
 
+    loadAllBoosts(id) {
+      const limits = UPGRADES[id]?.boostRelay;
+      if (!limits || !this.canVisitBase() || !this.itemCount(id)) return false;
+      const { boosts, boostReserves } = this.profile;
+      const reserve = boostReserves[id];
+      const types = new Set(Object.keys(reserve));
+      let added = 0;
+      for (const type of [...new Set([...types, ...Object.keys(BOOSTS)])]) {
+        if (!boosts[type] || BOOSTS[type].coreWeapon || BOOSTS[type].snowfall || (!types.has(type) && types.size >= limits.types)) continue;
+        const transfer = Math.min(boosts[type], limits.capacity - (reserve[type] ?? 0));
+        if (transfer <= 0) continue;
+        types.add(type);
+        reserve[type] = (reserve[type] ?? 0) + transfer;
+        boosts[type] -= transfer;
+        added += transfer;
+      }
+      if (added) this.save();
+      return added;
+    }
+
     toggleBoostRelay() {
       if (!this.run || this.run.practice || !['playing', 'intermission'].includes(this.state) ||
           !this.upgradeEffects().boostRelay) return false;
@@ -728,9 +757,9 @@
     }
 
     canUseBoost(type) {
-      return Boolean(this.run && !this.run.practice && !this.canVisitBase() && this.run.player.hp > 0 && this.profile.boosts[type] &&
+      return Boolean(BOOSTS[type] && this.run && !this.run.practice && !this.canVisitBase() && this.run.player.hp > 0 && this.profile.boosts[type] &&
         (!BOOSTS[type].repair || this.run.player.hp < this.maxHull()) &&
-        (!BOOSTS[type].snowfall || (this.run.snowCooldown <= 0 && this.run.snowfall <= 0)) &&
+        (!BOOSTS[type].snowfall || (AG.snowSeason(this.now()) && this.run.snowCooldown <= 0 && this.run.snowfall <= 0)) &&
         (!BOOSTS[type].coreWeapon || this.canFireCoreWeapon()));
     }
 
@@ -791,7 +820,10 @@
 
     updateGiftProgress(now = this.now()) {
       const day = AG.updateGiftDay(now);
-      if (this.profile.updateGifts.day !== day) this.profile.updateGifts = { version: 2, day, claimed: 0, nextAt: 0 };
+      if (this.profile.updateGifts.day !== day || (!this.profile.updateGifts.claimed && !this.profile.updateGifts.nextAt)) {
+        this.profile.updateGifts = { version: 3, day, claimed: 0, nextAt: now + AG.UPDATE_GIFTS[0].wait };
+        this.save();
+      }
       return this.profile.updateGifts;
     }
 
@@ -886,7 +918,7 @@
 
     canUnlockFlagship(id) {
       const price = this.flagshipPrice(id);
-      return this.now() < AG.SNOW_START && this.canVisitBase() && Number.isSafeInteger(price) && this.profile.gems >= price && this.flagshipWait() === 0;
+      return (id === 'singularity' || this.now() < AG.SNOW_START) && this.canVisitBase() && Number.isSafeInteger(price) && this.profile.gems >= price && this.flagshipWait(id) === 0;
     }
 
     unlockFlagship(id) {
@@ -895,8 +927,13 @@
       const copies = this.shipCount(id);
       if (!copies) this.profile.unlocked.push(id);
       this.profile.copies[id] = copies + 1;
-      this.profile.flagshipPurchases++;
-      this.profile.flagshipTime = this.now();
+      if (id === 'singularity') {
+        this.profile.singularityPurchases++;
+        this.profile.singularityTime = this.now();
+      } else {
+        this.profile.flagshipPurchases++;
+        this.profile.flagshipTime = this.now();
+      }
       this.discoverItem(id);
       this.save();
       this.notify('loot', { type: id, amount: 1 });
@@ -1619,7 +1656,7 @@
 
     startSnowfall() {
       const run = this.run;
-      if (run.snowfall > 0 || run.practice) return false;
+      if (!AG.snowSeason(this.now()) || run.snowfall > 0 || run.practice) return false;
       const previousHull = this.maxHull();
       run.snowfall = 18;
       run.player.hp += this.maxHull() - previousHull;
@@ -1636,7 +1673,7 @@
     updateSnowfall(dt) {
       const run = this.run;
       const oldHull = this.maxHull();
-      run.snowfall = Math.max(0, run.snowfall - dt);
+      run.snowfall = AG.snowSeason(this.now()) ? Math.max(0, run.snowfall - dt) : 0;
       run.snowCooldown = Math.max(0, run.snowCooldown - dt);
       if (this.maxHull() < oldHull) run.player.hp = Math.min(run.player.hp, this.maxHull());
     }
@@ -1647,6 +1684,7 @@
       const magnet = this.upgradeEffects().magnet;
       run.drops = run.drops.filter(drop => {
         if (drop.fallDelay !== undefined) {
+          if (drop.type !== 'energyCore' && !AG.snowSeason(this.now())) return false;
           drop.fallDelay -= dt;
           if (drop.fallDelay > 0) return true;
           drop.y += dt * (drop.type === 'snowman' ? 80 : 64);

@@ -581,6 +581,12 @@
     return section;
   }
 
+  function premiumTime(milliseconds) {
+    const seconds = Math.ceil(milliseconds / 1000);
+    return (seconds >= 3600 ? Math.floor(seconds / 3600) + 'h ' : '') +
+      Math.floor(seconds / 60) % 60 + 'm ' + seconds % 60 + 's';
+  }
+
   function renderArmory({ kind, state, game, body, button, element, open, dismiss, refresh }) {
     const profile = game.profile;
     const base = game.canVisitBase();
@@ -618,7 +624,7 @@
       itemHover(tile, id, false);
       tile.setAttribute('aria-label', AG.itemName(id) + ', ' + rarity + ', quantity ' + (count || 1));
       tile.append(graphic(id), element('b', '×' + (count || 1).toLocaleString(), 'inventory-count'));
-      if (BOOSTS[id]) {
+      if (BOOSTS[id] || AG.MATERIALS[id]) {
         tile.draggable = true;
         tile.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', id));
       }
@@ -698,6 +704,7 @@
       const { capacity, types: maxTypes } = UPGRADES[relay].boostRelay;
       const stock = profile.boostReserves[relay];
       const types = Object.keys(stock).length;
+      if (state.relayTab !== 'queue') reserve.append(button('Load all', () => { game.loadAllBoosts(relay); refresh(); }));
       reserve.append(element('p', types + '/' + maxTypes + ' boost types · up to ' + capacity + ' copies per type', 'panel-note'));
       for (const [id, boost] of Object.entries(BOOSTS)) {
         const available = profile.boosts[id] ?? 0;
@@ -761,9 +768,9 @@
         const status = () => {
           const retired = game.now() >= AG.SNOW_START;
           const seconds = Math.ceil(game.flagshipWait() / 1000);
-          wait.textContent = retired ? 'Permanently out of stock' : seconds ? 'Next purchase in ' + Math.floor(seconds / 60) + 'm ' + seconds % 60 + 's' : 'Available to purchase';
+          wait.textContent = retired ? 'Permanently out of stock' : seconds ? 'Next purchase in ' + premiumTime(seconds * 1000) : 'Available to purchase';
           buy.disabled = !game.canUnlockFlagship('supernova');
-          if (retired) buy.textContent = 'Out of stock';
+          buy.textContent = retired || seconds ? 'Out of stock' : 'Buy for ' + (Number.isSafeInteger(price) ? AG.formatCurrency(price) + ' Star Gems' : 'maximum price');
           return !retired;
         };
         if (status()) {
@@ -778,6 +785,30 @@
         featured.append(visual, details);
         shipGroup.append(featured);
         body.append(shipGroup);
+        const singularity = element('article', '', 'overdrive-feature');
+        const singularityArt = element('div', '', 'overdrive-art');
+        singularityArt.append(graphic('singularity'));
+        const singularityInfo = element('div', '', 'overdrive-info');
+        const singularityWait = element('p', '', 'panel-note');
+        const singPrice = game.flagshipPrice('singularity');
+        const singLabel = 'Buy for ' + AG.formatCurrency(singPrice) + ' Star Gems';
+        const buySing = button(singLabel, () => {
+          if (game.unlockFlagship('singularity')) state.result = 'Singularity acquired. Equip it in the Hangar.';
+          refresh();
+        }, { primary: true });
+        const syncSing = () => {
+          const remaining = game.flagshipWait('singularity');
+          buySing.textContent = remaining ? 'Out of stock' : singLabel;
+          buySing.disabled = !game.canUnlockFlagship('singularity');
+          singularityWait.textContent = remaining ? 'Next purchase in ' + premiumTime(remaining) : 'Available to purchase';
+          return remaining;
+        };
+        if (syncSing()) {
+          const timer = setInterval(() => { if (!singularityWait.isConnected || !syncSing()) clearInterval(timer); }, 1000);
+        }
+        singularityInfo.append(element('h3', 'Singularity'), element('p', tooltipText('singularity'), 'panel-note'), singularityWait, buySing);
+        singularity.append(singularityArt, singularityInfo);
+        body.append(singularity);
         if (AG.contentActive()) {
           const id = 'boostOverdrive';
           const item = UPGRADES[id];
@@ -794,14 +825,16 @@
           ]) benefits.append(element('li', benefit));
           const rarity = element('span', 'Mythical · Ability upgrade', 'overdrive-rarity');
           const wait = element('p', '', 'panel-note');
-          const buy = button('Buy · ' + item.premium + ' Star Gems', () => {
+          const buyLabel = 'Buy · ' + AG.formatCurrency(game.premiumUpgradePrice(id)) + ' Star Gems';
+          const buy = button(buyLabel, () => {
             if (game.buyPremiumUpgrade(id)) state.result = item.name + ' purchased.';
             refresh();
           }, { primary: true, disabled: !game.canBuyPremiumUpgrade(id) });
           function refreshCooldown() {
             const seconds = Math.ceil(game.premiumUpgradeWait() / 1000);
-            wait.textContent = seconds ? 'Next purchase in ' + Math.floor(seconds / 60) + 'm ' + seconds % 60 + 's' : 'Available to purchase';
+            wait.textContent = seconds ? 'Next purchase in ' + premiumTime(seconds * 1000) : 'Available to purchase';
             buy.disabled = !game.canBuyPremiumUpgrade(id);
+            buy.textContent = seconds ? 'Out of stock' : buyLabel;
             return seconds;
           }
           if (refreshCooldown()) {
@@ -885,11 +918,11 @@
           if (state.selectedUpgrade === id) outfit.setAttribute('aria-pressed', 'true');
           card(id, UPGRADES[id].description, outfit, profile.upgrades[id]);
         }
-      } else if (tab === 'boosts') {
+      } else if (tab === 'boosts' || tab === 'items') {
         const assigned = element('div', '', 'boost-assign');
         profile.boostSlots.forEach((id, i) => {
-          const slot = button('', () => assign(BOOSTS[state.selectedItem] ? state.selectedItem : ''));
-          slot.setAttribute('aria-label', 'Flight boost slot ' + (i + 1));
+          const slot = button('', () => assign(BOOSTS[state.selectedItem] || AG.MATERIALS[state.selectedItem] ? state.selectedItem : ''));
+          slot.setAttribute('aria-label', 'Flight item slot ' + (i + 1));
           const unlocked = game.boostSlotOpen(i);
           slot.disabled = !unlocked;
           if (!unlocked) {
@@ -900,7 +933,7 @@
           } else if (id) slot.append(graphic(id));
           slot.append(element('small', 'Level ' + [1, 5, 10][i]));
           function assign(type) {
-            if (!game.boostSlotOpen(i) || (type && (!BOOSTS[type] || !profile.boosts[type]))) return;
+            if (!game.boostSlotOpen(i) || (type && (!(BOOSTS[type] || AG.MATERIALS[type]) || !game.itemCount(type)))) return;
             profile.boostSlots[i] = type;
             game.save();
             refresh();
@@ -910,17 +943,16 @@
           slot.addEventListener('drop', event => {
             event.preventDefault();
             const type = event.dataTransfer.getData('text/plain');
-            if (BOOSTS[type]) assign(type);
+            if (BOOSTS[type] || AG.MATERIALS[type]) assign(type);
           });
           assigned.append(slot);
         });
-        body.append(assigned, element('p', 'Drag a boost to a flight slot, or select a boost and tap a slot. Right-click a slot to clear it.', 'panel-note'));
-        for (const id of sortItems(BOOSTS, boost => boost.repair ?? boost.duration)) {
+        body.append(assigned, element('p', 'Drag a boost or item to an item slot, or select it and tap a slot. Right-click to clear.', 'panel-note'));
+        if (tab === 'boosts') for (const id of sortItems(BOOSTS, boost => boost.repair ?? boost.duration)) {
           if (!profile.boosts[id]) continue;
           card(id, BOOSTS[id].description, null, profile.boosts[id]);
         }
-      } else if (tab === 'items') {
-        for (const id of sortItems(AG.MATERIALS, () => 0)) {
+        if (tab === 'items') for (const id of sortItems(AG.MATERIALS, () => 0)) {
           if (!AG.itemAvailable(id) || !profile.materials[id]) continue;
           card(id, ITEMS[id].description, null, profile.materials[id]);
           if (id.startsWith('alien')) eventTiles.append(tileChoices.get(id).tile);

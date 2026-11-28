@@ -521,17 +521,26 @@
         ctx.restore();
       }
       if (run.coreBeam?.life > 0) {
-        const { x, y, boss, targets, life } = run.coreBeam;
+        const { x, y, targets, life } = run.coreBeam;
         ctx.save();
         ctx.globalAlpha = Math.min(1, life * 2);
         ctx.strokeStyle = '#ffd868';
         ctx.shadowColor = '#ffc942';
         ctx.shadowBlur = 20;
         ctx.lineCap = 'round';
-        ctx.lineWidth = 9;
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(boss.x, boss.y); ctx.stroke();
         ctx.lineWidth = 3;
-        for (const target of targets) { ctx.beginPath(); ctx.moveTo(boss.x, boss.y); ctx.lineTo(target.x, target.y); ctx.stroke(); }
+        for (const target of targets) {
+          const dx = target.x - x, dy = target.y - y;
+          const length = Math.max(1, Math.hypot(dx, dy));
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          for (let i = 1; i < 8; i++) {
+            const offset = Math.sin(i * 4 + this.time * 60) * 12;
+            ctx.lineTo(x + dx * i / 8 - dy / length * offset, y + dy * i / 8 + dx / length * offset);
+          }
+          ctx.lineTo(target.x, target.y);
+          ctx.stroke();
+        }
         ctx.restore();
       }
       for (const enemy of run.enemies) {
@@ -564,10 +573,10 @@
         }
       }
       if (run.snowfall > 0) {
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 60; i++) {
           const x = (i * 137.5 + Math.sin(this.time + i) * 12 + WIDTH) % WIDTH;
           const y = (i * 83 + this.time * (34 + i % 9)) % HEIGHT;
-          disc(ctx, x, y, 1 + i % 3 * .35, '#dff5ff77');
+          disc(ctx, x, y, 1.5 + i % 3 * .6, '#edfaffab');
         }
       }
       for (const drop of run.drops) {
@@ -594,7 +603,24 @@
           ctx.shadowBlur = 0;
           ctx.globalAlpha = 1;
         }
-        if (AG.SHIPS[drop.type]) {
+        if (drop.type === 'snowflake') {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2;
+          ctx.shadowColor = '#9edcff';
+          ctx.shadowBlur = 7;
+          for (let i = 0; i < 6; i++) {
+            ctx.save();
+            ctx.rotate(i * Math.PI / 3);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -13);
+            ctx.moveTo(-4, -9);
+            ctx.lineTo(0, -6);
+            ctx.lineTo(4, -9);
+            ctx.stroke();
+            ctx.restore();
+          }
+        } else if (AG.SHIPS[drop.type]) {
           ctx.scale(.44, .44);
           paintShip(ctx, AG.SHIPS[drop.type]);
         } else if (!this.sprite(drop.type, 16) && !this.sprite('boosts/' + item.file, 16)) {

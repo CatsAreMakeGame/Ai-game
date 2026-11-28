@@ -714,3 +714,10 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .quest-prize { padding: 10px; margin-top: 10px; display: grid; gap: 5px; border: 1px solid #a78dfa; border-radius: 8px; }
 .quest-prize p { margin: 0; }
 @media (max-width: 560px) { .quest-anchor { top: 58px; right: 6px; } }
+
+.quest-anchor { top: 87px; }
+.quest-reward { flex-wrap: wrap; }
+#loot-strip { position: fixed; z-index: 100; bottom: 8vh; left: 8%; right: 8%; pointer-events: none; }
+.active-boost-row { display: flex; align-items: center; gap: 5px; color: #e8f8ff; font-size: .72rem; }
+.snow-active .stage::after { content: ''; position: absolute; inset: 0; z-index: 2; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 28px 6px #eefaff; }
+@media (max-width: 560px) { .quest-anchor { top: 74px; } }

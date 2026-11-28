@@ -12,17 +12,28 @@
   const QUESTS = Array.from({ length: 30 }, (_, i) => {
     const objective = objectives[i % objectives.length];
     const tier = Math.floor(i / objectives.length);
-    const reward = i === 19 ? ['goldenTrident', 1] : i % 10 === 9 ? ['gem', 1] : ['credit', 20 + tier * 5];
-    return { id: i + 1, key: objective.key, label: objective.label, target: objective.targets[tier], reward };
+    const id = i + 1;
+    const reward = id === 10 ? { credit: 250, gem: 3, upgradeBundle: 2, boostBundle: 2, randomCrate: 1 } :
+      id === 20 ? { credit: 500, gem: 5, upgradeBundle: 5, boostBundle: 5, shipCrate: 1, upgradeCrate: 1, enemyCrate: 1, goldenTrident: 1 } :
+      id === 30 ? { credit: 1500, gem: 15, upgradeBundle: 20, boostBundle: 20, shipCrate: 3, upgradeCrate: 3, enemyCrate: 3 } :
+      id > 10 ? { credit: 20 + tier * 5, gem: 1 } : { credit: 20 + tier * 5 };
+    const target = objective.targets[tier] - (tier && objective.key !== 'depth' ? objective.targets[tier - 1] : 0);
+    return { id, key: objective.key, label: objective.label, target, reward };
   });
 
   Object.assign(Game.prototype, {
     questDay() {
       const day = AG.updateGiftDay(this.now());
-      if (this.profile.quests?.day !== day || !Array.isArray(this.profile.quests.claimed) || !this.profile.quests.progress) {
-        this.profile.quests = { day, progress: {}, claimed: [] };
+      if (this.profile.quests?.day !== day || !Array.isArray(this.profile.quests.claimed) || this.profile.quests.progress == null) {
+        this.profile.quests = { day, progress: 0, completed: 0, claimed: [] };
       }
-      return this.profile.quests;
+      const daily = this.profile.quests;
+      if (!Number.isInteger(daily.completed)) {
+        daily.completed = 0;
+        while (daily.completed < 30 && daily.claimed.includes(daily.completed + 1)) daily.completed++;
+        daily.progress = 0;
+      }
+      return daily;
     },
 
     questLimit() {
@@ -36,31 +47,46 @@
 
     recordQuest(key, amount = 1) {
       if (!AG.questsActive(this.now()) || !this.run || this.run.practice) return;
-      const { progress } = this.questDay();
-      progress[key] = key === 'depth' ? Math.max(progress[key] ?? 0, amount) : (progress[key] ?? 0) + amount;
+      const daily = this.questDay();
+      const quest = QUESTS[daily.completed];
+      if (!quest || quest.id > this.questLimit() || quest.key !== key) return;
+      daily.progress = key === 'depth' ? Math.max(daily.progress, amount) : daily.progress + amount;
+      if (daily.progress >= quest.target) this.completeCurrentQuest(daily);
     },
 
-    claimQuest(id, test = false) {
+    completeCurrentQuest(daily) {
+      daily.completed++;
+      daily.progress = 0;
+      this.save();
+    },
+
+    claimQuest(id) {
       if (!AG.questsActive(this.now())) return false;
       const quest = QUESTS[id - 1];
       const daily = this.questDay();
-      if (!quest || quest.id > this.questLimit() || daily.claimed.includes(id) ||
-          (!(test && this.testing) && (daily.progress[quest.key] ?? 0) < quest.target)) return false;
-      const [item, count] = quest.reward;
-      if (!Number.isSafeInteger(this.itemCount(item) + count) || this.run?.practice) return false;
+      if (!quest || id > daily.completed || daily.claimed.includes(id) || this.run?.practice) return false;
+      const reward = { ...quest.reward };
+      if (reward.randomCrate) {
+        reward[this.rewardPick(['shipCrate', 'upgradeCrate', 'enemyCrate'])] = reward.randomCrate;
+        delete reward.randomCrate;
+      }
+      const entries = Object.entries(reward);
+      if (entries.some(([item, count]) => !Number.isSafeInteger(this.itemCount(item) + count))) return false;
       daily.claimed.push(id);
-      return this.grantItem(item, count);
+      for (const [item, count] of entries) this.grantItem(item, count);
+      return true;
     },
 
     finishTestQuest() {
-      if (!this.testing) return false;
-      const claimed = this.questDay().claimed;
-      const quest = QUESTS.find(q => q.id <= this.questLimit() && !claimed.includes(q.id));
-      return quest ? this.claimQuest(quest.id, true) : false;
+      if (!this.testing || !AG.questsActive(this.now())) return false;
+      const daily = this.questDay();
+      if (daily.completed >= this.questLimit()) return false;
+      this.completeCurrentQuest(daily);
+      return true;
     },
 
     canClaimQuestSupernova() {
-      return this.now() >= AG.SNOW_START && this.questCount() === 30 && this.itemCount('energyCore') > 0 &&
+      return this.now() >= AG.SNOW_START && this.questDay().completed === 30 && this.itemCount('energyCore') > 0 &&
         !this.run?.practice && this.now() - this.profile.questSupernovaTime >= 86400000 &&
         Number.isSafeInteger(this.itemCount('supernova') + 1);
     },
@@ -75,34 +101,30 @@
     coreBoss() {
       const run = this.run;
       return run?.wave === 50 && run.enemies.find(enemy =>
-        enemy.type === 'nexus' && enemy.bornWave === 50 && !enemy.escort && !enemy.allied && enemy.y >= 30);
+        enemy.type === 'nexus' && enemy.bornWave === 50 && !enemy.escort && !enemy.allied);
     },
 
     canFireCoreWeapon() {
-      const boss = this.coreBoss();
-      return AG.questsActive(this.now()) && this.state === 'playing' && Boolean(boss && !boss.coreCharged);
+      const run = this.run;
+      return AG.questsActive(this.now()) && this.state === 'playing' && run.enemies.some(enemy =>
+        !enemy.allied && enemy.bornWave === run.wave);
     },
 
     fireCoreWeapon() {
       if (!this.canFireCoreWeapon()) return false;
       const run = this.run;
       const boss = this.coreBoss();
-      run.coreBeam = { x: run.player.x, y: run.player.y, boss, targets: [], life: .85 };
-      run.resolved += run.pending.length;
-      run.spawned = run.total;
-      run.pending.length = 0;
-      boss.hp /= 1.5;
-      boss.maxHp /= 1.5;
-      boss.damageScale = (boss.damageScale ?? run.diff.damage) * 1.5;
-      boss.coreCharged = true;
-      for (let i = run.enemies.length - 1; i >= 0; i--) {
-        const enemy = run.enemies[i];
-        if (enemy === boss || enemy.allied) continue;
-        run.coreBeam.targets.push({ x: enemy.x, y: enemy.y });
-        this.removeEnemy(i, true);
+      const targets = run.enemies.filter(enemy => !enemy.allied && enemy.bornWave === run.wave);
+      run.coreBeam = { x: run.player.x, y: run.player.y, targets, life: .85 };
+      for (const enemy of targets) {
+        enemy.hp /= 2;
+        enemy.maxHp /= 2;
       }
-      run.hostile.length = 0;
-      this.notify('upgrade', 'Golden Trident · Energy Core exposed');
+      if (boss && !boss.coreCharged) {
+        boss.damageScale = (boss.damageScale ?? run.diff.damage) * 1.5;
+        boss.coreCharged = true;
+      }
+      this.notify('upgrade', boss?.coreCharged ? 'Golden Trident · Energy Core exposed' : 'Golden Trident · Enemy health halved');
       return true;
     },
 

@@ -35,6 +35,9 @@
   "heal": "Tools/Potion 1/Potion 1 256.png",
   "nanites": "Tools/Potion 1/Potion 1 Pink 256.png",
   "overdrive": "General/Lightning Bolt/Lightning Bolt Yellow 256.png",
+  "energyCore": "General/Power Cell/Power Cell 5 256.png",
+  "snowflake": "Nature/Snowflake/Snowflake 256.png",
+  "snowCrystal": "Materials/Ice/Ice 256.png",
   "goldenTrident": "Weapons/Trident/Trident 256.png",
   "energyOverdrive": "General/Lightning Bolt/Lightning Bolt Purple 256.png",
   "rapidFire": "UI/Arrow/Arrow Up 256.png",
@@ -332,8 +335,15 @@
       return id;
     },
 
-    flagshipPrice(id) { return SHIPS[id]?.gemPrice * 2 ** this.profile.flagshipPurchases; },
-    flagshipWait() { return Math.max(0, this.profile.flagshipTime + AG.PREMIUM_PURCHASE_COOLDOWN - this.now()); },
+    flagshipPrice(id) {
+      const count = id === 'singularity' ? this.profile.singularityPurchases : this.profile.flagshipPurchases;
+      return SHIPS[id]?.gemPrice * 2 ** count;
+    },
+    flagshipWait(id = 'supernova') {
+      const count = id === 'singularity' ? this.profile.singularityPurchases : this.profile.flagshipPurchases;
+      const last = id === 'singularity' ? this.profile.singularityTime : this.profile.flagshipTime;
+      return this.premiumWait(last, count);
+    },
 
     grantEverything() {
       if (!this.testing) return false;
