@@ -438,14 +438,14 @@
       for (const shots of [run.shots, run.allyShots]) {
         for (const shot of shots) {
           if (shot.snowball) {
-            if (shot.snowCrystal) polygon(ctx, [[shot.x, shot.y - 10], [shot.x + 7, shot.y], [shot.x, shot.y + 10], [shot.x - 7, shot.y]], '#78ddff');
+            if (shot.snowCrystal) polygon(ctx, [[shot.x, shot.y - 10], [shot.x + 7, shot.y], [shot.x, shot.y + 10], [shot.x - 7, shot.y]], shot.alienSnow ? '#96ff8e' : '#78ddff');
             else {
-              ctx.save();
-              ctx.translate(shot.x, shot.y);
-              ctx.rotate(Math.atan2(shot.vy, shot.vx));
-              polygon(ctx, [[8,0],[1,-4],[-7,-4],[-7,4],[1,4]], '#f4fdff');
-              polygon(ctx, [[-6,-3],[-14,0],[-6,3]], '#79d4ff');
-              ctx.restore();
+              const glow = shot.alienSnow ? '#78eb82' : '#9ae5ff';
+              const core = shot.alienSnow ? '#a8f6a5' : '#f4fdff';
+              const speed = Math.hypot(shot.vx, shot.vy) || 1;
+              disc(ctx, shot.x - shot.vx / speed * 9, shot.y - shot.vy / speed * 9, 3.5, glow);
+              disc(ctx, shot.x, shot.y, 6, core);
+              disc(ctx, shot.x - 1.5, shot.y - 1.5, 2.5, '#fff9');
             }
             continue;
           }

@@ -11,7 +11,7 @@ window.AG = (() => {
     locked: 'icons/ui/shaded_lock.png',
     supplies: 'icons/ui/in_round_shop.png'
   };
-  const RARITIES = { common: '#d5d9df', rare: '#75df95', epic: '#9b67cc', legendary: '#ffbf51', mythical: '#ff626b', godly: '#8872ff' };
+  const RARITIES = { common: '#d5d9df', rare: '#75df95', epic: '#bc80d6', legendary: '#ffbf51', mythical: '#ff626b', godly: '#8872ff' };
   // Hull, speed, shot interval, damage, engine mounts, silhouette, accent, rarity, price.
   const shipRows = {
     scout: ['Scout', 100, 445, .28, 1, 1, 'dart', '#d5fa74', 'common', 0],

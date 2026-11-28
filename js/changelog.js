@@ -1,4 +1,5 @@
 window.AG.CHANGELOG = [
+  ["2026-11-28T10:07:31.649Z","Christmas decorations and bundle reveals\nRestored Snowman homing visuals and added green Alien Snowman shots, Mythical and Godly Alien ship prizes, bulk-opening rewards, Admin cooldown bypass, and a Golden Trident cooldown.",null],
   ["2026-11-28T09:47:01.001Z","Christmas Event and recipe outputs\nAdded recipe output previews and the Jolly Gift Bag with guaranteed rewards and rarity-weighted bonus draws.",null],
   [
     "2026-11-28T09:32:03.913Z",

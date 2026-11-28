@@ -346,7 +346,8 @@
       const slot = $('flight-boost-' + i);
       const ready = game.boostSlotOpen(i);
       slot.disabled = Boolean(panelKind) || !ready || !id || !game.canUseBoost(id);
-      const caption = !ready ? 'Lv ' + [1, 5, 10][i] : id === 'snowCrystal' && run.snowCooldown > 0 ? Math.ceil(run.snowCooldown) + 's' : id ? '×' + game.itemCount(id) : 'Empty';
+      const cooldown = game.itemCooldownsSkipped() ? 0 : id === 'snowCrystal' ? run.snowCooldown : id === 'goldenTrident' ? run.tridentCooldown : 0;
+      const caption = !ready ? 'Lv ' + [1, 5, 10][i] : cooldown > 0 ? Math.ceil(cooldown) + 's' : id ? '×' + game.itemCount(id) : 'Empty';
       if (slot.dataset.item !== (ready ? id : 'locked')) {
         slot.dataset.item = ready ? id : 'locked';
         const lock = element('img', '', 'boost-lock');

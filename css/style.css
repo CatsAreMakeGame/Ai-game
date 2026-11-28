@@ -741,3 +741,10 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .recipe-result { display: flex; align-items: center; gap: 9px; padding: 8px; margin: 8px 0; border-radius: 8px; background: #253b3f; }
 .recipe-result > div { display: grid; gap: 3px; }
 .recipe-result small { color: var(--muted); }
+
+.christmas-banner { border-color: #79ac86; box-shadow: inset 0 -2px #a54f4e; }
+.christmas-banner .menu-icon { width: 29px; height: 29px; }
+.christmas-sprig, .christmas-cane { width: 21px; height: 21px; object-fit: contain; }
+.christmas-cane { transform: rotate(16deg); }
+.bundle-reveal .inventory-tiles { padding: 6px 0; }
+.bundle-reveal .inventory-tile { min-width: 0; }

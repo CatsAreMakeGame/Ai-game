@@ -97,7 +97,13 @@
     const clock = element('p', new Date(game.now()).toLocaleString(), 'admin-status');
     clock.setAttribute('role', 'status');
     const showClock = () => { clock.textContent = new Date(game.now()).toLocaleString(); };
-    timeGroup.append(hours, clock);
+    const cooldowns = element('label');
+    const skipCooldowns = element('input');
+    skipCooldowns.type = 'checkbox';
+    skipCooldowns.checked = game.itemCooldownsSkipped();
+    skipCooldowns.addEventListener('change', () => { game.skipItemCooldowns = skipCooldowns.checked; });
+    cooldowns.append(skipCooldowns, element('span', ' Skip item cooldowns'));
+    timeGroup.append(hours, clock, cooldowns);
     actions(timeGroup, button('Skip hours', () => {
       const milliseconds = Math.round(hours.valueAsNumber * 3600000);
       if (milliseconds > 0 && game.advanceTestClock(milliseconds)) showClock();

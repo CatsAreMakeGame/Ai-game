@@ -77,7 +77,7 @@
     ITEMS[id].glyph ??= '◆';
   }
   const clone = value => JSON.parse(JSON.stringify(value));
-  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'activeSeconds', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn', 'asteroidDelay', 'asteroidField', 'asteroids', 'barrage', 'snowfall', 'snowCooldown', 'snowShotCount'];
+  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'activeSeconds', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn', 'asteroidDelay', 'asteroidField', 'asteroids', 'barrage', 'snowfall', 'snowCooldown', 'snowShotCount', 'tridentCooldown'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
   const mainBoss = wave => wave >= 10 && wave % 10 === 0 ? Object.keys(BOSSES)[Math.min(wave / 10 - 1, 4)] : null;
 
@@ -182,7 +182,7 @@
     return rewards;
   }
 
-  function jollyGiftTotals(count, random) {
+  function jollyGiftTotals(count, random, profile) {
     const totals = {};
     for (const [id, low, high] of [['credit', 50, 250], ['gem', 3, 10], ['snowflake', 5, 15]]) {
       const amounts = Array.from({ length: high - low + 1 }, (_, index) => low + index);
@@ -191,10 +191,14 @@
     }
 
     const rates = { common: 1, rare: .6, epic: .3, legendary: .12, mythical: .05, godly: .015 };
+    const newAliens = Object.entries(BASE_SHIPS).filter(([, ship]) =>
+      ['mythical', 'godly'].includes(ship.rarity) &&
+      !Object.values(profile?.alienShips ?? {}).some(alien => alien.donor === ship.name));
     const tiers = Object.entries(rates).map(([rarity, rate]) => {
       const items = Object.entries(ITEMS)
         .filter(([id, item]) => id !== 'energyOverdrive' && (item.rarity ?? 'common') === rarity)
         .map(([id]) => id);
+      for (const [id, ship] of newAliens) if (ship.rarity === rarity) items.push('giftAlien:' + id);
       return { rarity, items, weight: items.length * rate };
     }).filter(tier => tier.items.length);
     const weight = tiers.reduce((sum, tier) => sum + tier.weight, 0);

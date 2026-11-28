@@ -116,7 +116,7 @@
 
     canFireCoreWeapon() {
       const run = this.run;
-      if (!AG.questsActive(this.now()) || this.state !== 'playing') return false;
+      if (!AG.questsActive(this.now()) || this.state !== 'playing' || (!this.itemCooldownsSkipped() && run.tridentCooldown > 0)) return false;
       if (run.wave === 50) {
         const boss = this.coreBoss();
         return Boolean(boss && boss.y >= 0 && !boss.coreCharged);
@@ -127,6 +127,7 @@
     fireCoreWeapon() {
       if (!this.canFireCoreWeapon()) return false;
       const run = this.run;
+      run.tridentCooldown = 100;
       const boss = this.coreBoss();
       const targets = run.enemies.filter(enemy => !enemy.allied);
       run.coreBeam = { x: run.player.x, y: run.player.y, targets, life: .85 };

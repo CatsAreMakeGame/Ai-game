@@ -25,6 +25,7 @@
       this.testProfile = null;
       this.testSpeed = 1;
       this.testTimeOffset = 0;
+      this.skipItemCooldowns = false;
     }
 
     now() { return Date.now() + (this.testing ? this.testTimeOffset : 0); }
@@ -104,6 +105,7 @@
       this.testProfile = this.profile;
       this.testSpeed = 1;
       this.testTimeOffset = 0;
+      this.skipItemCooldowns = false;
       this.run = null;
       this.state = 'home';
       this.releaseInput();
@@ -542,7 +544,12 @@
       return this.merchantStock();
     }
 
+    itemCooldownsSkipped() {
+      return this.testing && this.skipItemCooldowns;
+    }
+
     premiumWait(last, purchases) {
+      if (this.itemCooldownsSkipped()) return 0;
       return last ? Math.max(0, last + AG.PREMIUM_PURCHASE_COOLDOWN * 2 ** Math.max(0, purchases - 1) - this.now()) : 0;
     }
 
@@ -763,7 +770,7 @@
     canUseBoost(type) {
       return Boolean(BOOSTS[type] && this.run && !this.run.practice && !this.canVisitBase() && this.run.player.hp > 0 && this.profile.boosts[type] &&
         (!BOOSTS[type].repair || this.run.player.hp < this.maxHull()) &&
-        (!BOOSTS[type].snowfall || (AG.snowSeason(this.now()) && this.run.snowCooldown <= 0 && this.run.snowfall <= 0)) &&
+        (!BOOSTS[type].snowfall || (AG.snowSeason(this.now()) && (this.itemCooldownsSkipped() || this.run.snowCooldown <= 0) && this.run.snowfall <= 0)) &&
         (!BOOSTS[type].coreWeapon || this.canFireCoreWeapon()));
     }
 
@@ -856,9 +863,16 @@
       const spec = CRATES[type];
       if (!AG.contentActive() || !(spec?.bundle || spec?.gift) || !this.canVisitBase() || this.run?.practice ||
           !Number.isSafeInteger(count) || count < 1 || count > this.crateBatchLimit() || count > this.itemCount(type)) return false;
-      const rewards = spec.gift ? AG.jollyGiftTotals(count, this.random) : AG.bundleTotals(spec, count, this.random);
+      const rewards = spec.gift ? AG.jollyGiftTotals(count, this.random, this.profile) : AG.bundleTotals(spec, count, this.random);
       if (Object.entries(rewards).some(([id, amount]) => !Number.isSafeInteger(this.itemCount(id) + amount))) return false;
       this.profile.crates[type] -= count;
+      for (const [id, amount] of Object.entries(rewards)) {
+        if (id.startsWith('giftAlien:')) {
+          const ship = this.addAlien(SHIPS[id.slice('giftAlien:'.length)]);
+          delete rewards[id];
+          rewards[ship] = amount;
+        }
+      }
       for (const [id, amount] of Object.entries(rewards)) {
         this.addItem(id, amount);
         this.discoverItem(id);
@@ -1006,6 +1020,7 @@
       if (!['playing', 'intermission'].includes(this.state)) return;
       const run = this.run;
       this.updateSnowfall(dt);
+      run.tridentCooldown = Math.max(0, (run.tridentCooldown ?? 0) - dt);
       if (run.coreBeam) run.coreBeam.life = Math.max(0, run.coreBeam.life - dt);
       run.aegisCooldown = Math.max(0, run.aegisCooldown - dt);
       const { x, y } = run.player;
@@ -1063,14 +1078,14 @@
         const barrels = Math.max(fittedBarrels, this.boostCount('salvoAmmo') ? 3 : this.boostCount('quickload') ? 2 : 1);
         const enemyRounds = AG.balanceActive() && Boolean(AG.SHIPS[run.shipId]?.enemyFrame);
         const barrelDelay = AG.balanceActive() && fittedBarrels > 1 ? 2 : 1;
-        const snowball = run.shipId === 'snowman';
+        const snowball = ship.frame === 'snowman';
         for (let i = 0; i < barrels; i++) {
           const snowCrystal = snowball && ++run.snowShotCount % 25 === 0;
           const x = player.x + (i - (barrels - 1) / 2) * 19;
           const y = player.y - 20;
           const angle = -Math.PI / 2;
           const speed = snowball ? 550 : enemyRounds ? 205 : 720;
-          run.shots.push({ snowball, snowCrystal, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+          run.shots.push({ snowball, snowCrystal, alienSnow: snowball && Boolean(ship.alien), x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
             size: enemyRounds ? 6 : 5, damage, color: ship.color, enemyRound: enemyRounds });
         }
         player.fireIn = Math.max(.055,
@@ -1473,7 +1488,7 @@
 
     updateSnowShot(shot, dt, reserved) {
       const run = this.run;
-      const canTarget = enemy => enemy && !enemy.allied && enemy.y >= 0 && enemy.hp > 0 &&
+      const canTarget = enemy => enemy && !enemy.allied && enemy.y >= -enemy.size && enemy.hp > 0 &&
         (shot.snowCrystal || enemy.hp > (reserved.get(enemy) ?? 0));
       let target = shot.target;
       if (!run.enemies.includes(target) || !canTarget(target)) {

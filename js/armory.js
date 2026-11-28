@@ -162,6 +162,37 @@
     requestAnimationFrame(() => canvas.remove());
   }
 
+  function revealBundleRewards(rewards, element) {
+    const dialog = element('dialog', '', 'crate-reveal bundle-reveal');
+    const title = element('h2', 'Rewards collected');
+    title.id = 'bundle-reward-title';
+    dialog.setAttribute('aria-labelledby', title.id);
+    const grid = element('div', '', 'inventory-tiles');
+    for (const [id, amount] of Object.entries(rewards)) {
+      const tile = element('div', '', 'inventory-tile');
+      decorateRarity(tile, ITEMS[id]);
+      tile.tabIndex = 0;
+      tile.setAttribute('aria-label', AG.itemName(id) + ', ' + amount.toLocaleString());
+      tile.append(graphic(id), element('span', '×' + amount.toLocaleString(), 'inventory-count'));
+      grid.append(tile);
+    }
+    dialog.append(title, grid);
+    document.body.append(dialog);
+    dialog.showModal();
+    const timeout = setTimeout(() => dialog.close(), 6000);
+    dialog.addEventListener('click', () => dialog.close());
+    dialog.addEventListener('keydown', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      dialog.close();
+    });
+    dialog.addEventListener('close', () => {
+      clearTimeout(timeout);
+      hideTooltip();
+      dialog.remove();
+    }, { once: true });
+  }
+
   function revealCrate(crateId, batch, element, button, game) {
     const { count, featured: result, rewards } = batch;
     const crate = AG.liveCrate(crateId);
@@ -967,6 +998,7 @@
               const rewards = game.openBundle(id, quantity);
               state.result = rewards ? Object.entries(rewards).map(([reward, amount]) => AG.itemName(reward) + ' ×' + amount.toLocaleString()).join(' · ') : 'Bundle could not be opened.';
               refresh();
+              if (rewards && quantity > 1) revealBundleRewards(rewards, element);
               return;
             }
             const batch = game.openCrates(id, quantity);
@@ -991,7 +1023,8 @@
             quantity.step = '1';
             quantity.value = '1';
             quantity.setAttribute('aria-label', CRATES[id].name + ' quantity');
-            controls.append(quantity, button('Open', () => openBatch(quantity.valueAsNumber), { primary: true }));
+            controls.append(quantity, button('Open', () => openBatch(quantity.valueAsNumber), { primary: true }),
+              button('Open all', () => openBatch(limit)));
           }
           card(id, '', controls, count, isBundle ? () => openBatch(1) : undefined);
         }
