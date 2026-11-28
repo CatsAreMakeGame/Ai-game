@@ -742,8 +742,19 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .recipe-result > div { display: grid; gap: 3px; }
 .recipe-result small { color: var(--muted); }
 
-.christmas-banner { border-color: #79ac86; box-shadow: inset 0 -2px #a54f4e; }
-.christmas-banner .menu-icon { width: 29px; height: 29px; }
+.update-banner .update-icon,
+.update-banner .christmas-sprig,
+.update-banner .christmas-cane { display: none; }
+.update-banner[data-theme="trails"] {
+  border-color: #52c6ce; color: #e5fcff;
+  background: linear-gradient(112deg, #153b48, #252444 72%, #3c2855);
+}
+.update-banner[data-theme="trails"] time { color: #9aeeef; }
+.update-banner[data-theme="christmas"] { border-color: #79ac86; box-shadow: inset 0 -2px #a54f4e; }
+.update-banner[data-theme="christmas"] .menu-icon { width: 29px; height: 29px; }
+.update-banner[data-theme="trails"] .trails-icon,
+.update-banner[data-theme="token"] .token-icon,
+.update-banner[data-theme="christmas"] :is(.christmas-icon, .christmas-sprig, .christmas-cane) { display: block; }
 .christmas-sprig, .christmas-cane { width: 21px; height: 21px; object-fit: contain; }
 .christmas-cane { transform: rotate(16deg); }
 .bundle-reveal .inventory-tiles { padding: 6px 0; }

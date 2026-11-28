@@ -255,8 +255,14 @@
       const release = $('update-time');
       const wallTime = game.now();
       const christmasLive = AG.snowSeason(wallTime);
-      const nextUpdate = [[AG.TRAILS_START, 'Trails Update'], [AG.ALIEN_TOKEN_START, 'Alien Token Update']]
+      const nextUpdate = [
+        [AG.TRAILS_START, 'Trails Update', 'trails'],
+        [AG.ALIEN_TOKEN_START, 'Alien Token Update', 'token']
+      ]
         .find(([date]) => wallTime < date);
+      const updateBanner = $('update-banner');
+      const theme = nextUpdate?.[2] ?? 'christmas';
+      if (updateBanner.dataset.theme !== theme) updateBanner.dataset.theme = theme;
       const target = nextUpdate?.[0] ?? (christmasLive ? AG.SNOW_END : AG.SNOW_START);
       const datetime = new Date(target).toISOString();
       if (release.dateTime !== datetime) release.dateTime = datetime;
