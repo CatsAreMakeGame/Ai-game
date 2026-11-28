@@ -406,7 +406,6 @@
           grid.append(slot);
         }
         card.append(grid);
-        if (recipe.shift) card.append(element('p', 'The same pattern also fits one row lower.', 'panel-note'));
       } else card.append(element('p', 'Place the three ingredients anywhere in the grid.'));
       const legend = element('ul', '', 'recipe-legend');
       const counts = {};
@@ -607,10 +606,11 @@
       details.replaceChildren(...(state.showItemDetails ? [choice.action] : []));
     }
 
-    function tileCard(id, action, count) {
+    function tileCard(id, action, count, doubleClick) {
       const item = ITEMS[id];
       const rarity = item.rarity ?? 'common';
-      const tile = button('', () => selectTile(id, true));
+      const tile = button('', () => selectTile(id, !doubleClick));
+      if (doubleClick) tile.addEventListener('dblclick', doubleClick);
       if (Object.hasOwn(CRATES, id)) tile.setAttribute('aria-expanded', 'false');
       tile.className = 'inventory-tile';
       tile.style.setProperty('--rarity', RARITIES[rarity]);
@@ -626,8 +626,8 @@
       tileChoices.set(id, { tile, action });
     }
 
-    function card(id, text, action, count = 0) {
-      if (kind === 'inventory') { tileCard(id, action, count); return; }
+    function card(id, text, action, count = 0, doubleClick) {
+      if (kind === 'inventory') { tileCard(id, action, count, doubleClick); return; }
       const item = ITEMS[id];
       const row = element('div', '', 'card item-card');
       if (SHIPS[id]) decorateRarity(row, item);
@@ -915,7 +915,7 @@
         body.append(assigned, element('p', 'Drag a boost to a flight slot, or select a boost and tap a slot. Right-click a slot to clear it.', 'panel-note'));
         for (const id of sortItems(BOOSTS, boost => boost.repair ?? boost.duration)) {
           if (!profile.boosts[id]) continue;
-          card(id, BOOSTS[id].description, button('Use', () => { state.selectedItem = id; assigned.firstElementChild?.focus(); }), profile.boosts[id]);
+          card(id, BOOSTS[id].description, null, profile.boosts[id]);
         }
       } else if (tab === 'items') {
         for (const id of sortItems(AG.MATERIALS, () => 0)) {
@@ -927,16 +927,15 @@
         for (const id of sortItems(CRATES, crate => crate.price)) {
           if (!AG.itemAvailable(id) || !profile.crates[id]) continue;
           const count = profile.crates[id];
-          if (CRATES[id].bundle) {
-            card(id, '', button('Open bundle', () => {
-              const rewards = game.openBundle(id);
-              state.result = rewards ? Object.entries(rewards).map(([id, quantity]) => AG.itemName(id) + ' ×' + quantity).join(' · ') : 'Bundle could not be opened.';
-              refresh();
-            }, { primary: true }), count);
-            continue;
-          }
+          const isBundle = Boolean(CRATES[id].bundle);
           const limit = Math.min(count, game.crateBatchLimit());
           function openBatch(quantity) {
+            if (isBundle) {
+              const rewards = game.openBundle(id, quantity);
+              state.result = rewards ? Object.entries(rewards).map(([reward, amount]) => AG.itemName(reward) + ' ×' + amount.toLocaleString()).join(' · ') : 'Bundle could not be opened.';
+              refresh();
+              return;
+            }
             const batch = game.openCrates(id, quantity);
             if (!batch) {
               state.result = 'Enter a whole number from 1 to ' + limit.toLocaleString() + ' within your inventory limits.';
@@ -961,7 +960,7 @@
             quantity.setAttribute('aria-label', CRATES[id].name + ' quantity');
             controls.append(quantity, button('Open', () => openBatch(quantity.valueAsNumber), { primary: true }));
           }
-          card(id, '', controls, count);
+          card(id, '', controls, count, isBundle ? () => openBatch(1) : undefined);
         }
       }
       if (inventory) {

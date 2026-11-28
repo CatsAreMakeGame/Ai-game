@@ -12,8 +12,8 @@
     alienSerum: { name: 'Alien Mind Serum', rarity: 'mythical', description: 'Use in the crafting grid to make an Alien ship or give an Alien ship Mind Control.' }
   };
   const RECIPES = {
-    twinCannon: { name: 'Twin Cannon', output: 'twinCannon', pattern: ['cannon', '', 'cannon', '', 'cannon', '', '', '', ''], shift: true },
-    tripleCannon: { name: 'Triple Cannon', output: 'tripleCannon', pattern: ['cannon', 'cannon', 'cannon', '', 'rail', '', '', '', ''], shift: true },
+    twinCannon: { name: 'Twin Cannon', output: 'twinCannon', pattern: ['rail', 'nova', 'rail', '', 'quickload', '', '', '', ''], shift: true },
+    tripleCannon: { name: 'Triple Cannon', output: 'tripleCannon', pattern: ['nova', 'nova', 'nova', '', 'salvoAmmo', '', '', '', ''], shift: true },
     slimeCannon: { name: 'Slime Cannon', output: 'slimeCannon', ingredients: ['cannon', 'rocket', 'slime'] },
     radioactiveSmoke: { name: 'Radioactive Smoke Bomb', output: 'radioactiveSmoke', pattern: ['', 'nova', '', 'uranium', 'smokeBomb', 'uranium', '', '', ''] },
     ship: { name: 'Alien Ship', event: true, pattern: ['alienCell', 'alienSerum', 'alienCell', 'alienCell', 'donor', 'alienCell', 'alienCell', 'alienMind', 'alienCell'] },
@@ -55,8 +55,10 @@
   "slime": "General/Slime/Slime Green 256.png",
   "uranium": "Currency/Gem/Gem Green 256.png",
   "slimeCannon": "General/Slime/Slime Blue 256.png",
-  "twinCannon": "Weapons/Target/Target 2 256.png",
-  "tripleCannon": "Weapons/Rocket Launcher/Rocket Launcher 256.png",
+  "twinCannon": "Weapons/Ammo/Ammo Silver 256.png",
+  "tripleCannon": "Weapons/Ammo 2/Ammo 2 Bronze 256.png",
+  "quickload": "Items/Storage Box/Storage Box White 256.png",
+  "salvoAmmo": "Items/Storage Box/Storage Box Gold 256.png",
   "boostRelay": "Clothing/Backpack/Backpack Blue 256.png",
   "alienCell": "Nature/DNA/DNA 256.png",
   "alienMind": "Player/Brain/Brain 256.png",
@@ -131,6 +133,33 @@
       remainingWeight -= weight;
     }
     return totals;
+  }
+
+  function bundleTotals(spec, count, random) {
+    const [min, max] = spec.bundle;
+    const sizes = Array.from({ length: max - min + 1 }, (_, index) => min + index);
+    const roll = (items, amount) => crateTotals({ outcomes: [{ items, weight: 100 }] }, amount, random);
+    const rewards = {};
+    const pool = spec.pool;
+    for (const [size, bundles] of roll(sizes, count)) {
+      // Each bundle draws all full sets, then a uniform subset for the remaining items.
+      const full = Math.floor(size / pool.length);
+      if (full) for (const id of pool) rewards[id] = (rewards[id] ?? 0) + full * bundles;
+      const remainder = size % pool.length;
+      if (!remainder) continue;
+      const subsetMasks = [];
+      for (let mask = 1; mask < 2 ** pool.length; mask++) {
+        let bits = 0;
+        for (let value = mask; value; value &= value - 1) bits++;
+        if (bits === remainder) subsetMasks.push(mask);
+      }
+      for (const [mask, copies] of roll(subsetMasks, bundles)) {
+        pool.forEach((id, index) => {
+          if (mask & (1 << index)) rewards[id] = (rewards[id] ?? 0) + copies;
+        });
+      }
+    }
+    return rewards;
   }
 
   function syncShips(profile) {
@@ -617,5 +646,5 @@
     }
   });
 
-  Object.assign(AG, { createAlien, MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, crateTotals, syncShips });
+  Object.assign(AG, { createAlien, MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, crateTotals, bundleTotals, syncShips });
 })();

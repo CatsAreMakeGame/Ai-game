@@ -499,6 +499,8 @@
     AG.hideItemTooltip();
     const buttonIndex = [...body.querySelectorAll('button')].indexOf(document.activeElement);
     const priorScroll = overlay.scrollTop;
+    const panelScroll = panel.scrollTop;
+    const partsScroll = body.querySelector('.outfit-parts')?.scrollTop;
     overlay.hidden = panel.hidden = false;
     $('home').hidden = true;
     note.hidden = true;
@@ -669,9 +671,15 @@
     if (restoreFocus) {
       const candidate = body.querySelectorAll('button')[buttonIndex];
       (candidate && !candidate.disabled ? candidate : $('close')).focus({ preventScroll: true });
-      overlay.scrollTop = priorScroll;
-      if (panelKind === 'craft') requestAnimationFrame(() => {
-        if (revision === panelRender && panelKind === 'craft') overlay.scrollTop = priorScroll;
+      const restoreScroll = () => {
+        overlay.scrollTop = priorScroll;
+        panel.scrollTop = panelScroll;
+        const parts = body.querySelector('.outfit-parts');
+        if (parts && partsScroll !== undefined) parts.scrollTop = partsScroll;
+      };
+      restoreScroll();
+      if (panelKind === 'craft' || partsScroll !== undefined) requestAnimationFrame(() => {
+        if (revision === panelRender) restoreScroll();
       });
     } else {
       overlay.scrollTop = 0;

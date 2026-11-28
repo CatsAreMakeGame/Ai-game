@@ -34,7 +34,8 @@ window.AG = (() => {
     supernova: ['Supernova', 205, 630, .17, 5, 3, 'supernova', '#b99aff', 'godly', null]
   };
   const SHIPS = Object.fromEntries(Object.entries(shipRows).map(([id, row]) => {
-    const [name, hull, speed, delay, damage, engines, frame, color, rarity, price] = row;
+    const [name, hull, originalSpeed, delay, damage, engines, frame, color, rarity, price] = row;
+    const speed = originalSpeed * .8;
     return [id, { name, hull, speed, delay, damage, engines, frame, color, rarity, price,
       description: hull + ' hull · ' + speed + ' speed · ' + damage + ' damage · ' + engines + (engines === 1 ? ' engine' : ' engines') }];
   }));
@@ -69,6 +70,10 @@ window.AG = (() => {
     ...BOSSES
   };
   const BOOSTS = {
+    quickload: { name: 'Quickload Cache', rarity: 'epic', duration: 8, barrels: 2, pickupChance: .0025,
+      glyph: 'Ⅱ', description: 'Fires two shots per volley for 8 seconds. Also used to craft Twin Cannon.' },
+    salvoAmmo: { name: 'Salvo Cache', rarity: 'legendary', duration: 10, barrels: 3, pickupChance: .0008,
+      glyph: 'Ⅲ', description: 'Fires three shots per volley for 10 seconds. Also used to craft Triple Cannon.' },
     heal: { name: 'Hull repair', description: 'Restores up to 25 hull.', file: 'heal', color: '#71efad', glyph: '+', duration: 0 },
     rapidFire: { name: 'Rapid fire', description: 'Fires faster for 9 seconds.', file: 'rapid-fire', color: '#ffe177', glyph: '»', duration: 9 },
     doubleDamage: { name: 'Double damage', description: 'Doubles shot damage for 9 seconds.', file: 'double-damage', color: '#ffab83', glyph: '×', duration: 9 },
@@ -93,7 +98,7 @@ window.AG = (() => {
     carbon: { name: 'Carbon Wing', slot: 'Wings', rarity: 'epic', chance: .009, color: '#c597ff', glyph: '◀', speed: .32, description: 'Adds 32% movement speed.' },
     rail: { name: 'Rail Lance', slot: 'Weapon', rarity: 'epic', chance: .008, color: '#c597ff', glyph: '↑', damage: 2, description: 'Adds 2 damage to every shot.' },
     fusion: { name: 'Fusion Drive', slot: 'Engine', rarity: 'epic', chance: .007, color: '#c597ff', glyph: '☼', speed: .26, description: 'Adds 26% movement speed.' },
-    nova: { name: 'Nova Emitter', slot: 'Weapon', rarity: 'rare', chance: .002, color: '#75df95', glyph: '✹', damage: 4, description: 'Adds 4 damage to every shot.' },
+    nova: { name: 'Nova Emitter', slot: 'Weapon', rarity: 'rare', chance: .012, color: '#75df95', glyph: '✹', damage: 4, description: 'Adds 4 damage to every shot.' },
     rocket: { name: 'Blast Missile', slot: 'Weapon', rarity: 'rare', chance: .015, glyph: '◆', missile: 'blast',
       description: 'Launches toward a target’s current position. Its blast can hit several enemies.' },
     seeker: { name: 'Heat-Seeking Missile', slot: 'Weapon', rarity: 'legendary', glyph: '➶', missile: 'homing',
@@ -106,7 +111,7 @@ window.AG = (() => {
       description: 'Fires slime balls that splash and slow enemies by 50% for four seconds.' },
     twinCannon: { name: 'Twin Cannon', slot: 'Weapon', rarity: 'epic', glyph: 'Ⅱ', barrels: 2,
       description: 'Fires two parallel projectiles per shot.' },
-    tripleCannon: { name: 'Triple Cannon', slot: 'Weapon', rarity: 'legendary', glyph: 'Ⅲ', barrels: 3,
+    tripleCannon: { name: 'Triple Cannon', slot: 'Weapon', rarity: 'mythical', glyph: 'Ⅲ', barrels: 3,
       description: 'Fires three parallel projectiles per shot.' },
     beacon: { name: 'Lightning Beacon', slot: 'Special', rarity: 'godly', glyph: '⚡', laser: true,
       description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold the Lightning Beacon key. Each 0.1-second pulse uses 1% energy and deals shot damage divided by 2.75.' },
@@ -252,6 +257,10 @@ window.AG = (() => {
       const original = Object.values(SHIPS).find(base => !base.alien && base.name === ship.donor?.replace(/^(Alien )+/, ''));
       if (original && ship.donor !== original.name) {
         Object.assign(ship, window.AG.createAlien(original), { mindControl: ship.mindControl });
+      }
+      if (original) {
+        ship.speed = original.speed * 1.1;
+        ship.description = window.AG.createAlien(original).description;
       }
       ship.rarity = original?.rarity ?? (Object.hasOwn(RARITIES, ship.donorRarity) ? ship.donorRarity : ship.rarity);
       ship.mindControl = ship.mindControl === true || (saved?.serumUsed === true && saved?.mindControlPerShip !== true);

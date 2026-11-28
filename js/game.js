@@ -788,20 +788,13 @@
       return this.testing || this.adminUnlocked ? 1000000000000 : 10;
     }
 
-    openBundle(type) {
+    openBundle(type, count = 1) {
       const spec = CRATES[type];
-      if (!AG.contentActive() || !spec?.bundle || !this.canVisitBase() || !this.itemCount(type)) return false;
-      const [min, max] = spec.bundle;
-      const count = min + Math.floor(this.random() * (max - min + 1));
-      const rewards = {};
-      let pool = [];
-      for (let i = 0; i < count; i++) {
-        if (!pool.length) pool = [...spec.pool];
-        const [id] = pool.splice(Math.floor(this.random() * pool.length), 1);
-        rewards[id] = (rewards[id] ?? 0) + 1;
-      }
+      if (!AG.contentActive() || !spec?.bundle || !this.canVisitBase() || this.run?.practice ||
+          !Number.isSafeInteger(count) || count < 1 || count > this.crateBatchLimit() || count > this.itemCount(type)) return false;
+      const rewards = AG.bundleTotals(spec, count, this.random);
       if (Object.entries(rewards).some(([id, amount]) => !Number.isSafeInteger(this.itemCount(id) + amount))) return false;
-      this.profile.crates[type]--;
+      this.profile.crates[type] -= count;
       for (const [id, amount] of Object.entries(rewards)) {
         this.addItem(id, amount);
         this.discoverItem(id);
@@ -996,9 +989,10 @@
       player.fireIn -= dt;
       if (player.fireIn <= 0 && !barrageWasFiring && !run.barrage && !this.laserActive()) {
         const damage = this.shotDamage();
-        const { barrels } = this.upgradeEffects();
+        const { barrels: fittedBarrels } = this.upgradeEffects();
+        const barrels = Math.max(fittedBarrels, this.boostCount('salvoAmmo') ? 3 : this.boostCount('quickload') ? 2 : 1);
         const enemyRounds = AG.balanceActive() && Boolean(AG.SHIPS[run.shipId]?.enemyFrame);
-        const barrelDelay = AG.balanceActive() && barrels > 1 ? 2 : 1;
+        const barrelDelay = AG.balanceActive() && fittedBarrels > 1 ? 2 : 1;
         for (let i = 0; i < barrels; i++) {
           run.shots.push({ x: player.x + (i - (barrels - 1) / 2) * 19,
             y: player.y - 20, vx: 0, vy: enemyRounds ? -205 : -720, size: enemyRounds ? 6 : 5, damage, color: ship.color, enemyRound: enemyRounds });
@@ -1515,8 +1509,11 @@
       if (boss) this.dropItem('gem', enemy.x + 12, enemy.y, 1);
       this.gainXp(boss ? 25 : 2);
       if (this.random() < (boss ? .10 : .014)) {
-        const types = Object.keys(BOOSTS);
+        const types = Object.keys(BOOSTS).filter(id => !BOOSTS[id].pickupChance);
         this.dropItem(boss ? 'shield' : types[Math.floor(this.random() ** 1.65 * types.length)], enemy.x - 20, enemy.y);
+      }
+      for (const id of ['quickload', 'salvoAmmo']) {
+        if (this.random() < BOOSTS[id].pickupChance) this.dropItem(id, enemy.x - 35, enemy.y + 18);
       }
       const updateLive = AG.contentActive();
       let roll = this.random();
@@ -1581,7 +1578,7 @@
         const ranks = Object.keys(AG.RARITIES);
         const rank = id => ranks.indexOf(AG.ITEMS[id]?.rarity ?? 'common');
         if (!run.stats.rarest || rank(drop.type) > rank(run.stats.rarest)) run.stats.rarest = drop.type;
-        if (Object.hasOwn(BOOSTS, drop.type)) {
+        if (Object.hasOwn(BOOSTS, drop.type) && !BOOSTS[drop.type].pickupChance) {
           this.discoverItem(drop.type, true);
           for (let i = 0; i < drop.amount; i++) this.applyBoost(drop.type);
           this.notify('loot', { type: drop.type, amount: drop.amount });
