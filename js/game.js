@@ -115,7 +115,7 @@
       const ship = SHIPS[shipId];
       this.releaseInput();
       this.run = {
-        wave: 0, level: this.profile.bestPilotLevel, xp: this.profile.pilotXp, score: 0, cleared: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostCycleOn: false, boostCycleDelay: 0, ship, shipId, mode, mindCooldown: 30, controlSequence: 0, tendrils: [],
+        wave: 0, level: this.profile.bestPilotLevel, xp: this.profile.pilotXp, score: 0, cleared: 0, activeSeconds: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostCycleOn: false, boostCycleDelay: 0, ship, shipId, mode, mindCooldown: 30, controlSequence: 0, tendrils: [],
         stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: AG.contentActive() ? (ship.ability?.interval ?? 0) : 0, aegisShield: 0, smoke: [], smokeIn: 0, enemySmoke: [], smokeDamageIn: .5, asteroids: [], asteroidField: null, slimeShots: [], slimeIn: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
@@ -204,6 +204,21 @@
       return Object.fromEntries(Object.entries(pack)
         .map(([id, amount]) => [id, Math.floor(amount * base * scale)])
         .filter(([, amount]) => amount > 0));
+    }
+
+    runFinishRewards(wave, mode, activeSeconds) {
+      if (!Number.isFinite(activeSeconds) || activeSeconds < 10) return {};
+      const packs = {
+        easy: { credit: 1500, gem: 3, upgradeCrate: 1 },
+        medium: { credit: 3000, gem: 6, upgradeCrate: 2 },
+        hard: { credit: 6000, gem: 10, upgradeCrate: 2, shipCrate: 1 },
+        endless: { credit: 6000, gem: 10, upgradeCrate: 2, shipCrate: 1 }
+      };
+      const progress = Math.min(mode === 'endless' ? 1000 : 1, wave / (mode === 'endless' ? 50 : AG.MODES[mode]));
+      const timeFactor = Math.min(1, activeSeconds / Math.max(30, wave * 3));
+      return Object.fromEntries(Object.entries(packs[mode] ?? packs.hard)
+        .map(([id, count]) => [id, Math.floor(count * progress * timeFactor)])
+        .filter(([, count]) => count > 0));
     }
 
     awardWaveMilestone(wave) {
@@ -313,7 +328,7 @@
     }
 
     abandonSavedRun() {
-      if (AG.balanceActive() && this.canContinue()) this.queueRewards(this.waveRewards(this.profile.checkpoint.wave), false);
+      if (AG.balanceActive() && this.canContinue()) this.queueRewards(this.runFinishRewards(this.profile.checkpoint.wave, this.profile.checkpoint.mode, this.profile.checkpoint.activeSeconds), false);
       this.profile.checkpoint = null;
       const rewards = this.settleMilestones();
       if (rewards.length) this.profile.lastRewards = Object.fromEntries(rewards);
@@ -344,7 +359,7 @@
       this.profile.checkpoint = null;
       this.releaseInput();
       this.state = state;
-      if (AG.balanceActive() && !run.practice) this.queueRewards(this.waveRewards(run.wave), false);
+      if (AG.balanceActive() && !run.practice) this.queueRewards(this.runFinishRewards(run.wave, run.mode, run.activeSeconds), false);
       else if (state === 'victory') this.awardModeClear();
       run.milestoneRewards = this.settleMilestones();
       if (run.milestoneRewards.length) this.profile.lastRewards = Object.fromEntries(run.milestoneRewards);
@@ -967,6 +982,7 @@
         return;
       }
 
+      run.activeSeconds += dt;
       this.tickBoosts(dt);
       this.updateBoostRelay(dt);
       run.spawnIn = Math.max(0, run.spawnIn - dt);

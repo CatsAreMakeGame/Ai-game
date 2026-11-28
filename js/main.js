@@ -130,6 +130,23 @@
     }
   }
 
+  function renderActiveBoosts(run) {
+    const display = $('boosts');
+    const ids = run ? Object.keys(run.boosts) : [];
+    if (run && game.hasEnergyOverdriveBoost()) ids.push('energyOverdrive');
+    display.hidden = !ids.length;
+    const signature = ids.join('|');
+    if (display.dataset.effects === signature) return;
+    display.dataset.effects = signature;
+    display.replaceChildren(...ids.map(id => {
+      const icon = AG.itemGraphic(id);
+      icon.tabIndex = 0;
+      icon.removeAttribute('aria-hidden');
+      icon.setAttribute('aria-label', AG.itemName(id));
+      return icon;
+    }));
+  }
+
   function renderHUD(now) {
     while (sideNotices.length && sideNotices[0].until <= now) sideNotices.shift().node.remove();
     if (!$('home').hidden) {
@@ -174,7 +191,7 @@
     banner.hidden = !active || Boolean(panelKind) || now >= waveUntil;
     const boss = active && run.enemies.find(enemy => (run.practice ? AG.BOSSES[enemy.type] : enemy.type === AG.mainBoss(run.wave) && !enemy.escort) && enemy.y > 65 && !enemy.allied);
     $('boss').hidden = !boss;
-    $('boosts').hidden = !active || !Object.keys(run.boosts).length;
+    renderActiveBoosts(active ? run : null);
     $('ship-ability').hidden = !active || !(run.ship.ability || run.ship.alien || ((game.testing || AG.contentActive()) && run.ship.barrage));
     if (!active) return;
     if (run.ship.ability) {
@@ -219,11 +236,6 @@
     $('alien-actions').hidden = !run.ship.alien;
     setText($('mind-countdown'), !run.ship.mindControl ? 'Mind control locked' :
       run.mindCooldown > 0 ? 'Mind control · ' + Math.ceil(run.mindCooldown) + 's' : 'Mind control · Ready');
-    const overdrive = $('overdrive-toggle');
-    overdrive.hidden = !game.canEnergyOverdrive();
-    overdrive.disabled = !!panelKind || (!run.energyOverdrive && run.energy + 1e-8 < run.energyCap);
-    overdrive.setAttribute('aria-pressed', String(run.energyOverdrive));
-    setText(overdrive, game.hasEnergyOverdriveBoost() ? 'Overdrive · On' : run.energyOverdrive ? 'Overdrive · Draining' : 'Overdrive · Off');
     $('mind-toggle').hidden = !run.ship.mindControl || run.mindCooldown > 0;
     $('mind-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.mindCooldown > 0;
     $('mind-toggle').setAttribute('aria-pressed', String(mindAim));
@@ -266,11 +278,6 @@
     const percent = Math.round(100 * run.resolved / run.total);
     $('completion').value = percent;
     setText($('completion-value'), run.spawned + '/' + run.total + ' spawned · ' + run.resolved + ' cleared');
-    setText($('boosts'), Object.entries(run.boosts).map(([key, timers]) => {
-      const seconds = key === 'shield' || key === 'fortress' ?
-        timers.reduce((sum, time) => sum + time, 0) : Math.max(...timers);
-      return AG.BOOSTS[key].name + (timers.length > 1 ? ' ×' + timers.length : '') + ' ' + Math.ceil(seconds) + 's';
-    }).join(' · '));
     $('skip').disabled = !game.canSkip() || Boolean(panelKind);
     syncAutoSkip();
     const levelLocked = run.level < AG.SUPPLY_LEVEL;
@@ -737,7 +744,6 @@
     if (game.state === 'intermission' && game.run.level >= AG.SUPPLY_LEVEL) open('supplies');
   });
   $('pause').addEventListener('click', pause);
-  $('overdrive-toggle').addEventListener('click', () => { if (!panelKind) game.toggleEnergyOverdrive(); });
   $('mind-toggle').addEventListener('click', () => { mindAim = !mindAim; });
   for (let i = 0; i < 3; i++) $('flight-boost-' + i).addEventListener('click', () => {
     const id = game.profile.boostSlots[i];

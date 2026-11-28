@@ -556,7 +556,7 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .stage:has(.wave-actions:not([hidden])) .hud { right: 125px; }
 .top-menu-hidden .hud { width: min(265px, calc(100% - 49px)); right: auto !important; justify-content: flex-start; }
 .top-menu-hidden .hud > div:not(.health-hud, .wave-hud),
-.top-menu-hidden #wave-actions, .top-menu-hidden #boss, .top-menu-hidden #boosts, .top-menu-hidden #ship-ability { display: none; }
+.top-menu-hidden #wave-actions, .top-menu-hidden #boss, .top-menu-hidden #ship-ability { display: none; }
 .top-menu-hidden .hud > .health-hud { flex-grow: 1; }
 .inventory-actions { display: flex; gap: 6px; margin-top: 6px; }
 .recipe-autofill { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
@@ -622,7 +622,7 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .crate-quick-buy button { display: grid; justify-items: center; gap: 2px; padding: 8px 4px; }
 .crate-quick-buy small { color: var(--muted); font-size: .71rem; font-weight: 550; }
 .crate-admin-buy { justify-content: start; margin: 2px 0 0; }
-.shop-crate-art .item-icon:is(:hover, :focus-visible) img { animation: crate-lift .55s ease-out; }
+.shop-crate-art:hover img, .shop-crate-art .item-icon:focus-visible img { animation: crate-lift .55s ease-out; }
 .crate-purchased .shop-crate-art img { animation: crate-lift .55s ease-out; }
 .crate-purchased { animation: crate-glow .65s ease-out; }
 @keyframes crate-lift { 40% { transform: translateY(-7px) rotate(-5deg) scale(1.07); } }
@@ -670,7 +670,7 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
   .gift-steps { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .shop-crate-art .item-icon:is(:hover, :focus-visible) img, .crate-purchased .shop-crate-art img,
+  .shop-crate-art:hover img, .shop-crate-art .item-icon:focus-visible img, .crate-purchased .shop-crate-art img,
   .shop-crate-art .item-icon, .crate-purchased, .gift-current button:not(:disabled) { animation: none; }
 }
 
@@ -684,3 +684,15 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .top-menu-hidden.compact-energy .hud > .health-hud { grid-area: 1 / 1; }
 .top-menu-hidden.compact-energy .hud > .wave-hud { grid-area: 1 / 2; }
 .top-menu-hidden.compact-energy .hud > #energy-hud { display: grid; grid-area: 2 / 1; }
+
+.shop-crate .original-price { text-decoration: line-through; color: #c0b8bc; }
+.shop-crate .intro-price span { color: #bbfc87; font-weight: 850; animation: gem-offer-pulse 2s ease-in-out infinite; }
+@keyframes gem-offer-pulse { 50% { transform: translateY(-2px) scale(1.08); } }
+.stage .boosts {
+  z-index: 2; top: 23%; bottom: auto; left: 10px; right: auto;
+  display: grid; gap: 4px; pointer-events: none;
+}
+.stage .boosts[hidden] { display: none; }
+.stage .boosts .item-icon { width: 32px; height: 32px; pointer-events: auto; }
+.stage .boosts img { width: 23px; height: 23px; }
+@media (prefers-reduced-motion: reduce) { .shop-crate .intro-price span { animation: none; } }

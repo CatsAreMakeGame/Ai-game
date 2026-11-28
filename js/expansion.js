@@ -32,6 +32,7 @@
   "heal": "Tools/Potion 1/Potion 1 256.png",
   "nanites": "Tools/Potion 1/Potion 1 Pink 256.png",
   "overdrive": "General/Lightning Bolt/Lightning Bolt Yellow 256.png",
+  "energyOverdrive": "General/Lightning Bolt/Lightning Bolt Purple 256.png",
   "rapidFire": "UI/Arrow/Arrow Up 256.png",
   "doubleDamage": "General/Sparkle/Sparkle 256.png",
   "vector": "Transport/Rocket/Rocket 2 256.png",
@@ -68,7 +69,7 @@
     ITEMS[id].glyph ??= '◆';
   }
   const clone = value => JSON.parse(JSON.stringify(value));
-  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn', 'asteroidDelay', 'asteroidField', 'asteroids', 'barrage'];
+  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'activeSeconds', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn', 'asteroidDelay', 'asteroidField', 'asteroids', 'barrage'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
   const mainBoss = wave => wave >= 10 && wave % 10 === 0 ? Object.keys(BOSSES)[Math.min(wave / 10 - 1, 4)] : null;
 

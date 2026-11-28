@@ -478,7 +478,8 @@
         const price = introductory ? AG.SHIP_CRATE_OFFER_PRICE : game.cratePurchasePrice(id, count);
         const choice = button('Buy ' + count, () => purchase(count), { disabled: !(introductory ? game.canBuyIntroShipCrate() : game.canBuyCrates(id, count)) });
         const amount = element('small', '', price < count * crate.price ? 'sale-price' : '');
-        if (price < count * crate.price) amount.append(element('s', String(count * crate.price)));
+        if (price < count * crate.price) amount.append(element('s', String(count * crate.price), 'original-price'));
+        if (introductory) amount.classList.add('intro-price');
         amount.append(element('span', price + (price === 1 ? ' Gem' : ' Gems')));
         choice.append(amount);
         choice.setAttribute('aria-label', 'Buy ' + count + ' ' + crate.name + (count === 1 ? '' : 's') + ' for ' + price + ' Star Gems');
@@ -538,7 +539,7 @@
     section.append(element('h3', 'Daily free gifts'), element('p', 'Resets at midnight Melbourne time.', 'panel-note'));
     const steps = element('ol', '', 'gift-steps');
     const { day, claimed, nextAt } = game.updateGiftProgress();
-    AG.UPDATE_GIFTS.forEach(({ wait, rewards }, index) => {
+    AG.UPDATE_GIFTS.forEach(({ rewards }, index) => {
       const step = element('li', '', 'gift-step');
       if (index === claimed) step.classList.add('gift-current');
       const items = element('ul', '', 'gift-items');
@@ -547,7 +548,7 @@
         row.append(graphic(id), element('span', count.toLocaleString() + ' × ' + AG.itemName(id)));
         items.append(row);
       }
-      step.append(element('h4', 'Gift ' + (index + 1)), items);
+      step.append(element('h4', ['Small Gift', 'Medium Gift', 'Large Gift'][index]), items);
       if (index === claimed) {
         const claim = button('Claim free gift', () => {
           if (!game.claimUpdateGift()) return;
@@ -567,10 +568,7 @@
           }, 250);
         }
         step.append(claim);
-      } else {
-        const status = index < claimed ? 'Claimed' : 'Unlocks ' + wait / 60000 + ' min after Gift ' + index;
-        step.append(element('p', status, 'gift-status'));
-      }
+      } else if (index < claimed) step.append(element('p', 'Claimed', 'gift-status'));
       steps.append(step);
     });
     section.append(steps);
@@ -795,7 +793,7 @@
           const buy = button('Buy · ' + item.premium + ' Star Gems', () => {
             if (game.buyPremiumUpgrade(id)) state.result = item.name + ' purchased.';
             refresh();
-          });
+          }, { primary: true, disabled: !game.canBuyPremiumUpgrade(id) });
           function refreshCooldown() {
             const seconds = Math.ceil(game.premiumUpgradeWait() / 1000);
             wait.textContent = seconds ? 'Next purchase in ' + Math.floor(seconds / 60) + 'm ' + seconds % 60 + 's' : 'Available to purchase';
