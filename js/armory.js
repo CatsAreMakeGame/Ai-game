@@ -162,13 +162,19 @@
     requestAnimationFrame(() => canvas.remove());
   }
 
-  function revealBundleRewards(rewards, element) {
+  function revealBundleRewards(type, rewards, element, button) {
     const dialog = element('dialog', '', 'crate-reveal bundle-reveal');
     const title = element('h2', 'Rewards collected');
     title.id = 'bundle-reward-title';
     dialog.setAttribute('aria-labelledby', title.id);
     const grid = element('div', '', 'inventory-tiles');
-    for (const [id, amount] of Object.entries(rewards)) {
+    const guaranteed = CRATES[type].gift ? ['credit', 'gem', 'snowflake'] : [];
+    const rarityOrder = Object.keys(RARITIES);
+    const items = Object.keys(rewards).filter(id => !guaranteed.includes(id)).sort((a, b) =>
+      rarityOrder.indexOf(ITEMS[a].rarity ?? 'common') - rarityOrder.indexOf(ITEMS[b].rarity ?? 'common') ||
+      AG.itemName(a).localeCompare(AG.itemName(b)));
+    for (const id of [...guaranteed, ...items]) {
+      const amount = rewards[id];
       const tile = element('div', '', 'inventory-tile');
       decorateRarity(tile, ITEMS[id]);
       tile.tabIndex = 0;
@@ -176,18 +182,15 @@
       tile.append(graphic(id), element('span', '×' + amount.toLocaleString(), 'inventory-count'));
       grid.append(tile);
     }
-    dialog.append(title, grid);
+    dialog.append(title, grid, button('Done', () => dialog.close(), { primary: true }));
     document.body.append(dialog);
     dialog.showModal();
-    const timeout = setTimeout(() => dialog.close(), 6000);
-    dialog.addEventListener('click', () => dialog.close());
-    dialog.addEventListener('keydown', event => {
-      event.preventDefault();
-      event.stopPropagation();
-      dialog.close();
+    dialog.addEventListener('click', event => {
+      if (event.target !== dialog) return;
+      const bounds = dialog.getBoundingClientRect();
+      if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
     });
     dialog.addEventListener('close', () => {
-      clearTimeout(timeout);
       hideTooltip();
       dialog.remove();
     }, { once: true });
@@ -998,7 +1001,7 @@
               const rewards = game.openBundle(id, quantity);
               state.result = rewards ? Object.entries(rewards).map(([reward, amount]) => AG.itemName(reward) + ' ×' + amount.toLocaleString()).join(' · ') : 'Bundle could not be opened.';
               refresh();
-              if (rewards && quantity > 1) revealBundleRewards(rewards, element);
+              if (rewards && quantity > 1) revealBundleRewards(id, rewards, element, button);
               return;
             }
             const batch = game.openCrates(id, quantity);
