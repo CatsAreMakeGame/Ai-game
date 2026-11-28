@@ -517,10 +517,6 @@
       icon.tabIndex = 0;
       icon.removeAttribute('aria-hidden');
       icon.setAttribute('aria-label', crate.name + ' drop rates');
-      if (id === 'enemyCrate') {
-        card.classList.add('shop-crate-new');
-        art.append(element('span', 'New!', 'crate-new-label'));
-      }
       art.append(icon);
       const info = element('div', '', 'shop-crate-info');
       const title = element('h3', crate.name);
@@ -559,7 +555,6 @@
         quick.append(choice);
       }
       info.append(title, pricing);
-      if (id === 'shipCrate') info.append(element('p', 'Singularity got a new ultimate, and Zenith joined the crate.', 'panel-note'));
       info.append(quick);
       if (id === 'enemyCrate' && AG.launchDealsActive(game.now())) {
         info.append(element('p', '25% off Buy 1, Buy 4 and Buy 10', 'sale-note'));

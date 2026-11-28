@@ -255,24 +255,15 @@
       const release = $('update-time');
       const wallTime = game.now();
       const christmasLive = AG.snowSeason(wallTime);
-      const nextUpdate = [
-        [AG.TRAILS_START, 'Trails Update', 'trails'],
-        [AG.ALIEN_TOKEN_START, 'Alien Token Update', 'token']
-      ]
-        .find(([date]) => wallTime < date);
-      const updateBanner = $('update-banner');
-      const theme = nextUpdate?.[2] ?? 'christmas';
-      if (updateBanner.dataset.theme !== theme) updateBanner.dataset.theme = theme;
-      const target = nextUpdate?.[0] ?? (christmasLive ? AG.SNOW_END : AG.SNOW_START);
+      const target = christmasLive ? AG.SNOW_END : AG.SNOW_START;
       const datetime = new Date(target).toISOString();
       if (release.dateTime !== datetime) release.dateTime = datetime;
-      setText($('update-title'), nextUpdate?.[1] ?? 'Christmas Event');
       const left = Math.max(0, Math.ceil((target - wallTime) / 1000));
       const hours = Math.floor(left / 3600);
       const minutes = Math.floor(left / 60) % 60;
       const clock = left >= 86400 ? Math.floor(hours / 24) + 'd ' + hours % 24 + 'h' :
         hours + 'h ' + minutes + 'm' + (left <= 43200 ? ' ' + left % 60 + 's' : '');
-      setText(release, !nextUpdate && wallTime >= AG.SNOW_END ? 'Event ended' : (christmasLive ? 'Ends in ' : 'Starts in ') + clock);
+      setText(release, wallTime >= AG.SNOW_END ? 'Event ended' : (christmasLive ? 'Ends in ' : 'Starts in ') + clock);
       const seconds = Math.max(0, Math.ceil((AG.EVENT_END - game.now()) / 1000));
       const time = [Math.floor(seconds / 86400) + 'd', Math.floor(seconds / 3600) % 24 + 'h',
         Math.floor(seconds / 60) % 60 + 'm', seconds % 60 + 's'].join(' ');
