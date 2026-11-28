@@ -80,6 +80,8 @@
     constructor(canvas) {
       this.ctx = canvas.getContext('2d');
       this.effects = [];
+      this.trailParticles = [];
+      this.trailTimer = 0;
       this.damageNumbers = [];
       this.damageOffset = 0;
       this.time = 0;
@@ -367,6 +369,61 @@
       disc(ctx, 0, 0, 38, flare);
       disc(ctx, 0, 0, 14 + pulse * 3, '#8fdcff');
       disc(ctx, 0, 0, 5, '#effcff');
+      ctx.restore();
+    }
+
+    drawTrail(run, id, dt) {
+      if (this.trailRun !== run || this.trailId !== id) {
+        this.trailRun = run;
+        this.trailId = id;
+        this.trailParticles = [];
+        this.trailTimer = 0;
+      }
+      if (!id) return;
+      const { ctx } = this;
+      const { player } = run;
+      const colors = {
+        wispTrail: ['#d6fff7', '#a2cfdf'],
+        rocketTrail: ['#ff4e42', '#ff912e', '#ffe672', '#9ba0a9'],
+        bubbleTrail: ['#76f0ee', '#b5f0ff', '#ddd8ff'],
+        rainbowTrail: ['#ff646e', '#ffad58', '#ffe879', '#82f688', '#64cffa', '#cd9bfc'],
+        christmasTrail: ['#ff5b69', '#6ef092', '#daffe0']
+      }[id];
+      if (!colors) return;
+      this.trailTimer -= dt;
+      if (dt > 0 && player.hp > 0 && this.trailTimer <= 0) {
+        this.trailTimer = .026;
+        this.trailParticles.push({ x: player.x, y: player.y + 14, age: 0, phase: this.time * 17 });
+      }
+      this.trailParticles = this.trailParticles.filter(particle => (particle.age += dt) < .7);
+      ctx.save();
+      for (const { x, y, age, phase } of this.trailParticles) {
+        ctx.globalAlpha = (1 - age / .7) * (id === 'rocketTrail' ? .8 : .65);
+        if (id === 'rainbowTrail') {
+          colors.forEach((color, i) => {
+            ctx.fillStyle = color;
+            ctx.fillRect(x + (i - 2.5) * 3, y + age * 85, 3, 4);
+          });
+          continue;
+        }
+        const wobble = Math.sin(phase);
+        const px = x + wobble * (3 + age * 18);
+        const py = y + age * (id === 'rocketTrail' ? 120 : 75);
+        const color = colors[Math.floor(phase * 2) % colors.length];
+        ctx.beginPath();
+        ctx.fillStyle = color;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        if (id === 'wispTrail') {
+          ctx.ellipse(px, py, 6 + age * 7, 1.7, wobble * .45, 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          const radius = id === 'rocketTrail' ? 2.5 + age * 7 : 2 + Math.abs(wobble) * 4;
+          ctx.arc(px, py, radius, 0, Math.PI * 2);
+          if (id === 'bubbleTrail') ctx.stroke();
+          else ctx.fill();
+        }
+      }
       ctx.restore();
     }
 
@@ -685,6 +742,7 @@
         ctx.stroke();
         ctx.restore();
       }
+      this.drawTrail(run, AG.trailsActive(game.now()) ? game.profile.trail : '', dt);
       if (player.hp > 0 && (player.invulnerable <= 0 || Math.floor(player.invulnerable * 12) % 2 === 0)) {
         this.ship(player.x, player.y, run.ship.color, 0.84, run.shipId);
       }

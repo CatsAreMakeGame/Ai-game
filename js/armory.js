@@ -9,6 +9,7 @@
     "upgrades": "Tools/Wrench/Wrench 256.png",
     "boosts": "General/Lightning Bolt/Lightning Bolt Yellow 256.png",
     "items": "Player/Brain/Brain 256.png",
+    "trails": "Items/Wing/Wing 256.png",
     "crates": "Items/Crate/Crate 256.png",
     "flagship": "Currency/Star Gem/Star Gem 256.png",
     "recipes": "Items/Book/Book 256.png",
@@ -168,7 +169,7 @@
     title.id = 'bundle-reward-title';
     dialog.setAttribute('aria-labelledby', title.id);
     const grid = element('div', '', 'inventory-tiles');
-    const guaranteed = CRATES[type].gift ? ['credit', 'gem', 'snowflake'] : [];
+    const guaranteed = CRATES[type].gift ? ['credit', 'gem', 'snowflake'] : CRATES[type].alienChest ? ['credit'] : [];
     const rarityOrder = Object.keys(RARITIES);
     const items = Object.keys(rewards).filter(id => !guaranteed.includes(id)).sort((a, b) =>
       rarityOrder.indexOf(ITEMS[a].rarity ?? 'common') - rarityOrder.indexOf(ITEMS[b].rarity ?? 'common') ||
@@ -422,7 +423,7 @@
     }
     const list = element('div', '', 'recipe-list');
     body.append(tabs, list);
-    const ships = Object.keys(AG.BASE_SHIPS).filter(AG.itemAvailable);
+    const ships = Object.keys(AG.BASE_SHIPS).filter(id => AG.itemAvailable(id));
     const example = ships.includes(game.profile.ship) ? game.profile.ship : ships[0];
     const alienExample = game.profile.unlocked.find(id => SHIPS[id].alien) ?? example;
     const ingredients = {
@@ -526,22 +527,23 @@
       const pricing = element('p', crate.price + ' Star Gems each · ' + game.itemCount(id).toLocaleString() + ' owned', 'panel-note');
       const quick = element('div', '', 'crate-quick-buy');
       function purchase(count) {
-        const introductory = AG.balanceActive() && id === 'shipCrate' && count === 1 && AG.launchDealsActive() && !game.profile.shipCrateOfferUsed;
+        const introductory = game.cratePurchasePrice(id, count) !== 0 && AG.balanceActive() && id === 'shipCrate' && count === 1 && AG.launchDealsActive() && !game.profile.shipCrateOfferUsed;
         if (!(introductory ? game.buyIntroShipCrate() : game.buyCrates(id, count))) return;
         state.result = count.toLocaleString() + (count === 1 ? ' crate saved in Inventory.' : ' crates saved in Inventory.');
         state.crateFlash = id;
         refresh();
       }
       for (const count of AG.CRATE_BUY_AMOUNTS) {
-        const introductory = AG.balanceActive() && id === 'shipCrate' && count === 1 && AG.launchDealsActive() && !game.profile.shipCrateOfferUsed;
+        const introductory = game.cratePurchasePrice(id, count) !== 0 && AG.balanceActive() && id === 'shipCrate' && count === 1 && AG.launchDealsActive() && !game.profile.shipCrateOfferUsed;
         const price = introductory ? AG.SHIP_CRATE_OFFER_PRICE : game.cratePurchasePrice(id, count);
         const choice = button('Buy ' + count, () => purchase(count), { disabled: !(introductory ? game.canBuyIntroShipCrate() : game.canBuyCrates(id, count)) });
         const amount = element('small', '', price < count * crate.price ? 'sale-price' : '');
 
         if (introductory) amount.classList.add('intro-price');
-        amount.append(element('span', price + (price === 1 ? ' Gem' : ' Gems')));
+        amount.append(element('span', price === 0 ? 'Free · Alien Token' : price + (price === 1 ? ' Gem' : ' Gems')));
         choice.append(amount);
-        choice.setAttribute('aria-label', 'Buy ' + count + ' ' + crate.name + (count === 1 ? '' : 's') + ' for ' + price + ' Star Gems');
+        choice.setAttribute('aria-label', 'Buy ' + count + ' ' + crate.name + (count === 1 ? '' : 's') +
+          (price === 0 ? ' free with Alien Token' : ' for ' + price + ' Star Gems'));
         quick.append(choice);
       }
       info.append(title, pricing);
@@ -647,6 +649,7 @@
   function renderArmory({ kind, state, game, body, button, element, open, dismiss, refresh }) {
     const profile = game.profile;
     const base = game.canVisitBase();
+    const gemLabel = price => price === 0 ? 'Free · Alien Token' : 'Buy · ' + AG.formatCurrency(price) + ' Star Gems';
     const cards = element('div', '', 'cards armory-cards');
     const tiles = element('div', '', 'inventory-tiles');
     const eventTiles = element('div', '', 'inventory-tiles');
@@ -672,7 +675,10 @@
     function tileCard(id, action, count, doubleClick) {
       const item = ITEMS[id];
       const rarity = item.rarity ?? 'common';
-      const tile = button('', () => selectTile(id, !doubleClick));
+      const tile = button('', () => {
+        if (id === 'alienToken') action?.click();
+        else selectTile(id, !doubleClick);
+      });
       if (doubleClick) tile.addEventListener('dblclick', doubleClick);
       if (Object.hasOwn(CRATES, id)) tile.setAttribute('aria-expanded', 'false');
       tile.className = 'inventory-tile';
@@ -681,7 +687,7 @@
       itemHover(tile, id, false);
       tile.setAttribute('aria-label', AG.itemName(id) + ', ' + rarity + ', quantity ' + (count || 1));
       tile.append(graphic(id), element('b', '×' + (count || 1).toLocaleString(), 'inventory-count'));
-      if (BOOSTS[id] || AG.MATERIALS[id]) {
+      if (id !== 'alienToken' && (BOOSTS[id] || AG.MATERIALS[id])) {
         tile.draggable = true;
         tile.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', id));
       }
@@ -740,7 +746,7 @@
         if (!updateStockClock()) { clearInterval(timer); refresh(); }
       }, 1000);
       for (const id of stock.ids) {
-        const price = AG.merchantCatalog()[id];
+        const price = AG.merchantCatalog(game.now())[id];
         const sold = stock.sold.includes(id);
         card(id, ITEMS[id].description, button(sold ? 'Out of stock' : AG.formatCurrency(price) + ' Credits', () => {
           if (game.buyMerchant(id)) state.result = ITEMS[id].name + ' purchased.';
@@ -779,6 +785,10 @@
       body.append(headings, reserve);
       footer();
     } else if (kind === 'shop') {
+      if (AG.alienTokenActive(game.now()) && profile.alienTokenUntil > game.now()) {
+        const expires = new Date(profile.alienTokenUntil).toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', dateStyle: 'medium', timeStyle: 'short' });
+        body.append(element('p', 'Alien Token active until ' + expires + ' Melbourne time. Free options reset at midnight.', 'panel-note'));
+      }
       const options = element('div', '', 'inventory-tabs');
       for (const [id, name] of [['ships', 'Spaceships'], ['crates', 'Star Gem crates'], ['flagship', 'Premium Shop']]) {
         const tab = menuIcon(button(name, () => { state.shopTab = id; refresh(); }), id);
@@ -814,10 +824,11 @@
         }
         const price = game.flagshipPrice('supernova');
         const savings = element('progress');
-        savings.max = Number.isSafeInteger(price) ? price : 100;
+        savings.max = Number.isSafeInteger(price) && price > 0 ? price : 100;
+        savings.hidden = price === 0;
         savings.value = Math.min(profile.gems, savings.max);
         savings.setAttribute('aria-label', 'Star Gems saved toward next Supernova');
-        const buy = button('Buy for ' + (Number.isSafeInteger(price) ? AG.formatCurrency(price) + ' Star Gems' : 'maximum price'), () => {
+        const buy = button((Number.isSafeInteger(price) ? gemLabel(price) : 'Maximum price'), () => {
           if (game.unlockFlagship('supernova')) state.result = 'Supernova acquired. Equip it in the Hangar.';
           refresh();
         }, { primary: true, disabled: !game.canUnlockFlagship('supernova') });
@@ -827,7 +838,7 @@
           const seconds = Math.ceil(game.flagshipWait() / 1000);
           wait.textContent = retired ? 'Permanently out of stock' : seconds ? 'Next purchase in ' + premiumTime(seconds * 1000) : 'Available to purchase';
           buy.disabled = !game.canUnlockFlagship('supernova');
-          buy.textContent = retired || seconds ? 'Out of stock' : 'Buy for ' + (Number.isSafeInteger(price) ? AG.formatCurrency(price) + ' Star Gems' : 'maximum price');
+          buy.textContent = retired || seconds ? 'Out of stock' : (Number.isSafeInteger(game.flagshipPrice('supernova')) ? gemLabel(game.flagshipPrice('supernova')) : 'Maximum price');
           return !retired;
         };
         if (status()) {
@@ -858,8 +869,8 @@
           ]) benefits.append(element('li', benefit));
           const rarity = element('span', 'Mythical · Ability upgrade', 'overdrive-rarity');
           const wait = element('p', '', 'panel-note');
-          const buyLabel = 'Buy · ' + AG.formatCurrency(game.premiumUpgradePrice(id)) + ' Star Gems';
-          const buy = button(buyLabel, () => {
+          const buyLabel = () => gemLabel(game.premiumUpgradePrice(id));
+          const buy = button(buyLabel(), () => {
             if (game.buyPremiumUpgrade(id)) state.result = item.name + ' purchased.';
             refresh();
           }, { primary: true, disabled: !game.canBuyPremiumUpgrade(id) });
@@ -867,7 +878,7 @@
             const seconds = Math.ceil(game.premiumUpgradeWait() / 1000);
             wait.textContent = seconds ? 'Next purchase in ' + premiumTime(seconds * 1000) : 'Available to purchase';
             buy.disabled = !game.canBuyPremiumUpgrade(id);
-            buy.textContent = seconds ? 'Out of stock' : buyLabel;
+            buy.textContent = seconds ? 'Out of stock' : buyLabel();
             return seconds;
           }
           if (refreshCooldown()) {
@@ -878,6 +889,16 @@
           info.append(rarity, element('h3', item.name), benefits, wait, buy);
           feature.append(art, info);
           body.append(feature);
+        }
+        if (AG.trailsActive(game.now())) {
+          body.append(element('h3', 'Trails'));
+          for (const id of ['bubbleTrail', 'rainbowTrail']) {
+            card(id, AG.TRAILS[id].description, button(gemLabel(game.premiumTrailPrice(id)), () => {
+              if (game.buyPremiumTrail(id)) state.result = AG.itemName(id) + ' acquired.';
+              refresh();
+            }, { disabled: !game.canBuyPremiumTrail(id) }), game.itemCount(id));
+          }
+          body.append(cards);
         }
         if (AG.contentActive(game.now())) body.append(renderUpdateGifts(game, state, element, button, refresh));
       } else if (AG.contentActive()) {
@@ -924,7 +945,7 @@
       const tab = inventory ? state.inventoryTab : 'ships';
       if (inventory) {
         const tabs = element('div', '', 'inventory-tabs');
-        for (const [id, label] of [['ships', 'Spaceships'], ['upgrades', 'Upgrades'], ['boosts', 'Boosts'], ['items', 'Items'], ['crates', 'Crates']]) {
+        for (const [id, label] of [['ships', 'Spaceships'], ['upgrades', 'Upgrades'], ['boosts', 'Boosts'], ['items', 'Items'], ['crates', 'Crates'], ...(AG.trailsActive(game.now()) ? [['trails', 'Trails']] : [])]) {
           const control = menuIcon(button(label, () => { state.inventoryTab = id; refresh(); }), id);
           control.setAttribute('aria-pressed', String(tab === id));
           tabs.append(control);
@@ -951,6 +972,14 @@
           if (state.selectedUpgrade === id) outfit.setAttribute('aria-pressed', 'true');
           card(id, UPGRADES[id].description, outfit, profile.upgrades[id]);
         }
+      } else if (tab === 'trails') {
+        for (const id of sortItems(AG.TRAILS, () => 0)) {
+          if (!profile.trails[id]) continue;
+          card(id, ITEMS[id].description, button(profile.trail === id ? 'Unequip trail' : 'Equip trail', () => {
+            game.selectTrail(profile.trail === id ? '' : id);
+            refresh();
+          }, { disabled: !base }), profile.trails[id]);
+        }
       } else if (tab === 'boosts' || tab === 'items') {
         const assigned = element('div', '', 'boost-assign');
         profile.boostSlots.forEach((id, i) => {
@@ -966,7 +995,7 @@
           } else if (id) slot.append(graphic(id));
           slot.append(element('small', 'Level ' + [1, 5, 10][i]));
           function assign(type) {
-            if (!game.boostSlotOpen(i) || (type && (!(BOOSTS[type] || AG.MATERIALS[type]) || !game.itemCount(type)))) return;
+            if (!game.boostSlotOpen(i) || type === 'alienToken' || (type && (!(BOOSTS[type] || AG.MATERIALS[type]) || !game.itemCount(type)))) return;
             profile.boostSlots[i] = type;
             game.save();
             refresh();
@@ -986,22 +1015,37 @@
           card(id, BOOSTS[id].description, null, profile.boosts[id]);
         }
         if (tab === 'items') for (const id of sortItems(AG.MATERIALS, () => 0)) {
-          if (!AG.itemAvailable(id) || !profile.materials[id]) continue;
-          card(id, ITEMS[id].description, null, profile.materials[id]);
+          if (!AG.itemAvailable(id, game.now()) || !profile.materials[id]) continue;
+          let action = null;
+          if (id === 'alienToken') action = button('Use Alien Token', () => {
+            const dialog = element('dialog', '', 'crate-reveal bundle-reveal');
+            dialog.setAttribute('aria-label', 'Use Alien Token');
+            const controls = element('div', '', 'home-actions');
+            controls.append(button('Yes, use token', () => {
+              if (game.useAlienToken()) state.result = 'Alien Token access is active. Three days added.';
+              dialog.close();
+              refresh();
+            }, { primary: true }), button('Cancel', () => dialog.close()));
+            dialog.append(element('h2', 'Use Alien Token?'), element('p', ITEMS[id].description), controls);
+            document.body.append(dialog);
+            dialog.addEventListener('close', () => dialog.remove(), { once: true });
+            dialog.showModal();
+          }, { disabled: !base });
+          card(id, ITEMS[id].description, action, profile.materials[id]);
           if (id.startsWith('alien')) eventTiles.append(tileChoices.get(id).tile);
         }
       } else {
         for (const id of sortItems(CRATES, crate => crate.price)) {
-          if (!AG.itemAvailable(id) || !profile.crates[id]) continue;
+          if (!AG.itemAvailable(id, game.now()) || !profile.crates[id]) continue;
           const count = profile.crates[id];
-          const isBundle = Boolean(CRATES[id].bundle || CRATES[id].gift);
+          const isBundle = Boolean(CRATES[id].bundle || CRATES[id].gift || CRATES[id].alienChest);
           const limit = Math.min(count, game.crateBatchLimit());
           function openBatch(quantity) {
             if (isBundle) {
               const rewards = game.openBundle(id, quantity);
               state.result = rewards ? Object.entries(rewards).map(([reward, amount]) => AG.itemName(reward) + ' ×' + amount.toLocaleString()).join(' · ') : 'Bundle could not be opened.';
               refresh();
-              if (rewards && quantity > 1) revealBundleRewards(id, rewards, element, button);
+              if (rewards && (quantity > 1 || CRATES[id].alienChest)) revealBundleRewards(id, rewards, element, button);
               return;
             }
             const batch = game.openCrates(id, quantity);
@@ -1041,7 +1085,7 @@
           if (eventTiles.children.length) scroll.append(element('h3', 'Event', 'inventory-subsection'), eventTiles);
           shell.append(scroll, details);
           body.append(shell);
-          if (tileChoices.has(state.selectedItem) && state.showItemDetails) selectTile(state.selectedItem);
+          if (state.selectedItem !== 'alienToken' && tileChoices.has(state.selectedItem) && state.showItemDetails) selectTile(state.selectedItem);
           const positions = state.inventoryScroll ??= {};
           scroll.scrollTop = positions[tab] ?? 0;
           scroll.addEventListener('scroll', () => { positions[tab] = scroll.scrollTop; });

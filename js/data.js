@@ -11,7 +11,7 @@ window.AG = (() => {
     locked: 'icons/ui/shaded_lock.png',
     supplies: 'icons/ui/in_round_shop.png'
   };
-  const RARITIES = { common: '#d5d9df', rare: '#75df95', epic: '#bc80d6', legendary: '#ffbf51', mythical: '#ff626b', godly: '#8872ff' };
+  const RARITIES = { common: '#d5d9df', rare: '#75df95', epic: '#bc80d6', legendary: '#ffbf51', mythical: '#ff626b', godly: '#8872ff', exclusive: '#58eee2' };
   // Hull, speed, shot interval, damage, engine mounts, silhouette, accent, rarity, price.
   const shipRows = {
     scout: ['Scout', 100, 445, .28, 1, 1, 'dart', '#d5fa74', 'common', 0],
@@ -72,6 +72,14 @@ window.AG = (() => {
   };
   const SNOW_START = Date.parse('2026-12-01T00:00:00+11:00');
   const SNOW_END = Date.parse('2027-01-01T00:00:00+11:00');
+  const TRAILS_START = Date.parse('2026-11-28T22:30:00+11:00');
+  const ALIEN_TOKEN_START = Date.parse('2026-11-28T22:35:00+11:00');
+  const trailsActive = (now = Date.now()) => now >= TRAILS_START;
+  const alienTokenActive = (now = Date.now()) => now >= ALIEN_TOKEN_START;
+  const alienChestEvent = (now = Date.now()) => alienTokenActive(now) && now < SNOW_END;
+  const ALIEN_TOKEN_DURATION = 72 * 3600000;
+  const ALIEN_TOKEN_ODDS = 1 / 9975;
+  const WISP_TRAIL_ODDS = .005;
   const snowSeason = (now = Date.now()) => now >= SNOW_START && now < SNOW_END;
   const QUESTS_START = Date.parse('2026-11-28T15:00:00+11:00');
   const questsActive = (now = Date.now()) => now >= QUESTS_START;
@@ -136,7 +144,16 @@ window.AG = (() => {
       boostRelay: { types: 3, capacity: 150, interval: 0 },
       description: 'Holds up to 150 each of three boost types and activates eligible boosts without a delay.' }
   };
+  const TRAILS = {
+    wispTrail: { name: 'Wisp Trail', rarity: 'rare', glyph: '〰', description: 'Wisps of wind drift behind your ship.' },
+    rocketTrail: { name: 'Rocket Trail', rarity: 'epic', glyph: '🔥', creditPrice: 1500, description: 'Red, orange and yellow rocket exhaust with grey smoke.' },
+    bubbleTrail: { name: 'Bubble Trail', rarity: 'exclusive', glyph: '🫧', gemPrice: 20, description: 'Translucent bubbles float behind your ship.' },
+    rainbowTrail: { name: 'Rainbow Trail', rarity: 'exclusive', glyph: '🌈', gemPrice: 35, description: 'A six-colour ribbon follows your ship.' },
+    christmasTrail: { name: 'Christmas Trail', rarity: 'legendary', glyph: '🎄', description: 'Red and green sparks celebrate Christmas.' }
+  };
   const CRATES = {
+    alienChest: { name: 'Alien Chest', rarity: 'rare', glyph: '▣', alienChest: true,
+      description: 'Contains 5–25 Credits. 5% chance of 1–3 Star Gems and a separate 1 in 9,975 chance of an Alien Token.' },
     jollyGiftBag: { name: 'Jolly Gift Bag', rarity: 'legendary', glyph: '◆', gift: true,
       description: 'Contains 50–250 Credits, 3–10 Star Gems, 5–15 Snowflakes, and 3 random items. Higher rarities are harder to draw. Retired event rewards can appear.' },
     shipCrate: { name: 'Spaceship Crate', rarity: 'epic', glyph: '▣', price: 4, outcomes: [
@@ -166,7 +183,7 @@ window.AG = (() => {
     credit: { name: 'Credits', rarity: 'common', glyph: '●', file: 'icons/currency/credit_gold.png' },
     gem: { name: 'Star Gems', rarity: 'legendary', glyph: '◆', file: 'icons/currency/star_gem.png' }
   };
-  const ITEMS = { ...SHIPS, ...UPGRADES, ...BOOSTS, ...CRATES, ...CURRENCIES,
+  const ITEMS = { ...SHIPS, ...UPGRADES, ...BOOSTS, ...CRATES, ...CURRENCIES, ...TRAILS,
     energyOverdrive: { name: 'Energy Overdrive', rarity: 'epic', glyph: '⚡',
       description: 'At full energy, grants 40% more movement speed and a faster fire rate until 25% energy remains.' }
   };
@@ -231,9 +248,16 @@ window.AG = (() => {
       tier.rarity === 'epic' ? { ...tier, items: tier.items.filter(item => item !== 'boostRelay') } : tier) };
   }
   const newContent = new Set(['zenith', 'enemyCrate', 'enemyGrunt', 'enemyShooter', 'enemyDiver', 'enemyTank', 'enemySmokeNinja', 'boostCascade', 'boostOverdrive', 'twinCannon', 'tripleCannon', 'slimeCannon', 'radioactiveSmoke', 'slime', 'uranium', 'boostBundle', 'upgradeBundle']);
-  const itemAvailable = id => contentActive() || !newContent.has(id);
+  function itemAvailable(id, now = Date.now()) {
+    if (Object.hasOwn(TRAILS, id)) return trailsActive(now);
+    if (id === 'alienToken' || id === 'alienChest') return alienTokenActive(now);
+    return contentActive(now) || !newContent.has(id);
+  }
   const MERCHANT = { boostCascade: 3200, seeker: 2200, vector: 2400, magnet: 2000 };
-  const merchantCatalog = () => contentActive() ? MERCHANT : { boostRelay: 1600, seeker: 2200, vector: 2400, magnet: 2000 };
+  const merchantCatalog = (now = Date.now()) => ({
+    ...(contentActive(now) ? MERCHANT : { boostRelay: 1600, seeker: 2200, vector: 2400, magnet: 2000 }),
+    ...(trailsActive(now) ? { rocketTrail: TRAILS.rocketTrail.creditPrice } : {})
+  });
   const TARGET_MODES = { nearest: 'Closest to ship', bottom: 'Closest to bottom', strongest: 'Strongest', weakest: 'Weakest' };
   const SUPPLIES = {
     heal: { name: 'Hull repair', description: 'Restores up to 25 hull.', price: 150 },
@@ -295,6 +319,7 @@ window.AG = (() => {
     const counts = (key, catalog) => Object.fromEntries(Object.entries(saved?.[key] ?? {})
       .filter(([id, count]) => Object.hasOwn(catalog, id) && Number.isSafeInteger(count) && count > 0));
     const upgrades = counts('upgrades', UPGRADES);
+    const trails = counts('trails', TRAILS);
     const loadouts = {};
     for (const ship of unlocked) {
       const mounts = {};
@@ -323,7 +348,7 @@ window.AG = (() => {
     const discoveries = new Set((Array.isArray(saved?.discoveries) ? saved.discoveries : [])
       .filter(id => Object.hasOwn(ITEMS, id) || Object.hasOwn(catalog, id)));
     for (const id of unlocked) discoveries.add(id);
-    for (const group of [upgrades, materials, counts('boosts', BOOSTS), counts('crates', CRATES), counts('boostReserve', BOOSTS)]) {
+    for (const group of [upgrades, materials, trails, counts('boosts', BOOSTS), counts('crates', CRATES), counts('boostReserve', BOOSTS)]) {
       for (const id of Object.keys(group)) discoveries.add(id);
     }
     if (saved?.credits > 0) discoveries.add('credit');
@@ -366,7 +391,11 @@ window.AG = (() => {
       claimed && nextAt <= 8640000000000000 && previousClaim > 0 ? updateGiftDay(previousClaim) : '';
     return {
       unlocked, ship: unlocked.includes(saved?.ship) ? saved.ship : unlocked[0], alienShips,
-      materials,
+      materials, trails, trail: trails[saved?.trail] ? saved.trail : '',
+      alienTokenUntil: Math.min(readNumber('alienTokenUntil'), 8640000000000000),
+      alienTokenClaims: Object.fromEntries(Object.entries(saved?.alienTokenClaims ?? {}).filter(([key, day]) =>
+        /^(supernova|boostOverdrive|trail:(bubbleTrail|rainbowTrail)|crate:(shipCrate|enemyCrate|upgradeCrate):(1|4|10))$/.test(key) &&
+        typeof day === 'string')),
       copies: counts('copies', catalog), flagshipPurchases: Math.max(0, saved?.flagshipPurchases === undefined ? Number(unlocked.includes('supernova')) : readNumber('flagshipPurchases')),
       flagshipTime: readNumber('flagshipTime'), boostOverdriveTime: readNumber('boostOverdriveTime'),
       boostOverdrivePurchases: saved?.boostOverdrivePurchases === undefined ? Number(readNumber('boostOverdriveTime') > 0) : readNumber('boostOverdrivePurchases'),
@@ -429,6 +458,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { QUESTS_START, questsActive, SNOW_START, SNOW_END, snowSeason, BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { TRAILS, TRAILS_START, ALIEN_TOKEN_START, ALIEN_TOKEN_DURATION, ALIEN_TOKEN_ODDS, WISP_TRAIL_ODDS, trailsActive, alienTokenActive, alienChestEvent, QUESTS_START, questsActive, SNOW_START, SNOW_END, snowSeason, BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

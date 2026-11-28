@@ -490,6 +490,7 @@
       if (UPGRADES[type]) return profile.upgrades;
       if (BOOSTS[type]) return profile.boosts;
       if (AG.MATERIALS[type]) return profile.materials;
+      if (AG.TRAILS[type]) return profile.trails;
       return profile.crates;
     }
 
@@ -512,7 +513,7 @@
     }
 
     grantItem(type, amount = 1, announceDiscovery) {
-      if (!Object.hasOwn(AG.ITEMS, type) || !AG.itemAvailable(type) || !Number.isSafeInteger(amount) || amount < 1 ||
+      if (!Object.hasOwn(AG.ITEMS, type) || !AG.itemAvailable(type, this.now()) || !Number.isSafeInteger(amount) || amount < 1 ||
           !Number.isSafeInteger(this.itemCount(type) + amount) || this.run?.practice) return false;
       this.addItem(type, amount);
       this.discoverItem(type, announceDiscovery);
@@ -523,7 +524,7 @@
 
     merchantStock(now = this.now()) {
       const saved = this.profile.merchant;
-      const ids = Object.keys(AG.merchantCatalog());
+      const ids = Object.keys(AG.merchantCatalog(now));
       if (saved?.until > now && Array.isArray(saved.ids) && saved.ids.length === 2 && new Set(saved.ids).size === 2 &&
           saved.ids.every(id => ids.includes(id))) {
         if (!Array.isArray(saved.sold)) saved.sold = [];
@@ -531,7 +532,7 @@
       }
       const first = ids.splice(Math.floor(this.random() * ids.length), 1)[0];
       const second = ids[Math.floor(this.random() * ids.length)];
-      const stock = { ids: [first, second].sort((a, b) => Object.keys(AG.merchantCatalog()).indexOf(a) - Object.keys(AG.merchantCatalog()).indexOf(b)),
+      const stock = { ids: [first, second].sort((a, b) => Object.keys(AG.merchantCatalog(now)).indexOf(a) - Object.keys(AG.merchantCatalog(now)).indexOf(b)),
         until: now + 300000, sold: [] };
       this.profile.merchant = stock;
       this.save();
@@ -553,8 +554,53 @@
       return last ? Math.max(0, last + AG.PREMIUM_PURCHASE_COOLDOWN * 2 ** Math.max(0, purchases - 1) - this.now()) : 0;
     }
 
+    alienTokenFree(key, now = this.now()) {
+      return AG.alienTokenActive(now) && this.profile.alienTokenUntil > now &&
+        this.profile.alienTokenClaims[key] !== AG.updateGiftDay(now);
+    }
+
+    useAlienToken() {
+      const now = this.now();
+      if (!AG.alienTokenActive(now) || !this.canVisitBase() || this.run?.practice || !this.itemCount('alienToken')) return false;
+      this.profile.materials.alienToken--;
+      this.profile.alienTokenUntil = Math.min(8640000000000000, Math.max(now, this.profile.alienTokenUntil) + AG.ALIEN_TOKEN_DURATION);
+      this.save();
+      return true;
+    }
+
+    gemPurchasePrice(key, price) {
+      return this.alienTokenFree(key) ? 0 : price;
+    }
+
+    payGems(key, price) {
+      if (price === 0) this.profile.alienTokenClaims[key] = AG.updateGiftDay(this.now());
+      this.profile.gems -= price;
+    }
+
+    selectTrail(id) {
+      if (!this.canVisitBase() || (id && (!AG.TRAILS[id] || !AG.trailsActive(this.now()) || !this.itemCount(id)))) return false;
+      this.profile.trail = id;
+      this.save();
+      return true;
+    }
+
+    premiumTrailPrice(id) {
+      return this.gemPurchasePrice('trail:' + id, AG.TRAILS[id]?.gemPrice);
+    }
+
+    canBuyPremiumTrail(id) {
+      return Boolean(AG.TRAILS[id]?.gemPrice && AG.trailsActive(this.now()) && this.canVisitBase() &&
+        !this.run?.practice && this.profile.gems >= this.premiumTrailPrice(id) && Number.isSafeInteger(this.itemCount(id) + 1));
+    }
+
+    buyPremiumTrail(id) {
+      if (!this.canBuyPremiumTrail(id)) return false;
+      this.payGems('trail:' + id, this.premiumTrailPrice(id));
+      return this.grantItem(id);
+    }
+
     premiumUpgradePrice(id) {
-      return UPGRADES[id]?.premium * 2 ** this.profile.boostOverdrivePurchases;
+      return this.gemPurchasePrice(id, UPGRADES[id]?.premium * 2 ** this.profile.boostOverdrivePurchases);
     }
 
     premiumUpgradeWait() {
@@ -563,21 +609,21 @@
 
     canBuyPremiumUpgrade(id) {
       const price = this.premiumUpgradePrice(id);
-      return Boolean(AG.contentActive() && Number.isSafeInteger(price) && this.canVisitBase() && this.profile.gems >= price &&
+      return Boolean(id === 'boostOverdrive' && AG.contentActive() && Number.isSafeInteger(price) && this.canVisitBase() && !this.run?.practice && this.profile.gems >= price &&
         this.premiumUpgradeWait() === 0 && Number.isSafeInteger(this.itemCount(id) + 1));
     }
 
     buyPremiumUpgrade(id) {
       if (!this.canBuyPremiumUpgrade(id)) return false;
-      this.profile.gems -= this.premiumUpgradePrice(id);
+      this.payGems(id, this.premiumUpgradePrice(id));
       this.profile.boostOverdrivePurchases++;
       this.profile.boostOverdriveTime = this.now();
       return this.grantItem(id);
     }
 
     buyMerchant(id) {
-      const price = AG.merchantCatalog()[id];
-      if (!this.canVisitBase() || !Number.isInteger(price) || this.credits < price ||
+      const price = AG.merchantCatalog(this.now())[id];
+      if (!this.canVisitBase() || this.run?.practice || !Number.isInteger(price) || this.credits < price ||
           !Number.isSafeInteger(this.itemCount(id) + 1)) return false;
       const stock = this.merchantStock();
       if (!stock.ids.includes(id) || stock.sold.includes(id)) return false;
@@ -785,13 +831,14 @@
     }
 
     cratePurchasePrice(type, count, now = Date.now()) {
+      if (CRATES[type]?.price && AG.CRATE_BUY_AMOUNTS.includes(count) && this.alienTokenFree('crate:' + type + ':' + count)) return 0;
       const price = AG.crateUnitPrice(type, now);
       const discount = type === 'enemyCrate' && AG.CRATE_BUY_AMOUNTS.includes(count) && AG.launchDealsActive(now);
       return count * price * (discount ? .75 : 1);
     }
 
     canBuyCrates(type, count, now = Date.now()) {
-      if (!CRATES[type]?.price || !AG.itemAvailable(type) || !this.canVisitBase() ||
+      if (!CRATES[type]?.price || !AG.itemAvailable(type) || !this.canVisitBase() || this.run?.practice ||
           !Number.isSafeInteger(count) || count < 1 ||
           (!this.canBuyCustomCrateAmount && !AG.CRATE_BUY_AMOUNTS.includes(count))) return false;
       return Number.isSafeInteger(this.itemCount(type) + count) && this.cratePurchasePrice(type, count, now) <= this.profile.gems;
@@ -811,9 +858,8 @@
     buyCrates(type, count) {
       const now = Date.now();
       if (!this.canBuyCrates(type, count, now)) return false;
-      this.profile.gems -= this.cratePurchasePrice(type, count, now);
-      this.grantItem(type, count);
-      return true;
+      this.payGems('crate:' + type + ':' + count, this.cratePurchasePrice(type, count, now));
+      return this.grantItem(type, count);
     }
 
     canBuyIntroShipCrate(now = Date.now()) {
@@ -861,9 +907,10 @@
 
     openBundle(type, count = 1) {
       const spec = CRATES[type];
-      if (!AG.contentActive() || !(spec?.bundle || spec?.gift) || !this.canVisitBase() || this.run?.practice ||
+      if (!AG.itemAvailable(type, this.now()) || !(spec?.bundle || spec?.gift || spec?.alienChest) || !this.canVisitBase() || this.run?.practice ||
           !Number.isSafeInteger(count) || count < 1 || count > this.crateBatchLimit() || count > this.itemCount(type)) return false;
-      const rewards = spec.gift ? AG.jollyGiftTotals(count, this.random, this.profile) : AG.bundleTotals(spec, count, this.random);
+      const rewards = spec.alienChest ? AG.alienChestTotals(count, this.random) :
+        spec.gift ? AG.jollyGiftTotals(count, this.random, this.profile, this.now()) : AG.bundleTotals(spec, count, this.random);
       if (Object.entries(rewards).some(([id, amount]) => !Number.isSafeInteger(this.itemCount(id) + amount))) return false;
       this.profile.crates[type] -= count;
       for (const [id, amount] of Object.entries(rewards)) {
@@ -936,12 +983,13 @@
 
     canUnlockFlagship(id) {
       const price = this.flagshipPrice(id);
-      return (id === 'supernova' && this.now() < AG.SNOW_START) && this.canVisitBase() && Number.isSafeInteger(price) && this.profile.gems >= price && this.flagshipWait() === 0;
+      return (id === 'supernova' && this.now() < AG.SNOW_START) && this.canVisitBase() && !this.run?.practice && Number.isSafeInteger(price) &&
+        this.profile.gems >= price && this.flagshipWait() === 0 && Number.isSafeInteger(this.shipCount(id) + 1);
     }
 
     unlockFlagship(id) {
       if (!this.canUnlockFlagship(id)) return false;
-      this.profile.gems -= this.flagshipPrice(id);
+      this.payGems(id, this.flagshipPrice(id));
       const copies = this.shipCount(id);
       if (!copies) this.profile.unlocked.push(id);
       this.profile.copies[id] = copies + 1;
@@ -978,7 +1026,7 @@
       run.enemies.push({
         type, x, origin: x, y: -spec.size, size: spec.size, hp, maxHp: hp,
         speed: run.diff.speed * (spec.speed ?? 0), lane: (run.spawned + 2) % 5, fireIn: 1 + this.random() * run.diff.fire,
-        fireDelay: run.diff.fire, damageScale: run.diff.damage, smokeIn: 0, age: 0, bornWave: run.wave, flash: 0, volley: 0, formation,
+        fireDelay: run.diff.fire, damageScale: run.diff.damage, smokeIn: 0, age: 0, bornWave: run.wave, waveEnemyCount: run.total, flash: 0, volley: 0, formation,
         escort: Boolean(boss && (run.spawned !== 0 || extra))
       });
       if (extra) run.total++;
@@ -1654,6 +1702,13 @@
       }
       for (const id of ['quickload', 'salvoAmmo']) {
         if (this.random() < BOOSTS[id].pickupChance) this.dropItem(id, enemy.x - 35, enemy.y + 18);
+      }
+      const cosmeticTime = this.now();
+      if (AG.trailsActive(cosmeticTime) && this.random() < AG.WISP_TRAIL_ODDS) {
+        this.dropItem('wispTrail', enemy.x + 42, enemy.y + 15);
+      }
+      if (AG.alienChestEvent(cosmeticTime) && this.random() < 1 / (5 * Math.max(1, enemy.waveEnemyCount ?? run.total))) {
+        this.dropItem('alienChest', enemy.x - 42, enemy.y + 15);
       }
       const updateLive = AG.contentActive();
       let roll = this.random();

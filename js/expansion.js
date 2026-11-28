@@ -5,6 +5,7 @@
   const MODES = { easy: 20, medium: 30, hard: 50, endless: MAX_WAVE };
   const EVENT_END = Date.parse('2026-12-01T00:00:00+11:00');
   const MATERIALS = {
+    alienToken: { name: 'Alien Token', rarity: 'godly', glyph: '◈', description: 'Redeem one of each eligible Star Gem shop option free per Melbourne calendar day for 72 hours. Shop stock and purchase cooldowns still apply.' },
     energyCore: { name: 'Energy Core', rarity: 'mythical', glyph: '◉', description: 'Catch it after defeating a charged Nexus Overlord. Redeem it for Supernova in Quests.' },
     snowflake: { name: 'Snowflake', rarity: 'common', glyph: '❄', description: 'Catch during snowfall. Craft five into a Snow Crystal.' },
     slime: { name: 'Slime', rarity: 'common', glyph: '●', description: 'Dropped by green Grunts. Used to craft a Slime Cannon.' },
@@ -27,6 +28,8 @@
   const BASE_SHIPS = { ...SHIPS };
   Object.assign(ITEMS, MATERIALS);
   for (const [id, icon] of Object.entries({
+  "alienChest": "Items/Chest/Chest 2/Chest Large 2 256.png",
+  "alienToken": "Currency/Gem/Gem Green 256.png",
   "jollyGiftBag": "Holiday/Gift Bag/Gift Bag 256.png",
   "shipCrate": "Items/Chest/Chest 1/Chest Large 1 256.png",
   "enemyCrate": "Items/Chest/Chest 2/Chest Large 2 256.png",
@@ -182,7 +185,19 @@
     return rewards;
   }
 
-  function jollyGiftTotals(count, random, profile) {
+  function alienChestTotals(count, random) {
+    const sumAmounts = (low, length, rolls) => [...crateTotals({ outcomes: [{
+      weight: 100, items: Array.from({ length }, (_, i) => low + i)
+    }] }, rolls, random)].reduce((sum, [amount, copies]) => sum + amount * copies, 0);
+    const rewards = { credit: sumAmounts(5, 21, count) };
+    const gems = binomial(count, .05, random);
+    const tokens = binomial(count, AG.ALIEN_TOKEN_ODDS, random);
+    if (gems) rewards.gem = sumAmounts(1, 3, gems);
+    if (tokens) rewards.alienToken = tokens;
+    return rewards;
+  }
+
+  function jollyGiftTotals(count, random, profile, now = Date.now()) {
     const totals = {};
     for (const [id, low, high] of [['credit', 50, 250], ['gem', 3, 10], ['snowflake', 5, 15]]) {
       const amounts = Array.from({ length: high - low + 1 }, (_, index) => low + index);
@@ -194,12 +209,16 @@
     const newAliens = Object.entries(BASE_SHIPS).filter(([, ship]) =>
       ['mythical', 'godly'].includes(ship.rarity) &&
       !Object.values(profile?.alienShips ?? {}).some(alien => alien.donor === ship.name));
-    const tiers = Object.entries(rates).map(([rarity, rate]) => {
+    const tiers = Object.entries(rates).flatMap(([rarity, rate]) => {
       const items = Object.entries(ITEMS)
-        .filter(([id, item]) => id !== 'energyOverdrive' && (item.rarity ?? 'common') === rarity)
+        .filter(([id, item]) => !['energyOverdrive', 'alienChest', 'alienToken'].includes(id) &&
+          (!AG.TRAILS[id] || id === 'christmasTrail') && AG.itemAvailable(id, now) && (item.rarity ?? 'common') === rarity)
         .map(([id]) => id);
       for (const [id, ship] of newAliens) if (ship.rarity === rarity) items.push('giftAlien:' + id);
-      return { rarity, items, weight: items.length * rate };
+      const rarer = AG.trailsActive(now) ? items.filter(id =>
+        id === 'giftAlien:singularity' || id === 'giftAlien:snowman' || ['Singularity', 'Snowman'].includes(SHIPS[id]?.donor)) : [];
+      return [{ rarity, items: items.filter(id => !rarer.includes(id)), weight: (items.length - rarer.length) * rate },
+        { rarity, items: rarer, weight: rarer.length * rate * .8 }];
     }).filter(tier => tier.items.length);
     const weight = tiers.reduce((sum, tier) => sum + tier.weight, 0);
     for (const tier of tiers) tier.weight *= 100 / weight;
@@ -380,7 +399,7 @@
     },
 
     flagshipPrice(id) {
-      return SHIPS[id]?.gemPrice * 2 ** this.profile.flagshipPurchases;
+      return this.gemPurchasePrice(id, SHIPS[id]?.gemPrice * 2 ** this.profile.flagshipPurchases);
     },
     flagshipWait() {
       return this.premiumWait(this.profile.flagshipTime, this.profile.flagshipPurchases);
@@ -388,15 +407,15 @@
 
     grantEverything() {
       if (!this.testing) return false;
-      for (const id of Object.keys(BASE_SHIPS).filter(AG.itemAvailable)) if (!this.shipCount(id)) this.grantItem(id);
+      for (const id of Object.keys(BASE_SHIPS).filter(id => AG.itemAvailable(id, this.now()))) if (!this.shipCount(id)) this.grantItem(id);
       for (const [id, ship] of Object.entries(BASE_SHIPS)) {
-        if (!AG.itemAvailable(id)) continue;
+        if (!AG.itemAvailable(id, this.now())) continue;
         if (!Object.values(this.profile.alienShips).some(alien => alien.donor === ship.name)) {
           this.grantItem(this.addAlien(ship));
         }
       }
-      for (const [bucket, specs] of [['materials', MATERIALS], ['upgrades', AG.UPGRADES], ['boosts', BOOSTS], ['crates', AG.CRATES]]) {
-        for (const id of Object.keys(specs).filter(AG.itemAvailable)) this.profile[bucket][id] = 999;
+      for (const [bucket, specs] of [['materials', MATERIALS], ['upgrades', AG.UPGRADES], ['boosts', BOOSTS], ['crates', AG.CRATES], ['trails', AG.TRAILS]]) {
+        for (const id of Object.keys(specs).filter(id => AG.itemAvailable(id, this.now()))) this.profile[bucket][id] = 999;
       }
       for (const id of this.profile.unlocked) this.profile.copies[id] = 999;
       this.profile.bestPilotLevel = 999;
@@ -706,5 +725,5 @@
     }
   });
 
-  Object.assign(AG, { createAlien, MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, crateTotals, bundleTotals, jollyGiftTotals, syncShips });
+  Object.assign(AG, { createAlien, MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, crateTotals, bundleTotals, jollyGiftTotals, alienChestTotals, syncShips });
 })();

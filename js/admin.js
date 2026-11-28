@@ -114,13 +114,33 @@
       showClock();
     }), button('Reset clock', () => { game.testTimeOffset = 0; showClock(); }));
 
+    const cosmetics = group('Trails and Alien Tokens');
+    function jumpTo(target) {
+      game.testTimeOffset = 0;
+      if (target > game.now()) game.advanceTestClock(target - game.now() + 1000);
+      refresh();
+    }
+    actions(cosmetics, button('Jump to Trails release', () => jumpTo(AG.TRAILS_START)),
+      button('Jump to Alien Token release', () => jumpTo(AG.ALIEN_TOKEN_START)),
+      button('Jump to Alien Chest event end', () => jumpTo(AG.SNOW_END)),
+      button('Grant all trails', () => {
+        for (const id of Object.keys(AG.TRAILS)) if (!game.itemCount(id)) game.grantItem(id);
+        refresh();
+      }, { disabled: !AG.trailsActive(game.now()) }),
+      button('Grant Alien Token', () => { game.grantItem('alienToken'); refresh(); }, { disabled: !AG.alienTokenActive(game.now()) }),
+      button('Grant Alien Chest', () => { game.grantItem('alienChest'); refresh(); }, { disabled: !AG.alienTokenActive(game.now()) }));
+    if (run) actions(cosmetics, button('Spawn Alien Chest pickup', () => {
+      game.dropItem('alienChest', run.player.x, run.player.y - 90);
+      resumeFlight();
+    }, { disabled: !AG.alienTokenActive(game.now()) }));
+
     const items = group('Give yourself an item');
     const categories = [
-      ['Ship', AG.SHIPS], ['Upgrade', AG.UPGRADES], ['Boost', AG.BOOSTS], ['Crate', AG.CRATES], ['Item', AG.MATERIALS],
+      ['Ship', AG.SHIPS], ['Upgrade', AG.UPGRADES], ['Boost', AG.BOOSTS], ['Crate', AG.CRATES], ['Item', AG.MATERIALS], ['Trail', AG.TRAILS],
       ['Currency', { credit: AG.ITEMS.credit, gem: AG.ITEMS.gem }]
     ];
     const choices = categories.flatMap(([category, catalog]) => Object.entries(catalog)
-      .filter(([id]) => AG.itemAvailable(id))
+      .filter(([id]) => AG.itemAvailable(id, game.now()))
       .sort(([, a], [, b]) => a.name.localeCompare(b.name))
       .map(([id, spec]) => [id, category + ' · ' + AG.itemName(id)]));
     const item = select(items, 'Item', choices);
