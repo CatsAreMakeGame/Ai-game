@@ -72,8 +72,8 @@ window.AG = (() => {
   };
   const SNOW_START = Date.parse('2026-12-01T00:00:00+11:00');
   const SNOW_END = Date.parse('2027-01-01T00:00:00+11:00');
-  const TRAILS_START = Date.parse('2026-11-28T22:40:00+11:00');
-  const ALIEN_TOKEN_START = Date.parse('2026-11-28T22:45:00+11:00');
+  const TRAILS_START = Date.parse('2026-11-28T22:53:00+11:00');
+  const ALIEN_TOKEN_START = Date.parse('2026-11-28T22:55:00+11:00');
   const trailsActive = (now = Date.now()) => now >= TRAILS_START;
   const alienTokenActive = (now = Date.now()) => now >= ALIEN_TOKEN_START;
   const alienChestEvent = (now = Date.now()) => alienTokenActive(now) && now < SNOW_END;
