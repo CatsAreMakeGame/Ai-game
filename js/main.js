@@ -232,6 +232,12 @@
   function renderHUD(now) {
     while (sideNotices.length && sideNotices[0].until <= now) sideNotices.shift().node.remove();
     if (!$('home').hidden) {
+      const credits = game.credits;
+      const gems = game.profile.gems;
+      setText($('home-credits'), AG.formatCurrency(credits));
+      setText($('home-gems'), AG.formatCurrency(gems));
+      $('home-credits').title = credits.toLocaleString();
+      $('home-gems').title = gems.toLocaleString();
       const release = $('update-time');
       const wallTime = Date.now();
       const live = AG.contentActive(wallTime);
