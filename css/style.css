@@ -696,3 +696,21 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .stage .boosts .item-icon { width: 32px; height: 32px; pointer-events: auto; }
 .stage .boosts img { width: 23px; height: 23px; }
 @media (prefers-reduced-motion: reduce) { .shop-crate .intro-price span { animation: none; } }
+
+.console { position: relative; }
+.quest-anchor { position: absolute; right: 12px; top: 65px; z-index: 12; display: grid; justify-items: end; gap: 6px; }
+.quest-anchor[hidden], .quest-panel[hidden] { display: none; }
+.quest-panel {
+  width: min(320px, calc(100vw - 36px)); max-height: min(72dvh, 630px); overflow: auto;
+  overscroll-behavior: contain; padding: 12px; border: 1px solid #47655a; border-radius: 12px;
+  background: #11252a; box-shadow: 0 12px 40px #071014db;
+}
+.quest-panel h2, .quest-prize h3 { margin: 0 0 5px; }
+.quest-row { display: grid; gap: 4px; padding: 8px 0; border-bottom: 1px solid #324b50; }
+.quest-row small, .quest-prize small { color: var(--muted); }
+.quest-reward { display: flex; align-items: center; gap: 6px; font-size: .8rem; }
+.quest-reward .item-icon { width: 25px; height: 25px; }
+.quest-reward img { width: 17px; height: 17px; }
+.quest-prize { padding: 10px; margin-top: 10px; display: grid; gap: 5px; border: 1px solid #a78dfa; border-radius: 8px; }
+.quest-prize p { margin: 0; }
+@media (max-width: 560px) { .quest-anchor { top: 58px; right: 6px; } }

@@ -520,8 +520,27 @@
         }
         ctx.restore();
       }
+      if (run.coreBeam?.life > 0) {
+        const { x, y, boss, targets, life } = run.coreBeam;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, life * 2);
+        ctx.strokeStyle = '#ffd868';
+        ctx.shadowColor = '#ffc942';
+        ctx.shadowBlur = 20;
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 9;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(boss.x, boss.y); ctx.stroke();
+        ctx.lineWidth = 3;
+        for (const target of targets) { ctx.beginPath(); ctx.moveTo(boss.x, boss.y); ctx.lineTo(target.x, target.y); ctx.stroke(); }
+        ctx.restore();
+      }
       for (const enemy of run.enemies) {
         this.enemy(enemy);
+        if (enemy.coreCharged) {
+          ctx.save(); ctx.shadowColor = '#ffd568'; ctx.shadowBlur = 19;
+          disc(ctx, enemy.x, enemy.y, 10, '#ffca48');
+          disc(ctx, enemy.x, enemy.y, 4, '#fff2ad'); ctx.restore();
+        }
         if (enemy.frozen > 0) {
           disc(ctx, enemy.x, enemy.y, enemy.size, '#65bbff7a');
           ctx.font = 'bold 12px system-ui';

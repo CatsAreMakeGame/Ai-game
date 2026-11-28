@@ -123,3 +123,12 @@ Bundle size is uniform in the listed range. Each bundle cycles through distinct 
 - **Snow Crystal:** Rare, crafted with five Snowflakes in a plus pattern. Triggers snowfall from a boost slot, with a 90-second cooldown. Crafted crystals can be used year-round.
 - **Snowman:** Fires homing snowballs that prioritize the hostile enemy closest to the bottom. Every 25th projectile is a crystal that targets the highest-HP hostile enemy and freezes it for 10 seconds on impact, including bosses. Each projectile in a multi-shot volley counts. Snowfall boosts base hull, movement speed, damage and fire rate by 1.5×. Its energy cap stays at 105%.
 - **Wave and run payouts:** Credits, Star Gems, and crates from finish rewards and milestones pay 25% of their previous quantities, rounded down. Wave-clear Credits follow the same reduction.
+
+
+## Daily quests
+
+- Unlocks at 3:00 p.m. AEDT on 28 November 2026. Quests reset at midnight Melbourne time. There are 30 daily objectives across enemies, loot, waves cleared, deepest wave cleared and bosses. Fresh pilots have 10 unlocked, with all 30 open at level 20. Most quests award 20–45 Credits. Quests 10 and 30 award 1 Star Gem each.
+- **Golden Trident:** Legendary single-use boost-slot weapon from quest 20. Targets the lead Nexus Overlord on wave 50, removes its enemies and pending reinforcements, and exposes its core. Its health becomes two-thirds of normal. It deals 1.5× damage, moves 1.5× faster and fires at 1.5× cadence.
+- **Energy Core:** Mythical material. Drops from the lead Nexus Overlord after Golden Trident exposure. Catch it before it falls offscreen.
+- **Quest Supernova:** Once Premium Shop stock ends on 1 December, claim a Supernova for 1 Energy Core after completing all 30 quests on the same Melbourne day. 24-hour cooldown between claims.
+- **Snow Crystal recipe:** Appears in Event Recipes from 1 December 2026 onward.

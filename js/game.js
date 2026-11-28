@@ -187,6 +187,8 @@
       run.allyShots = [];
       for (const tendril of run.tendrils) for (const enemy of tendril.captures.keys()) this.releaseCapture(tendril, enemy);
       run.cleared++;
+      this.recordQuest('waves');
+      this.recordQuest('depth', run.wave);
       if (AG.balanceActive()) {
         if (run.wave % 10 === 0) this.awardWaveMilestone(run.wave);
       } else {
@@ -712,7 +714,7 @@
       for (const [type, count] of Object.entries(reserve)) {
         const boost = BOOSTS[type];
         const shield = type === 'shield' || type === 'fortress';
-        if (boost.snowfall) continue;
+        if (boost.snowfall || boost.coreWeapon) continue;
         if (boost.repair ? run.ship.hull - run.player.hp < Math.min(boost.repair, run.ship.hull / 2) :
             this.boostCount(type) || (shield && (this.boostCount('shield') || this.boostCount('fortress')))) continue;
         if (count === 1) delete reserve[type];
@@ -728,13 +730,16 @@
     canUseBoost(type) {
       return Boolean(this.run && !this.run.practice && !this.canVisitBase() && this.run.player.hp > 0 && this.profile.boosts[type] &&
         (!BOOSTS[type].repair || this.run.player.hp < this.maxHull()) &&
-        (!BOOSTS[type].snowfall || (this.run.snowCooldown <= 0 && this.run.snowfall <= 0)));
+        (!BOOSTS[type].snowfall || (this.run.snowCooldown <= 0 && this.run.snowfall <= 0)) &&
+        (!BOOSTS[type].coreWeapon || this.canFireCoreWeapon()));
     }
 
     useBoost(type) {
       if (!this.canUseBoost(type)) return false;
       this.profile.boosts[type]--;
-      this.applyBoost(type);
+      if (BOOSTS[type].coreWeapon) this.fireCoreWeapon();
+      else this.applyBoost(type);
+      this.recordQuest('boosts');
       this.save();
       return true;
     }
@@ -965,6 +970,7 @@
       if (!['playing', 'intermission'].includes(this.state)) return;
       const run = this.run;
       this.updateSnowfall(dt);
+      if (run.coreBeam) run.coreBeam.life = Math.max(0, run.coreBeam.life - dt);
       run.aegisCooldown = Math.max(0, run.aegisCooldown - dt);
       const { x, y } = run.player;
       this.movePlayer(dt);
@@ -1072,9 +1078,9 @@
         }
         const boss = BOSSES[enemy.type];
         if (boss) {
-          enemy.y = Math.min(enemy.y + (68 + boss.tier * 8) * travel, 128 + enemy.lane * 33);
+          enemy.y = Math.min(enemy.y + (68 + boss.tier * 8) * travel * (enemy.coreCharged ? 1.5 : 1), 128 + enemy.lane * 33);
           const center = enemy.bornWave === 10 ? WIDTH / 2 : 120 + enemy.lane * 164;
-          enemy.x = clamp(center + (enemy.teleportOffset ?? 0) + Math.sin(enemy.age * (.78 + boss.tier * .18)) * (enemy.bornWave === 10 ? 275 : 90), boss.size + 12, WIDTH - boss.size - 12);
+          enemy.x = clamp(center + (enemy.teleportOffset ?? 0) + Math.sin(enemy.age * (.78 + boss.tier * .18) * (enemy.coreCharged ? 1.5 : 1)) * (enemy.bornWave === 10 ? 275 : 90), boss.size + 12, WIDTH - boss.size - 12);
           if (enemy.teleportIn > 0 && (enemy.teleportIn -= dt) <= 0) {
             enemy.ghostX = enemy.x;
             enemy.ghostTime = .6;
@@ -1106,7 +1112,7 @@
         if (enemy.fireIn <= 0) {
           const phase = enemy.hp / enemy.maxHp < 0.45;
           this.fireAtPlayer(enemy, boss ? boss.shots + (phase ? 2 : 0) : 1);
-          enemy.fireIn = boss ? boss.cadence * (phase ? .72 : 1) : enemy.fireDelay;
+          enemy.fireIn = boss ? boss.cadence * (phase ? .72 : 1) / (enemy.coreCharged ? 1.5 : 1) : enemy.fireDelay;
         }
       }
     }
@@ -1555,6 +1561,9 @@
         run.energy = run.energyCap;
         return;
       }
+      this.recordQuest('kills');
+      if (boss) this.recordQuest('bosses');
+      if (enemy.coreCharged) this.dropEnergyCore(enemy);
       this.rewardAlien(enemy);
       const score = ENEMIES[enemy.type].score;
       run.score += score;
@@ -1564,7 +1573,7 @@
       if (boss) this.dropItem('gem', enemy.x + 12, enemy.y, 1);
       this.gainXp(boss ? 25 : 2);
       if (this.random() < (boss ? .10 : .014)) {
-        const types = Object.keys(BOOSTS).filter(id => !BOOSTS[id].pickupChance);
+        const types = Object.keys(BOOSTS).filter(id => !BOOSTS[id].pickupChance && !BOOSTS[id].coreWeapon && !BOOSTS[id].snowfall);
         this.dropItem(boss ? 'shield' : types[Math.floor(this.random() ** 1.65 * types.length)], enemy.x - 20, enemy.y);
       }
       for (const id of ['quickload', 'salvoAmmo']) {
@@ -1668,6 +1677,7 @@
         return magnet || drop.age < 16;
       });
       for (const drop of collected) {
+        this.recordQuest('pickups');
         if (drop.type === 'gem') run.stats.gems += drop.amount;
         const ranks = Object.keys(AG.RARITIES);
         const rank = id => ranks.indexOf(AG.ITEMS[id]?.rarity ?? 'common');

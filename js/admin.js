@@ -78,6 +78,14 @@
     }
 
     body.append(intro);
+    if (AG.questsActive(game.now())) {
+      const quests = group('Quest testing');
+      const questStatus = element('p', '', 'admin-status');
+      quests.append(questStatus);
+      actions(quests, button('Finished 1 quest', () => {
+        questStatus.textContent = game.finishTestQuest() ? 'Completed ' + game.questCount() + ' quests today.' : 'No unlocked quest remaining.';
+      }));
+    }
     const timeGroup = group('Test clock');
     const hours = element('input');
     hours.type = 'number';

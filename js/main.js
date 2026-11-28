@@ -31,6 +31,7 @@
   let merchantHintSent = false;
   let flightSeconds = 0;
   let nextMerchantCheck = 0;
+  let nextQuestCheck = 0;
   const loot = new Map();
   let adminUnlocked = false;
   try { adminUnlocked = sessionStorage.getItem('alien-shooter.admin') === 'yes'; } catch {}
@@ -147,6 +148,59 @@
     }));
   }
 
+  let questPanelSignature = '';
+  function renderQuestPanel() {
+    const anchor = $('quest-anchor');
+    const drawer = $('quest-panel');
+    anchor.hidden = !AG.questsActive(game.now());
+    if (anchor.hidden || drawer.hidden) return;
+    const daily = game.questDay();
+    const completed = game.questCount();
+    const unlocked = game.questLimit();
+    const retirement = game.now() >= AG.SNOW_START;
+    const available = game.canClaimQuestSupernova();
+    const key = [daily.day, unlocked, daily.claimed.join(','), JSON.stringify(daily.progress), retirement, available, game.itemCount('energyCore'), game.profile.questSupernovaTime].join('|');
+    if (key === questPanelSignature) return;
+    questPanelSignature = key;
+    const scroll = drawer.scrollTop;
+    drawer.replaceChildren(element('h2', 'Quests'), element('p', completed + '/30 completed · ' + unlocked + ' unlocked', 'panel-note'));
+    for (const quest of AG.QUESTS) {
+      const locked = quest.id > unlocked;
+      const done = daily.claimed.includes(quest.id);
+      const progress = Math.min(quest.target, daily.progress[quest.key] ?? 0);
+      const [item, quantity] = quest.reward;
+      const row = element('article', '', 'quest-row');
+      row.append(element('strong', quest.id + '. ' + quest.label + ' ' + quest.target),
+        element('small', locked ? 'Locked' : done ? 'Completed' : progress + '/' + quest.target));
+      const reward = element('div', '', 'quest-reward');
+      reward.append(AG.itemGraphic(item), element('span', quantity + ' × ' + AG.itemName(item)));
+      row.append(reward);
+      if (!locked && !done && progress >= quest.target) row.append(button('Claim', () => {
+        if (game.claimQuest(quest.id)) renderQuestPanel();
+      }));
+      drawer.append(row);
+    }
+    const prize = element('section', '', 'quest-prize');
+    const cooldown = game.now() - game.profile.questSupernovaTime < 86400000;
+    const copy = !retirement ? 'Available when Premium Shop stock ends on 1 December.' :
+      cooldown ? 'You can claim another Supernova 24 hours after your last claim.' :
+        'Complete all 30 quests today and trade 1 Energy Core.';
+    prize.append(AG.itemGraphic('supernova'), element('h3', 'Supernova'), element('p', copy),
+      element('small', 'Energy Cores owned: ' + game.itemCount('energyCore')),
+      button('Claim for 1 Energy Core', () => {
+        if (game.claimQuestSupernova()) renderQuestPanel();
+      }, { primary: true, disabled: !available }));
+    drawer.append(prize);
+    drawer.scrollTop = scroll;
+  }
+
+  $('quest-toggle').addEventListener('click', () => {
+    const drawer = $('quest-panel');
+    drawer.hidden = !drawer.hidden;
+    $('quest-toggle').setAttribute('aria-expanded', String(!drawer.hidden));
+    renderQuestPanel();
+  });
+
   function renderHUD(now) {
     while (sideNotices.length && sideNotices[0].until <= now) sideNotices.shift().node.remove();
     if (!$('home').hidden) {
@@ -155,15 +209,16 @@
       const live = AG.contentActive(wallTime);
       const deals = AG.launchDealsActive(wallTime);
       const balancePending = live && !AG.balanceActive(wallTime);
-      const target = balancePending ? AG.BALANCE_START : deals ? AG.LAUNCH_DEALS_END : AG.CONTENT_START;
+      const questsPending = live && !AG.questsActive(wallTime);
+      const target = balancePending ? AG.BALANCE_START : questsPending ? AG.QUESTS_START : deals ? AG.LAUNCH_DEALS_END : AG.CONTENT_START;
       const datetime = new Date(target).toISOString();
       if (release.dateTime !== datetime) release.dateTime = datetime;
-      setText($('update-title'), balancePending ? 'Balance update' : deals ? 'Next update' : 'Asteroid update');
+      setText($('update-title'), balancePending ? 'Balance update' : questsPending ? 'Quests update' : deals ? 'Next update' : 'Asteroid update');
       const left = Math.max(0, Math.ceil((target - wallTime) / 1000));
       const hours = Math.floor(left / 3600);
       const minutes = Math.floor(left / 60) % 60;
       const clock = String(minutes).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
-      setText(release, live && !deals && !balancePending ? 'Live now' : (deals || balancePending ? 'In ' : 'Launches in ') + hours + ':' + clock);
+      setText(release, questsPending ? 'In ' + Math.ceil(left / 60) + ' min' : live && !deals && !balancePending ? 'Live now' : (deals || balancePending ? 'In ' : 'Launches in ') + hours + ':' + clock);
       const seconds = Math.max(0, Math.ceil((AG.EVENT_END - game.now()) / 1000));
       const time = [Math.floor(seconds / 86400) + 'd', Math.floor(seconds / 3600) % 24 + 'h',
         Math.floor(seconds / 60) % 60 + 'm', seconds % 60 + 's'].join(' ');
@@ -896,6 +951,10 @@
     if (sale !== launchDealsLive) {
       launchDealsLive = sale;
       if (panelKind === 'shop' && armory.shopTab === 'crates' && !contentChanged) drawPanel(true);
+    }
+    if (wallTime >= nextQuestCheck) {
+      renderQuestPanel();
+      nextQuestCheck = wallTime + 250;
     }
     if (wallTime >= nextMerchantCheck) {
       game.merchantStock(game.now());

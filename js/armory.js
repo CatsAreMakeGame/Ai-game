@@ -253,7 +253,7 @@
 
   function renderCraft({ game, state, element, button, body, refresh }) {
     const available = id => AG.itemAvailable(id) ? game.itemCount(id) : 0;
-    const recipesAvailable = Object.entries(AG.RECIPES).filter(([, spec]) => spec.event || AG.contentActive());
+    const recipesAvailable = Object.entries(AG.RECIPES).filter(([, spec]) => (!spec.available || spec.available(game)) && (spec.event || AG.contentActive()));
     const parts = new Set(recipesAvailable.flatMap(([, recipe]) => recipe.pattern ?? recipe.ingredients));
     const choices = [...game.profile.unlocked, ...parts].filter(id => ITEMS[id] && available(id));
     const grid = element('div', '', 'craft-grid');
@@ -382,6 +382,7 @@
       control: [[alienExample, 'Any Alien spaceship ×1'], ['alienSerum', 'Alien Mind Serum ×1'], ['alienMind', 'Alien Mind ×1']]
     };
     for (const [key, recipe] of Object.entries(AG.RECIPES)) {
+      if (recipe.available && !recipe.available(game)) continue;
       if (Boolean(recipe.event) !== (activeTab === 'event') || (!recipe.event && !AG.contentActive())) continue;
       const card = element('article', '', 'recipe-card');
       card.append(element('h3', recipe.name));

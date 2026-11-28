@@ -5,6 +5,7 @@
   const MODES = { easy: 20, medium: 30, hard: 50, endless: MAX_WAVE };
   const EVENT_END = Date.parse('2026-12-01T00:00:00+11:00');
   const MATERIALS = {
+    energyCore: { name: 'Energy Core', rarity: 'mythical', glyph: '◉', description: 'Catch it after defeating a charged Nexus Overlord. Redeem it for Supernova in Quests.' },
     snowflake: { name: 'Snowflake', rarity: 'common', glyph: '❄', description: 'Catch during snowfall. Craft five into a Snow Crystal.' },
     slime: { name: 'Slime', rarity: 'common', glyph: '●', description: 'Dropped by green Grunts. Used to craft a Slime Cannon.' },
     uranium: { name: 'Uranium Ore', rarity: 'epic', glyph: '◆', description: 'Found in green asteroids. Used to craft a Radioactive Smoke Bomb.' },
@@ -13,7 +14,7 @@
     alienSerum: { name: 'Alien Mind Serum', rarity: 'mythical', description: 'Use in the crafting grid to make an Alien ship or give an Alien ship Mind Control.' }
   };
   const RECIPES = {
-    snowCrystal: { name: 'Snow Crystal', output: 'snowCrystal', pattern: ['', 'snowflake', '', 'snowflake', 'snowflake', 'snowflake', '', 'snowflake', ''] },
+    snowCrystal: { name: 'Snow Crystal', event: true, available: game => game.now() >= AG.SNOW_START, output: 'snowCrystal', pattern: ['', 'snowflake', '', 'snowflake', 'snowflake', 'snowflake', '', 'snowflake', ''] },
     twinCannon: { name: 'Twin Cannon', output: 'twinCannon', pattern: ['rail', 'nova', 'rail', '', 'quickload', '', '', '', ''], shift: true },
     tripleCannon: { name: 'Triple Cannon', output: 'tripleCannon', pattern: ['nova', 'nova', 'nova', '', 'salvoAmmo', '', '', '', ''], shift: true },
     slimeCannon: { name: 'Slime Cannon', output: 'slimeCannon', ingredients: ['cannon', 'rocket', 'slime'] },
@@ -34,6 +35,7 @@
   "heal": "Tools/Potion 1/Potion 1 256.png",
   "nanites": "Tools/Potion 1/Potion 1 Pink 256.png",
   "overdrive": "General/Lightning Bolt/Lightning Bolt Yellow 256.png",
+  "goldenTrident": "Weapons/Trident/Trident 256.png",
   "energyOverdrive": "General/Lightning Bolt/Lightning Bolt Purple 256.png",
   "rapidFire": "UI/Arrow/Arrow Up 256.png",
   "doubleDamage": "General/Sparkle/Sparkle 256.png",
@@ -250,7 +252,7 @@
       for (const id of selected) needed[id] = (needed[id] ?? 0) + 1;
       if (Object.entries(needed).some(([id, count]) => this.itemCount(id) < count)) return '';
       for (const [key, spec] of Object.entries(RECIPES)) {
-        if (!spec.output) continue;
+        if (!spec.output || (spec.available && !spec.available(this))) continue;
         if (spec.pattern) {
           const matches = pattern => pattern.every((id, index) => id === placed[index]);
           if (matches(spec.pattern) || (spec.shift && matches(['', '', '', ...spec.pattern.slice(0, 6)]))) return key;

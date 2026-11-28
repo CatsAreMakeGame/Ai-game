@@ -73,7 +73,11 @@ window.AG = (() => {
   const SNOW_START = Date.parse('2026-12-01T00:00:00+11:00');
   const SNOW_END = Date.parse('2027-01-01T00:00:00+11:00');
   const snowSeason = (now = Date.now()) => now >= SNOW_START && now < SNOW_END;
+  const QUESTS_START = Date.parse('2026-11-28T15:00:00+11:00');
+  const questsActive = (now = Date.now()) => now >= QUESTS_START;
   const BOOSTS = {
+    goldenTrident: { name: 'Golden Trident', rarity: 'legendary', duration: 0, coreWeapon: true, glyph: '♆',
+      description: 'Use from a boost slot against the lead Nexus Overlord on wave 50 to expose its Energy Core.' },
     snowCrystal: { name: 'Snow Crystal', rarity: 'rare', duration: 0, snowfall: true,
       glyph: '❄', description: 'Summons snowfall from a boost slot. 90-second cooldown.' },
     quickload: { name: 'Quickload Cache', rarity: 'epic', duration: 8, barrels: 2, pickupChance: .0025,
@@ -357,6 +361,8 @@ window.AG = (() => {
       materials,
       copies: counts('copies', catalog), flagshipPurchases: Math.max(0, readNumber('flagshipPurchases') || Number(unlocked.includes('supernova'))),
       flagshipTime: readNumber('flagshipTime'), boostOverdriveTime: readNumber('boostOverdriveTime'), serumUsed: saved?.serumUsed === true, mindControlPerShip: true,
+      quests: saved?.quests ?? null,
+      questSupernovaTime: readNumber('questSupernovaTime'),
       updateGifts: { version: 2, day: giftDay, claimed, nextAt },
       shipCrateOfferUsed: saved?.shipCrateOfferUsed === true,
       allowRareCrateSkip: saved?.allowRareCrateSkip === true,
@@ -413,6 +419,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { SNOW_START, snowSeason, BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { QUESTS_START, questsActive, SNOW_START, snowSeason, BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

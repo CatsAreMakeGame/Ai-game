@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A browser-based alien shooter with 50 escalating waves, Mothership bosses, pilot upgrades and unlockable ships.">
   <title>Alien Shooter</title>
-  <link rel="stylesheet" href="css/style.css?v=winter-snowfall">
-  <script defer src="js/data.js?v=winter-snowfall"></script>
-  <script defer src="js/game.js?v=winter-snowfall"></script>
-  <script defer src="js/expansion.js?v=winter-snowfall"></script>
-  <script defer src="js/flight-view.js?v=winter-snowfall"></script>
-  <script defer src="js/admin.js?v=winter-snowfall"></script>
-  <script defer src="js/armory.js?v=winter-snowfall"></script>
-  <script defer src="js/main.js?v=winter-snowfall"></script>
+  <link rel="stylesheet" href="css/style.css?v=quest-update">
+  <script defer src="js/data.js?v=quest-update"></script>
+  <script defer src="js/game.js?v=quest-update"></script>
+  <script defer src="js/expansion.js?v=quest-update"></script>
+  <script defer src="js/quests.js?v=quest-update"></script>
+  <script defer src="js/flight-view.js?v=quest-update"></script>
+  <script defer src="js/admin.js?v=quest-update"></script>
+  <script defer src="js/armory.js?v=quest-update"></script>
+  <script defer src="js/main.js?v=quest-update"></script>
 </head>
 <body>
   <main class="console">
@@ -24,6 +25,10 @@
         <button id="sound" class="quiet" type="button" aria-pressed="false">Sound off</button>
       </div>
     </header>
+    <div class="quest-anchor" hidden id="quest-anchor">
+      <button type="button" id="quest-toggle" aria-expanded="false" aria-controls="quest-panel">Quests</button>
+      <aside id="quest-panel" class="quest-panel" aria-label="Daily quests" hidden></aside>
+    </div>
     <div id="flight-layout" class="flight-layout">
     <section class="stage" aria-label="Flight deck">
       <canvas id="sky" width="900" height="600" aria-label="Alien Shooter playfield"></canvas>
