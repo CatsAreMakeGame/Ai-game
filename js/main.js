@@ -152,7 +152,7 @@
     for (const [index, id] of ids.entries()) {
       const timers = run.boosts[id] ?? [];
       const seconds = id === 'energyOverdrive' ? (run.energy - run.energyCap / 4) / 6 :
-        id === 'shield' || id === 'fortress' ? timers.reduce((sum, time) => sum + time, 0) : Math.max(0, ...timers);
+        timers.reduce((sum, time) => sum + time, 0);
       setText(display.children[index].lastElementChild, Math.ceil(Math.max(0, seconds)) + 's');
     }
   }

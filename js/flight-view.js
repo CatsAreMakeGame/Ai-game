@@ -236,7 +236,7 @@
     }
 
     addDamageNumber({ x, y, size, amount, source }) {
-      const laser = source === 'laser';
+      const laser = source === 'laser' || source === 'trident';
       const offset = (this.damageOffset++ % 5 - 2) * 5;
       this.damageNumbers.push({
         x: x + offset, y: Math.max(103, y - size - 3),
@@ -546,9 +546,22 @@
       for (const enemy of run.enemies) {
         this.enemy(enemy);
         if (enemy.coreCharged) {
-          ctx.save(); ctx.shadowColor = '#ffd568'; ctx.shadowBlur = 19;
-          disc(ctx, enemy.x, enemy.y, 10, '#ffca48');
-          disc(ctx, enemy.x, enemy.y, 4, '#fff2ad'); ctx.restore();
+          ctx.save();
+          ctx.translate(enemy.x, enemy.y);
+          ctx.shadowColor = '#ff7059';
+          ctx.shadowBlur = 16;
+          if (!this.sprite('energyCore', 15)) disc(ctx, 0, 0, 9, '#ff735c');
+          ctx.restore();
+        }
+        if (enemy.tridentBar?.time > 0) {
+          const { before, time } = enemy.tridentBar;
+          const after = enemy.hp / enemy.maxHp;
+          const health = after + Math.max(0, (time - .7) / .3) * Math.max(0, before - after);
+          const y = enemy.y + enemy.size + 8;
+          ctx.fillStyle = '#1a2331';
+          ctx.fillRect(enemy.x - 19, y, 38, 4);
+          ctx.fillStyle = '#ff5267';
+          ctx.fillRect(enemy.x - 19, y, 38 * health, 4);
         }
         if (enemy.frozen > 0) {
           disc(ctx, enemy.x, enemy.y, enemy.size, '#65bbff7a');

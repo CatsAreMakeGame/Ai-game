@@ -77,7 +77,7 @@ window.AG = (() => {
   const questsActive = (now = Date.now()) => now >= QUESTS_START;
   const BOOSTS = {
     goldenTrident: { name: 'Golden Trident', rarity: 'legendary', duration: 0, coreWeapon: true, glyph: '♆',
-      description: 'Use from an item slot to halve the health of enemies already spawned in the current wave. Exposes the Energy Core on the lead Nexus Overlord at wave 50.' },
+      description: 'Halves current enemy health. On wave 50, use once to destroy the other enemies, halve the lead Nexus Overlord’s health, and expose its Energy Core.' },
     snowCrystal: { name: 'Snow Crystal', rarity: 'rare', duration: 0, snowfall: true,
       glyph: '❄', description: 'Summons snowfall from a boost slot. 90-second cooldown.' },
     quickload: { name: 'Quickload Cache', rarity: 'epic', duration: 8, barrels: 2, pickupChance: .0025,

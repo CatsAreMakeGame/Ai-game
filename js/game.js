@@ -405,7 +405,8 @@
         this.run.snowCooldown = 90;
       } else if (BOOSTS[type].repair) this.repair(BOOSTS[type].repair);
       else {
-        (this.run.boosts[type] ??= []).push(BOOSTS[type].duration);
+        const remaining = (this.run.boosts[type] ?? []).reduce((sum, time) => sum + time, 0);
+        this.run.boosts[type] = [remaining + BOOSTS[type].duration];
         this.notify('upgrade', BOOSTS[type].name + ' online');
       }
     }
@@ -418,19 +419,15 @@
 
     tickBoosts(dt) {
       for (const [type, timers] of Object.entries(this.run.boosts)) {
-        if (type === 'shield' || type === 'fortress') {
-          if (type === 'shield' && this.run.boosts.fortress?.length) continue;
-          timers[0] -= dt;
-          if (timers[0] <= 0) timers.shift();
-        } else {
-          this.run.boosts[type] = timers.map(time => time - dt).filter(time => time > 0);
-        }
-        if (!this.run.boosts[type].length) delete this.run.boosts[type];
+        if (type === 'shield' && this.run.boosts.fortress?.length) continue;
+        const remaining = timers.reduce((sum, time) => sum + time, 0) - dt;
+        if (remaining > 1e-8) this.run.boosts[type] = [remaining];
+        else delete this.run.boosts[type];
       }
     }
 
     boostCount(type) {
-      return this.run.boosts[type]?.length ?? 0;
+      return Number(Boolean(this.run.boosts[type]?.length));
     }
 
     shotDamage(includeNose = true, includeTestDamage = true) {
@@ -1035,7 +1032,9 @@
       this.tickBoosts(dt);
       this.updateBoostRelay(dt);
       run.spawnIn = Math.max(0, run.spawnIn - dt);
-      if (run.pending.length && run.spawnIn === 0) {
+      if (run.wave === 50 && run.pending.length && run.spawnIn === 0) {
+        for (const type of run.pending.splice(0)) this.spawn(type);
+      } else if (run.pending.length && run.spawnIn === 0) {
         const bossBatch = !!BOSSES[run.pending[0]];
         const limit = bossBatch ? run.diff.bossPack : run.diff.pack;
         let activeBosses = bossBatch ? run.enemies.filter(enemy => BOSSES[enemy.type]).length : 0;
@@ -1094,6 +1093,7 @@
       const { player } = run;
       for (let index = run.enemies.length - 1; index >= 0; index--) {
         const enemy = run.enemies[index];
+        if (enemy.tridentBar) enemy.tridentBar.time = Math.max(0, enemy.tridentBar.time - dt);
         enemy.slimeTime = Math.max(0, (enemy.slimeTime ?? 0) - dt);
         const travel = dt * (enemy.slimeTime > 0 ? .5 : 1);
         enemy.age += enemy.allied ? dt : travel;

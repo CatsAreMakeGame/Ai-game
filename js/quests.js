@@ -107,23 +107,30 @@
 
     canFireCoreWeapon() {
       const run = this.run;
-      return AG.questsActive(this.now()) && this.state === 'playing' && run.enemies.some(enemy =>
-        !enemy.allied && enemy.bornWave === run.wave);
+      if (!AG.questsActive(this.now()) || this.state !== 'playing') return false;
+      if (run.wave === 50) {
+        const boss = this.coreBoss();
+        return Boolean(boss && boss.y >= 0 && !boss.coreCharged);
+      }
+      return run.enemies.some(enemy => !enemy.allied);
     },
 
     fireCoreWeapon() {
       if (!this.canFireCoreWeapon()) return false;
       const run = this.run;
       const boss = this.coreBoss();
-      const targets = run.enemies.filter(enemy => !enemy.allied && enemy.bornWave === run.wave);
+      const targets = run.enemies.filter(enemy => !enemy.allied);
       run.coreBeam = { x: run.player.x, y: run.player.y, targets, life: .85 };
-      for (const enemy of targets) {
-        enemy.hp /= 2;
-        enemy.maxHp /= 2;
-      }
-      if (boss && !boss.coreCharged) {
+      if (boss) {
         boss.damageScale = (boss.damageScale ?? run.diff.damage) * 1.5;
         boss.coreCharged = true;
+      }
+      for (let index = run.enemies.length - 1; index >= 0; index--) {
+        const enemy = run.enemies[index];
+        if (enemy.allied) continue;
+        const damage = boss && enemy !== boss ? enemy.hp : enemy.hp / 2;
+        if (!boss) enemy.tridentBar = { time: 1, before: enemy.hp / enemy.maxHp };
+        this.hitEnemy(index, damage, 'trident');
       }
       this.notify('upgrade', boss?.coreCharged ? 'Golden Trident · Energy Core exposed' : 'Golden Trident · Enemy health halved');
       return true;

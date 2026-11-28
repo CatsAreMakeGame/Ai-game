@@ -35,7 +35,7 @@
   "heal": "Tools/Potion 1/Potion 1 256.png",
   "nanites": "Tools/Potion 1/Potion 1 Pink 256.png",
   "overdrive": "General/Lightning Bolt/Lightning Bolt Yellow 256.png",
-  "energyCore": "General/Power Cell/Power Cell 5 256.png",
+  "energyCore": "General/Power Cell/Power Cell 1 256.png",
   "snowflake": "Nature/Snowflake/Snowflake 256.png",
   "snowCrystal": "Materials/Ice/Ice 256.png",
   "goldenTrident": "Weapons/Trident/Trident 256.png",
@@ -148,23 +148,34 @@
     const sizes = Array.from({ length: max - min + 1 }, (_, index) => min + index);
     const roll = (items, amount) => crateTotals({ outcomes: [{ items, weight: 100 }] }, amount, random);
     const rewards = {};
-    const pool = spec.pool;
-    for (const [size, bundles] of roll(sizes, count)) {
-      // Each bundle draws all full sets, then a uniform subset for the remaining items.
-      const full = Math.floor(size / pool.length);
-      if (full) for (const id of pool) rewards[id] = (rewards[id] ?? 0) + full * bundles;
-      const remainder = size % pool.length;
-      if (!remainder) continue;
-      const subsetMasks = [];
-      for (let mask = 1; mask < 2 ** pool.length; mask++) {
-        let bits = 0;
-        for (let value = mask; value; value &= value - 1) bits++;
-        if (bits === remainder) subsetMasks.push(mask);
-      }
-      for (const [mask, copies] of roll(subsetMasks, bundles)) {
-        pool.forEach((id, index) => {
-          if (mask & (1 << index)) rewards[id] = (rewards[id] ?? 0) + copies;
-        });
+    const ranks = Object.keys(AG.RARITIES);
+    const limited = AG.liveCrate('upgradeCrate').outcomes.flatMap(tier =>
+      tier.items.filter(id => spec.pool.includes(id) && ranks.indexOf(AG.UPGRADES[id]?.rarity) >= ranks.indexOf('legendary'))
+        .map(id => ({ items: [id], weight: tier.weight / tier.items.length / 3 })));
+    const pool = spec.pool.filter(id => !limited.some(tier => tier.items[0] === id));
+    const totalWeight = limited.reduce((sum, tier) => sum + tier.weight, 0);
+    const slots = limited.length ? crateTotals({ outcomes: [...limited, { items: [''], weight: 100 - totalWeight }] }, count, random) :
+      new Map([['', count]]);
+    for (const [rareItem, copies] of slots) {
+      if (rareItem) rewards[rareItem] = copies;
+      for (const [size, bundles] of roll(sizes, copies)) {
+        const ordinary = size - Number(Boolean(rareItem));
+        // Each bundle draws all full sets, then a uniform subset for the remaining items.
+        const full = Math.floor(ordinary / pool.length);
+        if (full) for (const id of pool) rewards[id] = (rewards[id] ?? 0) + full * bundles;
+        const remainder = ordinary % pool.length;
+        if (!remainder) continue;
+        const subsetMasks = [];
+        for (let mask = 1; mask < 2 ** pool.length; mask++) {
+          let bits = 0;
+          for (let value = mask; value; value &= value - 1) bits++;
+          if (bits === remainder) subsetMasks.push(mask);
+        }
+        for (const [mask, copies] of roll(subsetMasks, bundles)) {
+          pool.forEach((id, index) => {
+            if (mask & (1 << index)) rewards[id] = (rewards[id] ?? 0) + copies;
+          });
+        }
       }
     }
     return rewards;

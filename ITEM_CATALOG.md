@@ -73,7 +73,7 @@ Twin Cannon and Triple Cannon fire at half the normal volley rate. Smoke Bomb an
 | Fortress Shield | legendary | 18 s | Blocks damage for 18 seconds. | — |
 | Nanite Repair | epic | Instant | Restores up to 60 hull. | — |
 
-**Energy Overdrive** is a temporary flight effect. It starts when eligible ships reach full energy. Energy drains at six percentage points per second. The boost applies until 25% remains. Regular flight boosts and Energy Overdrive have separate icons.
+**Energy Overdrive** is a temporary flight effect. It starts when eligible ships reach full energy. Energy drains at six percentage points per second. The boost applies until 25% remains. Reapplying the same timed boost extends its remaining duration without multiplying its effects. Different boosts can combine. Regular flight boosts and Energy Overdrive have separate icons.
 
 ## Materials and currencies
 
@@ -102,7 +102,7 @@ Rates are for a single opening. Within each tier, the named results are equally 
 | Boost Bundle | rare | 5–20 | Hull repair, Rapid fire, Double damage, Shield, Overdrive, Nanite Repair |
 | Upgrade Bundle | epic | 2–4 | Auxiliary Booster, Swift Wings, Pulse Cannon, Blast Missile, Nova Emitter, Rail Lance, Fusion Drive, Carbon Wing |
 
-Bundle size is uniform in the listed range. Each bundle cycles through distinct rewards from its pool before allowing repeats. Spaceship Crate has a one-time launch offer at 1 Star Gem. Enemy Crate launch prices are 3, 12 and 30 Star Gems for 1, 4 and 10 crates. Both launch offers expire at midnight AEDT on 29 November 2026.
+A Legendary-or-higher upgrade that appears in both the Upgrade Crate and Upgrade Bundle rolls once per bundle at one-third of its crate odds. Nova Emitter has a 0.5% Upgrade Bundle chance (1.5% in the crate). Bundle size is uniform in the listed range. Each bundle cycles through distinct rewards from its pool before allowing repeats. Spaceship Crate has a one-time launch offer at 1 Star Gem. Enemy Crate launch prices are 3, 12 and 30 Star Gems for 1, 4 and 10 crates. Both launch offers expire at midnight AEDT on 29 November 2026.
 
 ## Crafting
 
@@ -128,8 +128,8 @@ Bundle size is uniform in the listed range. Each bundle cycles through distinct 
 ## Daily quests
 
 - Unlocks at 3:00 p.m. AEDT on 28 November 2026. Quests reset at midnight Melbourne time. There are 30 daily objectives across enemies, loot, waves cleared, deepest wave cleared and bosses. Fresh pilots have 10 unlocked, with all 30 open at level 20. Complete objectives sequentially, then claim their rewards manually. Quests 11–29 pay 1 Star Gem each, with the milestone totals below replacing that amount for quests 10, 20 and 30.
-- **Golden Trident:** Legendary single-use item-slot weapon from quest 20. Works on any wave. Golden arcs halve the health of enemies already spawned in that wave. On wave 50 it also exposes the lead Nexus Overlord’s core. It deals 1.5× damage, moves 1.5× faster and fires at 1.5× cadence.
-- **Energy Core:** Mythical material. Drops from the lead Nexus Overlord after Golden Trident exposure. Catch it before it falls offscreen.
+- **Golden Trident:** Legendary single-use item-slot weapon from quest 20. Works on any wave. Golden arcs halve the health of spawned enemies and briefly display damage and health bars. Wave 50 spawns its bosses and regular enemies together. On that wave it can fire once, destroying every other hostile and halving the lead Nexus Overlord’s current health to expose the core. It deals 1.5× damage, moves 1.5× faster and fires at 1.5× cadence.
+- **Energy Core:** Mythical material with the red Power Cell 1 icon. Drops from the lead Nexus Overlord after Golden Trident exposure. Catch it before it falls offscreen.
 - **Quest Supernova:** Once Premium Shop stock ends on 1 December, claim a Supernova for 1 Energy Core after completing all 30 quests on the same Melbourne day. 24-hour cooldown between claims.
 - **Snow Crystal recipe:** Appears in Event Recipes from 1 December 2026 onward.
 
