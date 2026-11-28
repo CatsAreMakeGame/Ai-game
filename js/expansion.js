@@ -5,6 +5,7 @@
   const MODES = { easy: 20, medium: 30, hard: 50, endless: MAX_WAVE };
   const EVENT_END = Date.parse('2026-12-01T00:00:00+11:00');
   const MATERIALS = {
+    snowflake: { name: 'Snowflake', rarity: 'common', glyph: '❄', description: 'Catch during snowfall. Craft five into a Snow Crystal.' },
     slime: { name: 'Slime', rarity: 'common', glyph: '●', description: 'Dropped by green Grunts. Used to craft a Slime Cannon.' },
     uranium: { name: 'Uranium Ore', rarity: 'epic', glyph: '◆', description: 'Found in green asteroids. Used to craft a Radioactive Smoke Bomb.' },
     alienCell: { name: 'Alien Cell', rarity: 'rare', description: 'Used in both Alien recipes.' },
@@ -12,6 +13,7 @@
     alienSerum: { name: 'Alien Mind Serum', rarity: 'mythical', description: 'Use in the crafting grid to make an Alien ship or give an Alien ship Mind Control.' }
   };
   const RECIPES = {
+    snowCrystal: { name: 'Snow Crystal', output: 'snowCrystal', pattern: ['', 'snowflake', '', 'snowflake', 'snowflake', 'snowflake', '', 'snowflake', ''] },
     twinCannon: { name: 'Twin Cannon', output: 'twinCannon', pattern: ['rail', 'nova', 'rail', '', 'quickload', '', '', '', ''], shift: true },
     tripleCannon: { name: 'Triple Cannon', output: 'tripleCannon', pattern: ['nova', 'nova', 'nova', '', 'salvoAmmo', '', '', '', ''], shift: true },
     slimeCannon: { name: 'Slime Cannon', output: 'slimeCannon', ingredients: ['cannon', 'rocket', 'slime'] },
@@ -69,7 +71,7 @@
     ITEMS[id].glyph ??= '◆';
   }
   const clone = value => JSON.parse(JSON.stringify(value));
-  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'activeSeconds', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn', 'asteroidDelay', 'asteroidField', 'asteroids', 'barrage'];
+  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'activeSeconds', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn', 'asteroidDelay', 'asteroidField', 'asteroids', 'barrage', 'snowfall', 'snowCooldown', 'snowShotCount'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
   const mainBoss = wave => wave >= 10 && wave % 10 === 0 ? Object.keys(BOSSES)[Math.min(wave / 10 - 1, 4)] : null;
 
@@ -210,7 +212,7 @@
       for (const key of checkpointKeys) if (key !== 'level' && key !== 'xp' && Object.hasOwn(saved, key)) this.run[key] = saved[key];
       if (!Object.hasOwn(saved, 'asteroidDelay')) this.run.asteroidDelay = null;
       Object.assign(this.run.player, saved.player);
-      this.run.player.hp = Math.min(this.run.player.hp, this.run.ship.hull);
+      this.run.player.hp = Math.min(this.run.player.hp, this.maxHull());
       this.run.enemies = saved.allies;
       this.run.energy = clamp(this.run.energy, 0, this.run.energyCap);
       this.run.tendrils = (saved.anchors ?? []).map(anchor => ({ ...anchor, captures: new Map() }));

@@ -26,8 +26,9 @@ Speeds include the 20% base movement reduction. A dash in the price column means
 | Tank | epic | 195 | 312 | 0.27 | 4 | 3 | 80% | — |
 | Smoke Ninja | legendary | 166 | 456 | 0.19 | 4 | 3 | 100% | — |
 | Supernova | godly | 205 | 504 | 0.17 | 5 | 3 | 110% | — |
+| Snowman | mythical | 165 | 448 | 0.22 | 4 | 3 | 105% | — |
 
-- **Supernova:** 100 Star Gems initially, price doubles after each purchase, one-hour purchase cooldown. Nova Aegis starts with a 24-second cooldown and absorbs 1.5× max hull. Recharges 24 seconds after breaking.
+- **Supernova:** 100 Star Gems initially, price doubles after each purchase, one-hour purchase cooldown. Permanently out of stock from 1 December 2026 at midnight AEDT. Owned ships stay playable. Nova Aegis starts with a 24-second cooldown and absorbs 1.5× max hull. Recharges 24 seconds after breaking.
 - **Singularity:** Barrage uses 115% energy if at least two-thirds of the wave remains. Fires 960 shots over 8 seconds in six passes over an 80° forward arc. Shots deal 1.25× base damage, benefit from boosts, and can hit three enemies or reflect off side walls. Rapid Fire at activation can raise the shot count up to 4×. A fitted Ultimate disables Barrage. The main gun pauses during Barrage.
 - **Alien variants:** Any obtainable regular ship can be alienated once. Its rarity and energy cap carry over. Hull, movement speed, base damage, and firing rate are 1.1× the donor’s. Alien ships use tendrils and can gain Mind Control by crafting. They lose the donor’s native ultimate.
 
@@ -115,3 +116,10 @@ Bundle size is uniform in the listed range. Each bundle cycles through distinct 
 | Alien Mind | Alien Cell / Alien Cell / Alien Cell · Alien Cell / Alien Cell / Alien Cell · Alien Cell / Alien Cell / Alien Cell |
 | Alien Mind Serum | Alien Cell / Alien Cell / Alien Cell · Alien Cell / Alien Mind / Alien Cell · Alien Cell / Alien Cell / Alien Cell |
 | Mind Control | Alien ship, Alien Mind Serum, Alien Mind |
+
+## December snowfall
+
+- **Natural snowfall:** 10% chance at each tenth wave in December 2026, Melbourne time. Each snowfall lasts 18 seconds and releases 15–30 Common Snowflakes. The Mythical Snowman has a 1% chance per snowfall. It shines white as a pickup. Uncaught pickups fall offscreen.
+- **Snow Crystal:** Rare, crafted with five Snowflakes in a plus pattern. Triggers snowfall from a boost slot, with a 90-second cooldown. Crafted crystals can be used year-round.
+- **Snowman:** Fires homing snowballs that prioritize the hostile enemy closest to the bottom. Every 25th projectile is a crystal that targets the highest-HP hostile enemy and freezes it for 10 seconds on impact, including bosses. Each projectile in a multi-shot volley counts. Snowfall boosts base hull, movement speed, damage and fire rate by 1.5×. Its energy cap stays at 105%.
+- **Wave and run payouts:** Credits, Star Gems, and crates from finish rewards and milestones pay 25% of their previous quantities, rounded down. Wave-clear Credits follow the same reduction.

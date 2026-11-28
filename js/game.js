@@ -116,7 +116,7 @@
       this.releaseInput();
       this.run = {
         wave: 0, level: this.profile.bestPilotLevel, xp: this.profile.pilotXp, score: 0, cleared: 0, activeSeconds: 0, loadout: { ...this.profile.loadouts[shipId] }, boosts: {}, boostCycleOn: false, boostCycleDelay: 0, ship, shipId, mode, mindCooldown: 30, controlSequence: 0, tendrils: [],
-        stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: AG.contentActive() ? (ship.ability?.interval ?? 0) : 0, aegisShield: 0, smoke: [], smokeIn: 0, enemySmoke: [], smokeDamageIn: .5, asteroids: [], asteroidField: null, slimeShots: [], slimeIn: 0,
+        stats: { bossKills: {}, gems: 0, rarest: null, lastHit: '' }, allyShots: [], aegisCooldown: AG.contentActive() ? (ship.ability?.interval ?? 0) : 0, aegisShield: 0, smoke: [], smokeIn: 0, enemySmoke: [], smokeDamageIn: .5, asteroids: [], asteroidField: null, snowfall: 0, snowCooldown: 0, snowShotCount: 0, slimeShots: [], slimeIn: 0,
         player: { x: WIDTH / 2, y: FLIGHT_LANE, size: 13, hp: ship.hull, invulnerable: 0, fireIn: 0.15 },
         enemies: [], shots: [], hostile: [], drops: [],
         missiles: [], missileIn: 0, barrage: null, targetMode: 'nearest', energy: 0, energyCap: AG.energyCapacity(ship), energyOverdrive: false, overdriveTick: 0, overdriveSuppressed: false,
@@ -155,6 +155,7 @@
       }
       this.state = 'playing';
       this.notify('wave', diff.boss ? (BOSSES[lead].name + ' incoming') : 'Wave ' + number.toLocaleString());
+      if (!run.practice && number % 10 === 0 && AG.snowSeason(this.now()) && this.random() < .10) this.startSnowfall();
     }
 
     canSkip() {
@@ -172,7 +173,7 @@
 
     finishWave() {
       const run = this.run;
-      const credits = 18 + Math.min(500, run.wave * 2);
+      const credits = Math.floor((18 + Math.min(500, run.wave * 2)) / 4);
       this.profile.credits += credits;
       const before = run.player.hp;
       this.gainXp(12);
@@ -317,8 +318,10 @@
       this.profile.pendingMilestones = {};
       for (const [id, amount] of earned) {
         const room = Number.MAX_SAFE_INTEGER - this.itemCount(id);
-        if (room < amount) this.profile.pendingMilestones[id] = amount - room;
-        const payable = Math.min(amount, room);
+        const divisor = id === 'credit' || id === 'gem' || CRATES[id]?.outcomes ? 4 : 1;
+        const payout = Math.floor(amount / divisor);
+        const payable = Math.min(payout, room);
+        if (payable < payout) this.profile.pendingMilestones[id] = (payout - payable) * divisor;
         if (payable < 1) continue;
         this.addItem(id, payable);
         this.discoverItem(id);
@@ -385,15 +388,18 @@
     }
 
     repair(amount, announce = true) {
-      const { player, ship } = this.run;
+      const { player } = this.run;
       if (player.hp <= 0) return;
-      const repaired = Math.min(amount, ship.hull - player.hp);
+      const repaired = Math.min(amount, this.maxHull() - player.hp);
       player.hp += repaired;
       if (announce) this.notify('reward', repaired ? '+' + repaired + ' hull' : 'Hull already full');
     }
 
     applyBoost(type) {
-      if (BOOSTS[type].repair) this.repair(BOOSTS[type].repair);
+      if (BOOSTS[type].snowfall) {
+        this.startSnowfall();
+        this.run.snowCooldown = 90;
+      } else if (BOOSTS[type].repair) this.repair(BOOSTS[type].repair);
       else {
         (this.run.boosts[type] ??= []).push(BOOSTS[type].duration);
         this.notify('upgrade', BOOSTS[type].name + ' online');
@@ -427,7 +433,7 @@
       const run = this.run;
       if (includeTestDamage && this.testing && run.testDamage != null) return run.testDamage;
       return Math.min(Number.MAX_SAFE_INTEGER,
-        (run.ship.damage + (includeNose ? this.upgradeEffects().damage : 0)) * 2 ** this.boostCount('doubleDamage'));
+        (run.ship.damage * this.snowmanMultiplier() + (includeNose ? this.upgradeEffects().damage : 0)) * 2 ** this.boostCount('doubleDamage'));
     }
 
     upgradeEffects(ship, mounts = (ship ? this.profile.loadouts[ship] : this.run?.loadout ?? this.profile.loadouts[this.profile.ship]) ?? {}) {
@@ -706,6 +712,7 @@
       for (const [type, count] of Object.entries(reserve)) {
         const boost = BOOSTS[type];
         const shield = type === 'shield' || type === 'fortress';
+        if (boost.snowfall) continue;
         if (boost.repair ? run.ship.hull - run.player.hp < Math.min(boost.repair, run.ship.hull / 2) :
             this.boostCount(type) || (shield && (this.boostCount('shield') || this.boostCount('fortress')))) continue;
         if (count === 1) delete reserve[type];
@@ -720,7 +727,8 @@
 
     canUseBoost(type) {
       return Boolean(this.run && !this.run.practice && !this.canVisitBase() && this.run.player.hp > 0 && this.profile.boosts[type] &&
-        (!BOOSTS[type].repair || this.run.player.hp < this.run.ship.hull));
+        (!BOOSTS[type].repair || this.run.player.hp < this.maxHull()) &&
+        (!BOOSTS[type].snowfall || (this.run.snowCooldown <= 0 && this.run.snowfall <= 0)));
     }
 
     useBoost(type) {
@@ -873,7 +881,7 @@
 
     canUnlockFlagship(id) {
       const price = this.flagshipPrice(id);
-      return this.canVisitBase() && Number.isSafeInteger(price) && this.profile.gems >= price && this.flagshipWait() === 0;
+      return this.now() < AG.SNOW_START && this.canVisitBase() && Number.isSafeInteger(price) && this.profile.gems >= price && this.flagshipWait() === 0;
     }
 
     unlockFlagship(id) {
@@ -927,7 +935,7 @@
       player.invulnerable -= dt;
       if (this.laserActive()) return;
       const effects = this.upgradeEffects();
-      const speed = this.run.ship.speed * effects.speed * (1 + .4 * this.overdriveStacks());
+      const speed = this.run.ship.speed * this.snowmanMultiplier() * effects.speed * (1 + .4 * this.overdriveStacks());
       const vertical = effects.vertical;
       const verticalBoost = 1 + Math.max(0, effects.vectors - 1) * .2;
       let x = 0;
@@ -956,6 +964,7 @@
     update(dt) {
       if (!['playing', 'intermission'].includes(this.state)) return;
       const run = this.run;
+      this.updateSnowfall(dt);
       run.aegisCooldown = Math.max(0, run.aegisCooldown - dt);
       const { x, y } = run.player;
       this.movePlayer(dt);
@@ -1010,11 +1019,13 @@
         const enemyRounds = AG.balanceActive() && Boolean(AG.SHIPS[run.shipId]?.enemyFrame);
         const barrelDelay = AG.balanceActive() && fittedBarrels > 1 ? 2 : 1;
         for (let i = 0; i < barrels; i++) {
-          run.shots.push({ x: player.x + (i - (barrels - 1) / 2) * 19,
+          const snowball = run.shipId === 'snowman';
+          const snowCrystal = snowball && ++run.snowShotCount % 25 === 0;
+          run.shots.push({ snowball, snowCrystal, x: player.x + (i - (barrels - 1) / 2) * 19,
             y: player.y - 20, vx: 0, vy: enemyRounds ? -205 : -720, size: enemyRounds ? 6 : 5, damage, color: ship.color, enemyRound: enemyRounds });
         }
         player.fireIn = Math.max(.055,
-          ship.delay * barrelDelay * .52 ** this.boostCount('rapidFire') * .68 ** this.overdriveStacks());
+          ship.delay * barrelDelay / this.snowmanMultiplier() * .52 ** this.boostCount('rapidFire') * .68 ** this.overdriveStacks());
         this.notify('fire');
       }
 
@@ -1050,6 +1061,10 @@
         enemy.coreTime = Math.max(0, (enemy.coreTime ?? 0) - dt);
         enemy.ghostTime = Math.max(0, (enemy.ghostTime ?? 0) - dt);
         if (enemy.allied) { this.actAsAlly(enemy, dt); continue; }
+        if (enemy.frozen > 0) {
+          enemy.frozen = Math.max(0, enemy.frozen - dt);
+          continue;
+        }
         if (enemy.grips > 0) continue;
         if (run.practice) {
           if (run.practice === 'moving') enemy.x = WIDTH / 2 + 245 * Math.sin(enemy.age * 1.6);
@@ -1411,6 +1426,30 @@
     updatePlayerShots(dt) {
       const run = this.run;
       run.shots = run.shots.filter(shot => {
+        if (shot.snowball) {
+          const focus = shot.snowCrystal ? 'hp' : 'y';
+          let target = null;
+          for (const enemy of run.enemies) {
+            if (!enemy.allied && enemy.y >= 0 && (!target || enemy[focus] > target[focus])) target = enemy;
+          }
+          if (target) {
+            const angle = Math.atan2(target.y - shot.y, target.x - shot.x);
+            const current = Math.atan2(shot.vy, shot.vx);
+            const adjustment = Math.atan2(Math.sin(angle - current), Math.cos(angle - current));
+            const heading = current + clamp(adjustment, -9 * dt, 9 * dt);
+            shot.vx = 550 * Math.cos(heading);
+            shot.vy = 550 * Math.sin(heading);
+          }
+          shot.life = (shot.life ?? 4) - dt;
+          if (shot.life <= 0) return false;
+          // The crystal passes through other enemies on its way to the strongest.
+          if (shot.snowCrystal) {
+            shot.x += shot.vx * dt;
+            shot.y += shot.vy * dt;
+            if (target && touches(shot, target)) { target.frozen = 10; return false; }
+            return shot.y > -24 && shot.y < HEIGHT + 24 && shot.x > -24 && shot.x < WIDTH + 24;
+          }
+        }
         shot.x += shot.vx * dt;
         shot.y += shot.vy * dt;
         if (shot.barrage) {
@@ -1561,11 +1600,50 @@
         y: clamp(y, 22, HEIGHT - 22), age: 0, size: 16 });
     }
 
+    snowmanMultiplier() {
+      return this.run.shipId === 'snowman' && this.run.snowfall > 0 ? 1.5 : 1;
+    }
+
+    maxHull() {
+      return this.run.ship.hull * this.snowmanMultiplier();
+    }
+
+    startSnowfall() {
+      const run = this.run;
+      if (run.snowfall > 0 || run.practice) return false;
+      const previousHull = this.maxHull();
+      run.snowfall = 18;
+      run.player.hp += this.maxHull() - previousHull;
+      const count = 15 + Math.floor(this.random() * 16);
+      const add = (type, delay, size) => run.drops.push({
+        type, x: 25 + this.random() * (WIDTH - 50), y: -size, size, fallDelay: delay, age: 0, amount: 1
+      });
+      for (let i = 0; i < count; i++) add('snowflake', i * .16, 12);
+      if (this.random() < .01) add('snowman', 3, 20);
+      this.notify('upgrade', 'Snowfall · Catch the falling flakes');
+      return true;
+    }
+
+    updateSnowfall(dt) {
+      const run = this.run;
+      const oldHull = this.maxHull();
+      run.snowfall = Math.max(0, run.snowfall - dt);
+      run.snowCooldown = Math.max(0, run.snowCooldown - dt);
+      if (this.maxHull() < oldHull) run.player.hp = Math.min(run.player.hp, this.maxHull());
+    }
+
     collectDrops(dt) {
       const run = this.run;
       const collected = [];
       const magnet = this.upgradeEffects().magnet;
       run.drops = run.drops.filter(drop => {
+        if (drop.fallDelay !== undefined) {
+          drop.fallDelay -= dt;
+          if (drop.fallDelay > 0) return true;
+          drop.y += dt * (drop.type === 'snowman' ? 80 : 64);
+          if (touches(drop, run.player)) { collected.push(drop); return false; }
+          return drop.y < HEIGHT + drop.size;
+        }
         const oldAge = drop.age;
         drop.age += dt;
         if (drop.age + 1e-8 < 1) return true;

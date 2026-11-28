@@ -233,8 +233,8 @@
     relay.setAttribute('aria-pressed', String(run.boostCycleOn));
     relay.title = 'Toggle with ' + game.profile.bindings.relay.toUpperCase();
     setText(relay, 'Auto · ' + (run.boostCycleOn ? 'On' : 'Off'));
-    $('alien-actions').hidden = !run.ship.alien;
-    setText($('mind-countdown'), !run.ship.mindControl ? 'Mind control locked' :
+    $('alien-actions').hidden = !run.ship.alien || !run.ship.mindControl;
+    setText($('mind-countdown'), !run.ship.mindControl ? '' :
       run.mindCooldown > 0 ? 'Mind control · ' + Math.ceil(run.mindCooldown) + 's' : 'Mind control · Ready');
     $('mind-toggle').hidden = !run.ship.mindControl || run.mindCooldown > 0;
     $('mind-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.mindCooldown > 0;
@@ -245,7 +245,7 @@
       const slot = $('flight-boost-' + i);
       const ready = game.boostSlotOpen(i);
       slot.disabled = Boolean(panelKind) || !ready || !id || !game.canUseBoost(id);
-      const caption = !ready ? 'Lv ' + [1, 5, 10][i] : id ? '×' + (game.profile.boosts[id] ?? 0) : 'Empty';
+      const caption = !ready ? 'Lv ' + [1, 5, 10][i] : id === 'snowCrystal' && run.snowCooldown > 0 ? Math.ceil(run.snowCooldown) + 's' : id ? '×' + (game.profile.boosts[id] ?? 0) : 'Empty';
       if (slot.dataset.item !== (ready ? id : 'locked')) {
         slot.dataset.item = ready ? id : 'locked';
         const lock = element('img', '', 'boost-lock');
@@ -258,21 +258,22 @@
       slot.title = name;
       slot.setAttribute('aria-label', name);
     }
-    const health = run.player.hp / run.ship.hull;
+    const maxHull = game.maxHull();
+    const health = run.player.hp / maxHull;
     const rim = $('combat-rim');
     rim.style.setProperty('--hurt', health <= .3 ? Math.max(.32, 1 - health * 2) : 0);
     rim.style.setProperty('--shield', run.aegisShield > 0 ? Math.max(.17, run.aegisShield / AG.aegisCapacity(run.ship)) :
       run.boosts.shield || run.boosts.fortress ? .65 : 0);
     rim.classList.toggle('nova-rim', run.aegisShield > 0);
     rim.classList.toggle('critical-health', health < .1);
-    setText($('hull-value'), Number(run.player.hp.toFixed(1)) + '/' + run.ship.hull);
+    setText($('hull-value'), Number(run.player.hp.toFixed(1)) + '/' + maxHull);
     setText($('level'), 'LV ' + run.level);
     setText($('score'), run.score.toLocaleString());
     setText($('credits'), AG.formatCurrency(game.credits));
     $('credits').title = game.credits.toLocaleString() + ' Credits';
     setText($('gems'), AG.formatCurrency(game.profile.gems));
     $('gems').title = game.profile.gems.toLocaleString() + ' Star Gems';
-    $('hull').max = run.ship.hull;
+    $('hull').max = maxHull;
     $('hull').value = run.player.hp;
     $('xp').value = run.level === 50 ? 100 : 100 * run.xp / AG.xpForLevel(run.level);
     const percent = Math.round(100 * run.resolved / run.total);

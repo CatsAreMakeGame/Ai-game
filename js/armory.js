@@ -69,6 +69,7 @@
     if (!SHIPS[id]) return item.description ?? '';
     const barrage = AG.contentActive() && !item.alien && item.barrage;
     return item.description + ' · ' + AG.energyCapacity(item) + '% energy' +
+      (id === 'snowman' ? ' · Homing snowballs. Every 25th projectile launches a crystal that freezes the strongest enemy for 10 seconds. Hull, speed, damage and fire rate are 1.5× during snowfall.' : '') +
       (barrage ? ' · ' + barrage.name + ' fires ' + barrage.shots + ' shots at 115% energy with at least two-thirds of the wave left. Requires an empty Ultimate slot.' : '');
   };
 
@@ -478,7 +479,7 @@
         const price = introductory ? AG.SHIP_CRATE_OFFER_PRICE : game.cratePurchasePrice(id, count);
         const choice = button('Buy ' + count, () => purchase(count), { disabled: !(introductory ? game.canBuyIntroShipCrate() : game.canBuyCrates(id, count)) });
         const amount = element('small', '', price < count * crate.price ? 'sale-price' : '');
-        if (price < count * crate.price) amount.append(element('s', String(count * crate.price), 'original-price'));
+
         if (introductory) amount.classList.add('intro-price');
         amount.append(element('span', price + (price === 1 ? ' Gem' : ' Gems')));
         choice.append(amount);
@@ -757,10 +758,12 @@
         }, { primary: true, disabled: !game.canUnlockFlagship('supernova') });
         const wait = element('p');
         const status = () => {
+          const retired = game.now() >= AG.SNOW_START;
           const seconds = Math.ceil(game.flagshipWait() / 1000);
-          wait.textContent = seconds ? 'Next purchase in ' + Math.floor(seconds / 60) + 'm ' + seconds % 60 + 's' : 'Available to purchase';
+          wait.textContent = retired ? 'Permanently out of stock' : seconds ? 'Next purchase in ' + Math.floor(seconds / 60) + 'm ' + seconds % 60 + 's' : 'Available to purchase';
           buy.disabled = !game.canUnlockFlagship('supernova');
-          return seconds;
+          if (retired) buy.textContent = 'Out of stock';
+          return !retired;
         };
         if (status()) {
           const timer = setInterval(() => {

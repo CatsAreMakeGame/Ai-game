@@ -20,6 +20,7 @@
   }
 
   const frames = {
+    snowman: [-12,-28,12,-28,12,-20,7,-20,7,-15,15,-13,19,-4,16,4,24,11,22,23,-22,23,-24,11,-16,4,-19,-4,-15,-13,-7,-15,-7,-20,-12,-20],
     dart: [0,-28, 11,-2, 25,16, 11,12, 0,17,-11,12,-25,16,-11,-2],
     swept: [0,-26, 8,-9, 32,5, 29,-8, 27,19, 9,11, 0,19,-9,11,-27,19,-29,-8,-32,5,-8,-9],
     block: [0,-23, 13,-18, 13,-8, 28,-7, 28,18, 11,15, 0,22,-11,15,-28,18,-28,-7,-13,-8,-13,-18],
@@ -436,6 +437,11 @@
       }
       for (const shots of [run.shots, run.allyShots]) {
         for (const shot of shots) {
+          if (shot.snowball) {
+            if (shot.snowCrystal) polygon(ctx, [[shot.x, shot.y - 10], [shot.x + 7, shot.y], [shot.x, shot.y + 10], [shot.x - 7, shot.y]], '#78ddff');
+            else disc(ctx, shot.x, shot.y, 5, '#f4fdff');
+            continue;
+          }
           if (shot.enemyRound) {
             disc(ctx, shot.x, shot.y, 7, '#e1516355');
             disc(ctx, shot.x, shot.y, 4, '#ffa280');
@@ -514,7 +520,16 @@
         }
         ctx.restore();
       }
-      for (const enemy of run.enemies) this.enemy(enemy);
+      for (const enemy of run.enemies) {
+        this.enemy(enemy);
+        if (enemy.frozen > 0) {
+          disc(ctx, enemy.x, enemy.y, enemy.size, '#65bbff7a');
+          ctx.font = 'bold 12px system-ui';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#b8ecff';
+          ctx.fillText('Frozen', enemy.x, enemy.y - enemy.size - 8);
+        }
+      }
       if (game.upgradeEffects().missile) {
         const target = game.pickMissileTarget();
         if (target) {
@@ -529,13 +544,20 @@
           ctx.restore();
         }
       }
+      if (run.snowfall > 0) {
+        for (let i = 0; i < 30; i++) {
+          const x = (i * 137.5 + Math.sin(this.time + i) * 12 + WIDTH) % WIDTH;
+          const y = (i * 83 + this.time * (34 + i % 9)) % HEIGHT;
+          disc(ctx, x, y, 1 + i % 3 * .35, '#dff5ff77');
+        }
+      }
       for (const drop of run.drops) {
         const item = AG.ITEMS[drop.type];
         ctx.save();
         ctx.translate(drop.x, drop.y);
         if (AG.CRATES[drop.type] || ['legendary', 'mythical', 'godly'].includes(item.rarity)) {
           const pulse = .5 + .5 * Math.sin(this.time * 6 + drop.x);
-          const light = AG.RARITIES[item.rarity ?? 'legendary'];
+          const light = drop.type === 'snowman' ? '#fff' : AG.RARITIES[item.rarity ?? 'legendary'];
           ctx.globalAlpha = .22 + pulse * .25;
           ctx.shadowColor = light;
           ctx.shadowBlur = 15;

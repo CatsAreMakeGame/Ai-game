@@ -31,6 +31,7 @@ window.AG = (() => {
     enemyDiver: ['Diver', 112, 615, .21, 2, 2, 'enemyDiver', '#ff927c', 'epic', null],
     enemyTank: ['Tank', 195, 390, .27, 4, 3, 'enemyTank', '#fbd575', 'epic', null],
     enemySmokeNinja: ['Smoke Ninja', 166, 570, .19, 4, 3, 'enemySmokeNinja', '#cbb4e5', 'legendary', null],
+    snowman: ['Snowman', 165, 560, .22, 4, 3, 'snowman', '#d9f7ff', 'mythical', null],
     supernova: ['Supernova', 205, 630, .17, 5, 3, 'supernova', '#b99aff', 'godly', null]
   };
   const SHIPS = Object.fromEntries(Object.entries(shipRows).map(([id, row]) => {
@@ -69,7 +70,12 @@ window.AG = (() => {
     smokeNinja: { name: 'Smoke Ninja', hp: 28, size: 24, unlock: 30, speed: .67, color: '#cbb4e5', score: 170 },
     ...BOSSES
   };
+  const SNOW_START = Date.parse('2026-12-01T00:00:00+11:00');
+  const SNOW_END = Date.parse('2027-01-01T00:00:00+11:00');
+  const snowSeason = (now = Date.now()) => now >= SNOW_START && now < SNOW_END;
   const BOOSTS = {
+    snowCrystal: { name: 'Snow Crystal', rarity: 'rare', duration: 0, snowfall: true,
+      glyph: '❄', description: 'Summons snowfall from a boost slot. 90-second cooldown.' },
     quickload: { name: 'Quickload Cache', rarity: 'epic', duration: 8, barrels: 2, pickupChance: .0025,
       glyph: 'Ⅱ', description: 'Fires two shots per volley for 8 seconds. Also used to craft Twin Cannon.' },
     salvoAmmo: { name: 'Salvo Cache', rarity: 'legendary', duration: 10, barrels: 3, pickupChance: .0008,
@@ -184,7 +190,7 @@ window.AG = (() => {
     return mounts;
   }
 
-  const SHIP_ORDER = ['supernova', 'singularity', 'aurora', 'zenith', 'enemySmokeNinja', 'leviathan', 'enemyTank', 'eclipse', 'solaris', 'enemyDiver', 'tempest', 'bastion', 'enemyShooter', 'comet', 'wraith', 'falcon', 'enemyGrunt', 'scout'];
+  const SHIP_ORDER = ['supernova', 'singularity', 'snowman', 'aurora', 'zenith', 'enemySmokeNinja', 'leviathan', 'enemyTank', 'eclipse', 'solaris', 'enemyDiver', 'tempest', 'bastion', 'enemyShooter', 'comet', 'wraith', 'falcon', 'enemyGrunt', 'scout'];
   const BOOST_LOCK = 'new-icons/vector-icon-pack/General/Lock/Lock 256.png';
   const CONTENT_START = Date.parse('2026-11-28T12:15:00+11:00');
   const BALANCE_START = Date.parse('2026-11-28T02:08:22.000Z');
@@ -387,6 +393,7 @@ window.AG = (() => {
     if (ship.alien) return energyCapacity(
       Object.values(SHIPS).find(base => !base.alien && base.name === ship.donor?.replace(/^Alien /, '')) ??
       { rarity: ship.donorRarity ?? 'mythical' });
+    if (ship.name === 'Snowman') return 105;
     if (ship.name === 'Supernova') return 110;
     return { common: 40, rare: 60, epic: 80, legendary: 100, mythical: 115, godly: 110 }[ship.rarity] ?? 40;
   }
@@ -406,6 +413,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { SNOW_START, snowSeason, BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();
