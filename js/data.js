@@ -44,7 +44,6 @@ window.AG = (() => {
     gemPrice: 100,
     ability: { name: 'Nova Aegis', interval: 24, capacity: 50 }
   });
-  SHIPS.singularity.gemPrice = 100;
   SHIPS.singularity.barrage = { name: 'Singularity Barrage', energy: 115, shots: 960, duration: 8, sweepPasses: 6, arcDegrees: 120, damageScale: 1.25 };
   const aegisCapacity = ship => contentActive() ? ship.hull * 1.5 : ship.ability?.capacity ?? 0;
   for (const id of ['enemyGrunt', 'enemyShooter', 'enemyDiver', 'enemyTank', 'enemySmokeNinja']) SHIPS[id].enemyFrame = true;
@@ -364,7 +363,7 @@ window.AG = (() => {
       copies: counts('copies', catalog), flagshipPurchases: Math.max(0, saved?.flagshipPurchases === undefined ? Number(unlocked.includes('supernova')) : readNumber('flagshipPurchases')),
       flagshipTime: readNumber('flagshipTime'), boostOverdriveTime: readNumber('boostOverdriveTime'),
       boostOverdrivePurchases: saved?.boostOverdrivePurchases === undefined ? Number(readNumber('boostOverdriveTime') > 0) : readNumber('boostOverdrivePurchases'),
-      singularityTime: readNumber('singularityTime'), singularityPurchases: readNumber('singularityPurchases'), serumUsed: saved?.serumUsed === true, mindControlPerShip: true,
+      serumUsed: saved?.serumUsed === true, mindControlPerShip: true,
       quests: saved?.quests ?? null,
       questSupernovaTime: readNumber('questSupernovaTime'),
       updateGifts: { version: 3, day: giftDay, claimed, nextAt },

@@ -336,13 +336,10 @@
     },
 
     flagshipPrice(id) {
-      const count = id === 'singularity' ? this.profile.singularityPurchases : this.profile.flagshipPurchases;
-      return SHIPS[id]?.gemPrice * 2 ** count;
+      return SHIPS[id]?.gemPrice * 2 ** this.profile.flagshipPurchases;
     },
-    flagshipWait(id = 'supernova') {
-      const count = id === 'singularity' ? this.profile.singularityPurchases : this.profile.flagshipPurchases;
-      const last = id === 'singularity' ? this.profile.singularityTime : this.profile.flagshipTime;
-      return this.premiumWait(last, count);
+    flagshipWait() {
+      return this.premiumWait(this.profile.flagshipTime, this.profile.flagshipPurchases);
     },
 
     grantEverything() {
@@ -373,7 +370,7 @@
 
     alienHit(enemy, source, damage) {
       if (!this.run.practice && eventActive(this.now()) && BOSSES[enemy.type] && damage > 0 &&
-          source !== 'ally' && this.random() < .003) this.dropItem('alienCell', enemy.x, enemy.y);
+          source !== 'ally' && this.random() < .009) this.dropItem('alienCell', enemy.x, enemy.y);
     },
 
     rewardAlien(enemy) {
@@ -391,15 +388,15 @@
         }
       }
       if (eventActive(this.now())) {
-        if (this.random() < (boss ? .02 : .0005)) this.dropItem('alienCell', x, y);
+        if (this.random() < (boss ? .06 : .0015)) this.dropItem('alienCell', x, y);
         if (!boss) return;
-        if (this.random() < .02) this.dropItem('alienMind', x - 20, y);
+        if (this.random() < .01) this.dropItem('alienMind', x - 20, y);
         if (run.wave === 50 && enemy.type === 'nexus' && !this.profile.serumUsed && this.random() < .005) {
           this.dropItem('alienSerum', x + 20, y);
         }
       } else if (boss) {
-        this.dropItem('alienCell', x, y, 2);
-        if (enemy.type === mainBoss(run.wave)) this.dropItem('alienMind', x - 20, y);
+        this.dropItem('alienCell', x, y, 6);
+        if (enemy.type === mainBoss(run.wave) && this.random() < .5) this.dropItem('alienMind', x - 20, y);
         if (enemy.type === 'nexus') this.dropItem('alienSerum', x + 20, y);
       }
     },

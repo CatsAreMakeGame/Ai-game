@@ -29,7 +29,7 @@ Speeds include the 20% base movement reduction. A dash in the price column means
 | Snowman | mythical | 165 | 448 | 0.22 | 4 | 3 | 105% | — |
 
 - **Supernova:** 100 Star Gems initially, price and restock wait double after every purchase, starting with a one-hour wait. Permanently out of stock from 1 December 2026 at midnight AEDT. Owned ships stay playable. Nova Aegis starts with a 24-second cooldown and absorbs 1.5× max hull. Recharges 24 seconds after breaking.
-- **Singularity:** Premium Shop starts at 100 Star Gems. Price and restock wait double after each purchase, starting with one hour. Barrage uses 115% energy if at least two-thirds of the wave remains. Fires 960 shots over 8 seconds in six passes over an 80° forward arc. Shots deal 1.25× base damage, benefit from boosts, and can hit three enemies or reflect off side walls. Rapid Fire at activation can raise the shot count up to 4×. A fitted Ultimate disables Barrage. The main gun pauses during Barrage.
+- **Singularity:** Obtained from the Spaceship Crate. Barrage uses 115% energy if at least two-thirds of the wave remains. Fires 960 shots over 8 seconds in six passes over an 80° forward arc. Shots deal 1.25× base damage, benefit from boosts, and can hit three enemies or reflect off side walls. Rapid Fire at activation can raise the shot count up to 4×. A fitted Ultimate disables Barrage. The main gun pauses during Barrage.
 - **Alien variants:** Any obtainable regular ship can be alienated once. Its rarity and energy cap carry over. Hull, movement speed, base damage, and firing rate are 1.1× the donor’s. Alien ships use tendrils and can gain Mind Control by crafting. They lose the donor’s native ultimate.
 
 ## Upgrades
@@ -81,8 +81,8 @@ Twin Cannon and Triple Cannon fire at half the normal volley rate. Smoke Bomb an
 | --- | --- | --- |
 | Slime | common | Dropped by green Grunts. Used to craft a Slime Cannon. |
 | Uranium Ore | epic | Found in green asteroids. Used to craft a Radioactive Smoke Bomb. |
-| Alien Cell | rare | Used in both Alien recipes. |
-| Alien Mind | legendary | Crafted from nine Alien Cells. Place below the ship used in the recipe to craft an Alien Ship. |
+| Alien Cell | rare | Used in both Alien recipes. During the Alien Event, 0.15% on regular enemy defeat, 6% on boss defeat, and 0.9% per eligible hit on a boss. After the event, bosses drop six. Alien Cell payouts from milestones are tripled. |
+| Alien Mind | legendary | 1% from boss defeats during the Alien Event and 50% from main bosses after the event. Crafted from nine Alien Cells. Place below the ship used in the recipe to craft an Alien Ship. |
 | Alien Mind Serum | mythical | Use in the crafting grid to make an Alien ship or give an Alien ship Mind Control. |
 | Credits | common | Standard ship, Merchant and supplies currency. |
 | Star Gems | legendary | Premium currency for crates and Premium Shop. |

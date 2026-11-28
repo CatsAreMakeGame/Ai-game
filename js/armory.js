@@ -785,30 +785,6 @@
         featured.append(visual, details);
         shipGroup.append(featured);
         body.append(shipGroup);
-        const singularity = element('article', '', 'overdrive-feature');
-        const singularityArt = element('div', '', 'overdrive-art');
-        singularityArt.append(graphic('singularity'));
-        const singularityInfo = element('div', '', 'overdrive-info');
-        const singularityWait = element('p', '', 'panel-note');
-        const singPrice = game.flagshipPrice('singularity');
-        const singLabel = 'Buy for ' + AG.formatCurrency(singPrice) + ' Star Gems';
-        const buySing = button(singLabel, () => {
-          if (game.unlockFlagship('singularity')) state.result = 'Singularity acquired. Equip it in the Hangar.';
-          refresh();
-        }, { primary: true });
-        const syncSing = () => {
-          const remaining = game.flagshipWait('singularity');
-          buySing.textContent = remaining ? 'Out of stock' : singLabel;
-          buySing.disabled = !game.canUnlockFlagship('singularity');
-          singularityWait.textContent = remaining ? 'Next purchase in ' + premiumTime(remaining) : 'Available to purchase';
-          return remaining;
-        };
-        if (syncSing()) {
-          const timer = setInterval(() => { if (!singularityWait.isConnected || !syncSing()) clearInterval(timer); }, 1000);
-        }
-        singularityInfo.append(element('h3', 'Singularity'), element('p', tooltipText('singularity'), 'panel-note'), singularityWait, buySing);
-        singularity.append(singularityArt, singularityInfo);
-        body.append(singularity);
         if (AG.contentActive()) {
           const id = 'boostOverdrive';
           const item = UPGRADES[id];

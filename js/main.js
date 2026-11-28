@@ -158,6 +158,16 @@
   }
 
   let questPanelSignature = '';
+  function rotateQuestCrateIcon(drawer) {
+    const slot = drawer.querySelector('[data-quest-crate]');
+    if (!slot) return;
+    const index = Math.floor(performance.now() / 1000) % AG.QUEST_CRATES.length;
+    const id = AG.QUEST_CRATES[index];
+    if (slot.dataset.questCrate === id) return;
+    slot.dataset.questCrate = id;
+    slot.replaceChildren(AG.itemGraphic(id, false));
+  }
+
   function renderQuestPanel() {
     const anchor = $('quest-anchor');
     const drawer = $('quest-panel');
@@ -169,7 +179,7 @@
     const retirement = game.now() >= AG.SNOW_START;
     const available = game.canClaimQuestSupernova();
     const key = [daily.day, unlocked, completed, daily.claimed.join(','), JSON.stringify(daily.progress), retirement, available, game.itemCount('energyCore'), game.profile.questSupernovaTime].join('|');
-    if (key === questPanelSignature) return;
+    if (key === questPanelSignature) { rotateQuestCrateIcon(drawer); return; }
     questPanelSignature = key;
     const scroll = drawer.scrollTop;
     drawer.replaceChildren(element('h2', 'Quests'), element('p', completed + '/30 completed · ' + unlocked + ' unlocked', 'panel-note'));
@@ -183,7 +193,12 @@
         element('small', locked ? 'Locked' : done ? 'Claimed' : finished ? 'Ready to claim' : quest.id > completed + 1 ? 'Complete previous quest' : progress + '/' + quest.target));
       const reward = element('div', '', 'quest-reward');
       for (const [item, quantity] of Object.entries(quest.reward)) {
-        if (item === 'randomCrate') reward.append(element('span', quantity + ' × Random crate'));
+        if (item === 'randomCrate') {
+          const rotatingIcon = element('span');
+          rotatingIcon.dataset.questCrate = '';
+          rotatingIcon.setAttribute('aria-hidden', 'true');
+          reward.append(rotatingIcon, element('span', quantity + ' × Random crate'));
+        }
         else reward.append(AG.itemGraphic(item), element('span', quantity + ' × ' + AG.itemName(item)));
       }
       row.append(reward);
@@ -203,6 +218,7 @@
         if (game.claimQuestSupernova()) renderQuestPanel();
       }, { primary: true, disabled: !available }));
     drawer.append(prize);
+    rotateQuestCrateIcon(drawer);
     drawer.scrollTop = scroll;
   }
 

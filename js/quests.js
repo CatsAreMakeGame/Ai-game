@@ -9,6 +9,7 @@
     { key: 'depth', label: 'Clear wave', targets: [3, 7, 12, 20, 30, 50] },
     { key: 'bosses', label: 'Defeat bosses', targets: [1, 2, 3, 5, 8, 12] }
   ];
+  const QUEST_CRATES = ['shipCrate', 'upgradeCrate', 'enemyCrate'];
   const QUESTS = Array.from({ length: 30 }, (_, i) => {
     const objective = objectives[i % objectives.length];
     const tier = Math.floor(i / objectives.length);
@@ -67,7 +68,7 @@
       if (!quest || id > daily.completed || daily.claimed.includes(id) || this.run?.practice) return false;
       const reward = { ...quest.reward };
       if (reward.randomCrate) {
-        reward[this.rewardPick(['shipCrate', 'upgradeCrate', 'enemyCrate'])] = reward.randomCrate;
+        reward[this.rewardPick(QUEST_CRATES)] = reward.randomCrate;
         delete reward.randomCrate;
       }
       const entries = Object.entries(reward);
@@ -133,5 +134,5 @@
         x: Math.max(20, Math.min(WIDTH - 20, enemy.x)), y: Math.max(20, Math.min(HEIGHT - 20, enemy.y)), fallDelay: 0 });
     }
   });
-  AG.QUESTS = QUESTS;
+  Object.assign(AG, { QUESTS, QUEST_CRATES });
 })();

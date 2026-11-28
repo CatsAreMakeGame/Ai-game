@@ -268,13 +268,15 @@
       const pending = this.profile.pendingMilestones;
       for (const [id, amount] of Object.entries(rewards)) {
         const quantity = reduce ? Math.max(1, Math.round(amount * 2 / 3)) : amount;
-        pending[id] = Math.min(Number.MAX_SAFE_INTEGER, (pending[id] ?? 0) + quantity);
+        pending[id] = Math.min(Number.MAX_SAFE_INTEGER, (pending[id] ?? 0) + quantity * (id === 'alienCell' ? 3 : 1));
       }
     }
 
     rollBonusRewards() {
       const active = AG.eventActive(this.now());
-      if (this.random() < .10) this.queueRewards({ [this.rewardPick(active ? ['fortress', 'alienMind'] : ['fortress'])]: 1 }, false);
+      const rewardRoll = this.random();
+      if (rewardRoll < (active ? .05 : .10)) this.queueRewards({ fortress: 1 }, false);
+      else if (active && rewardRoll < .075) this.queueRewards({ alienMind: 1 }, false);
       if (this.random() < .03) this.queueRewards({ [this.rewardPick(active ? ['alienSerum', 'singularity'] : ['singularity'])]: 1 }, false);
     }
 
@@ -918,7 +920,7 @@
 
     canUnlockFlagship(id) {
       const price = this.flagshipPrice(id);
-      return (id === 'singularity' || this.now() < AG.SNOW_START) && this.canVisitBase() && Number.isSafeInteger(price) && this.profile.gems >= price && this.flagshipWait(id) === 0;
+      return (id === 'supernova' && this.now() < AG.SNOW_START) && this.canVisitBase() && Number.isSafeInteger(price) && this.profile.gems >= price && this.flagshipWait() === 0;
     }
 
     unlockFlagship(id) {
@@ -927,13 +929,8 @@
       const copies = this.shipCount(id);
       if (!copies) this.profile.unlocked.push(id);
       this.profile.copies[id] = copies + 1;
-      if (id === 'singularity') {
-        this.profile.singularityPurchases++;
-        this.profile.singularityTime = this.now();
-      } else {
-        this.profile.flagshipPurchases++;
-        this.profile.flagshipTime = this.now();
-      }
+      this.profile.flagshipPurchases++;
+      this.profile.flagshipTime = this.now();
       this.discoverItem(id);
       this.save();
       this.notify('loot', { type: id, amount: 1 });
