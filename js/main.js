@@ -193,6 +193,8 @@
     questPanelSignature = key;
     const scroll = drawer.scrollTop;
     drawer.replaceChildren(element('h2', 'Quests'), element('p', completed + '/30 completed · ' + unlocked + ' unlocked', 'panel-note'));
+    const claimAll = button('Claim All', () => { if (game.claimAllQuests()) renderQuestPanel(); }, { primary: true, disabled: completed <= daily.claimed.filter(id => id <= completed).length });
+    drawer.append(claimAll);
     for (const quest of AG.QUESTS) {
       const locked = quest.id > unlocked;
       const done = daily.claimed.includes(quest.id);
@@ -377,7 +379,7 @@
     $('gems').title = game.profile.gems.toLocaleString() + ' Star Gems';
     $('hull').max = maxHull;
     $('hull').value = run.player.hp;
-    $('xp').value = run.level === 50 ? 100 : 100 * run.xp / AG.xpForLevel(run.level);
+    $('xp').value = run.level >= 50 ? 100 : 100 * run.xp / AG.xpForLevel(run.level);
     const percent = Math.round(100 * run.resolved / run.total);
     $('completion').value = percent;
     setText($('completion-value'), run.spawned + '/' + run.total + ' spawned · ' + run.resolved + ' cleared');
@@ -499,7 +501,7 @@
     const kind = panelKind;
     mindAim = false;
     if (kind === 'craft') { armory.grid.fill(''); armory.missing = []; armory.ingredient = ''; armory.ingredientScroll = 0; }
-    if ((armoryPanels.includes(kind) || kind === 'settings' || kind === 'keybinds' || kind === 'uiSettings' || kind === 'launchMode' || kind === 'tutorial' || kind === 'rewards') && panelHistory.length) {
+    if ((armoryPanels.includes(kind) || kind === 'settings' || kind === 'changelog' || kind === 'keybinds' || kind === 'uiSettings' || kind === 'launchMode' || kind === 'tutorial' || kind === 'rewards') && panelHistory.length) {
       const parent = panelHistory.pop();
       resetPanelDraft();
       Object.assign(armory, { inventoryTab: parent.inventoryTab, shopTab: parent.shopTab, part: parent.part, ship: parent.ship });
@@ -677,8 +679,27 @@
       setText(title, 'Settings');
       const actions = element('div', '', 'home-actions');
       actions.append(AG.menuIcon(button('Keybinds', () => navigate('keybinds')), 'keybinds'),
-        button('UI Settings', () => navigate('uiSettings')), button('How to play', () => { tutorialIndex = 0; navigate('tutorial'); }), button('Back', dismiss));
+        button('UI Settings', () => navigate('uiSettings')), button('Changelog', () => navigate('changelog')), button('How to play', () => { tutorialIndex = 0; navigate('tutorial'); }), button('Back', dismiss));
       body.append(actions);
+    } else if (panelKind === 'changelog') {
+      setText(title, 'Changelog');
+      for (const [date, message, url] of AG.CHANGELOG) {
+        const entry = element('article', '', 'card');
+        const copy = element('div');
+        const [heading, ...details] = message.split('\n');
+        copy.append(element('strong', heading), element('small', new Date(date).toLocaleDateString('en-AU', { timeZone: 'Australia/Melbourne' })));
+        for (const line of details.filter(Boolean)) copy.append(element('p', line));
+        if (url) {
+          const link = element('a', 'View change');
+          link.href = url;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          copy.append(link);
+        }
+        entry.append(copy);
+        body.append(entry);
+      }
+      body.append(button('Back', dismiss));
     } else if (panelKind === 'uiSettings') {
       setText(title, 'UI Settings');
       const side = element('label', 'In-game boost buttons ');

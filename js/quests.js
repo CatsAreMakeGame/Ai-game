@@ -78,6 +78,15 @@
       return true;
     },
 
+    claimAllQuests() {
+      const { completed, claimed } = this.questDay();
+      let count = 0;
+      for (let id = 1; id <= completed; id++) {
+        if (!claimed.includes(id) && this.claimQuest(id)) count++;
+      }
+      return count;
+    },
+
     finishTestQuest() {
       if (!this.testing || !AG.questsActive(this.now())) return false;
       const daily = this.questDay();

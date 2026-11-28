@@ -108,20 +108,20 @@ A Legendary-or-higher upgrade that appears in both the Upgrade Crate and Upgrade
 
 | Recipe | Ingredients / layout |
 | --- | --- |
-| Twin Cannon | Nova Emitter / — / Nova Emitter · — / Heat-Seeking Missile / — · — / Quickload Cache / —, plus 15 Star Gems |
+| Twin Cannon | Nova Emitter / Blast Missile / Nova Emitter · — / Quickload Cache / — · — / — / — (can shift down one row), plus 15 Star Gems |
 | Triple Cannon | Nova Emitter / Nova Emitter / Nova Emitter · — / Salvo Cache / — · — / — / — (can shift down one row), plus 35 Star Gems |
-| Slime Cannon | Pulse Cannon, Blast Missile, Slime |
-| Radioactive Smoke Bomb | — / Nova Emitter / — · Uranium Ore / Smoke Bomb / Uranium Ore · — / — / — |
-| Alien Ship | Alien Cell / Alien Mind Serum / Alien Cell · Alien Cell / Donor ship / Alien Cell · Alien Cell / Alien Mind / Alien Cell |
-| Alien Mind | Alien Cell / Alien Cell / Alien Cell · Alien Cell / Alien Cell / Alien Cell · Alien Cell / Alien Cell / Alien Cell |
-| Alien Mind Serum | Alien Cell / Alien Cell / Alien Cell · Alien Cell / Alien Mind / Alien Cell · Alien Cell / Alien Cell / Alien Cell |
+| Slime Cannon | Pulse Cannon, Blast Missile, Slime, plus 3 Star Gems |
+| Radioactive Smoke Bomb | — / Nova Emitter / — · Uranium Ore / Smoke Bomb / Uranium Ore · — / — / —, plus 15 Star Gems |
+| Alien Ship | Alien Cell / Alien Mind Serum / Alien Cell · Alien Cell / Donor ship / Alien Cell · Alien Cell / Alien Mind / Alien Cell, plus 60 Star Gems |
+| Alien Mind | Alien Cell / Alien Cell / Alien Cell · Alien Cell / Alien Cell / Alien Cell · Alien Cell / Alien Cell / Alien Cell, plus 5 Star Gems |
+| Alien Mind Serum | Alien Cell / Alien Cell / Alien Cell · Alien Cell / Alien Mind / Alien Cell · Alien Cell / Alien Cell / Alien Cell, plus 12 Star Gems |
 | Mind Control | Alien ship, Alien Mind Serum, Alien Mind |
 
 ## December snowfall
 
 - **Natural snowfall:** 10% chance at each tenth wave in December 2026, Melbourne time. Each snowfall lasts 18 seconds and releases 15–30 Common Snowflakes. The Mythical Snowman has a 1% chance per snowfall. It shines white as a pickup. Uncaught pickups fall offscreen.
 - **Snow Crystal:** Rare, crafted with five Snowflakes in a plus pattern. Triggers snowfall from a boost slot, with a 90-second cooldown. Crafted crystals can summon snowfall only during December 2026.
-- **Snowman:** Fires aimed snow missiles at the hostile enemy closest to the bottom. They travel straight after launch. Every 25th projectile is a crystal that targets the highest-HP hostile enemy and freezes it for eight seconds on impact, including bosses. Frozen enemies cannot fire, damage the ship or die from ship contact. Each projectile in a multi-shot volley counts. Snowfall boosts base hull, movement speed, damage and fire rate by 1.5×. Its energy cap stays at 105%.
+- **Snowman:** Fires homing snowballs that prioritize the lowest hostile enemies and reserve enough shots for their remaining health before assigning extra shots elsewhere. They retarget when their target disappears. Every 25th projectile is a crystal that targets the highest-HP hostile enemy and freezes it for eight seconds on impact, including bosses. Frozen enemies cannot fire, damage the ship or die from ship contact. Each projectile in a multi-shot volley counts. Snowfall boosts base hull, movement speed, damage and fire rate by 1.5×. Its energy cap stays at 105%.
 - **Wave and run payouts:** Credits, Star Gems, and crates from finish rewards and milestones pay 25% of their previous quantities, rounded down. Wave-clear Credits follow the same reduction.
 
 
@@ -129,7 +129,7 @@ A Legendary-or-higher upgrade that appears in both the Upgrade Crate and Upgrade
 
 - Unlocks at 3:00 p.m. AEDT on 28 November 2026. Quests reset at midnight Melbourne time. There are 30 daily objectives across enemies, loot, waves cleared, deepest wave cleared and bosses. Fresh pilots have 10 unlocked, with all 30 open at level 20. Complete objectives sequentially, then claim their rewards manually. Quests 11–29 pay 1 Star Gem each, with the milestone totals below replacing that amount for quests 10, 20 and 30.
 - **Golden Trident:** Legendary single-use item-slot weapon from quest 20. Works on any wave. Golden arcs halve the health of spawned enemies and briefly display damage and health bars. Wave 50 spawns its bosses and regular enemies together. On that wave it can fire once, destroying every other hostile and halving the lead Nexus Overlord’s current health to expose the core. It deals 1.5× damage, moves 1.5× faster and fires at 1.5× cadence.
-- **Energy Core:** Mythical material with the red Power Cell 1 icon. Drops from the lead Nexus Overlord after Golden Trident exposure. Catch it before it falls offscreen.
+- **Energy Core:** Mythical material with the red Power Cell 1 icon. Drops from the lead Nexus Overlord after Golden Trident exposure. Catch it before it falls offscreen. Wave 50 waits for the core to be caught or leave the playfield.
 - **Quest Supernova:** Once Premium Shop stock ends on 1 December, claim a Supernova for 1 Energy Core after completing all 30 quests on the same Melbourne day. 24-hour cooldown between claims.
 - **Snow Crystal recipe:** Appears in Event Recipes from 1 December 2026 onward.
 

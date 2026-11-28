@@ -63,7 +63,12 @@
     save() {
       if (this.testing || this.run?.practice) return;
       if (this.state === 'intermission') this.checkpoint();
-      try { this.storage.setItem('alien-shooter.profile.v1', JSON.stringify(this.profile)); } catch {}
+      try {
+        const key = 'alien-shooter.profile.v1';
+        const data = JSON.stringify(this.profile);
+        this.storage.setItem(key, data);
+        this.storage.setItem(key + '.backup', data);
+      } catch {}
     }
 
     enterTesting() {
@@ -1012,7 +1017,8 @@
       this.updateSlime(dt);
       this.updateAsteroids(dt);
       if (this.state === 'intermission') {
-        if (run.wave < this.waveLimit) {
+        const waitingForCore = run.wave === 50 && run.drops.some(drop => drop.type === 'energyCore');
+        if (run.wave < this.waveLimit && !waitingForCore) {
           this.updateEnemySmoke(dt);
           if (run.player.hp <= 0) { this.finish('gameover'); return; }
         }
@@ -1021,7 +1027,7 @@
         this.updateMissiles(dt);
         this.collectDrops(dt);
         run.breakTime -= dt;
-        if (run.breakTime <= 0) {
+        if (run.breakTime <= 0 && (run.wave !== 50 || !run.drops.some(drop => drop.type === 'energyCore'))) {
           if (run.wave >= this.waveLimit) this.finish('victory');
           else this.beginWave(run.wave + 1);
         }
@@ -1058,12 +1064,11 @@
         const enemyRounds = AG.balanceActive() && Boolean(AG.SHIPS[run.shipId]?.enemyFrame);
         const barrelDelay = AG.balanceActive() && fittedBarrels > 1 ? 2 : 1;
         const snowball = run.shipId === 'snowman';
-        const target = snowball ? this.pickMissileTarget('bottom') : null;
         for (let i = 0; i < barrels; i++) {
           const snowCrystal = snowball && ++run.snowShotCount % 25 === 0;
           const x = player.x + (i - (barrels - 1) / 2) * 19;
           const y = player.y - 20;
-          const angle = target && !snowCrystal ? Math.atan2(target.y - y, target.x - x) : -Math.PI / 2;
+          const angle = -Math.PI / 2;
           const speed = snowball ? 550 : enemyRounds ? 205 : 720;
           run.shots.push({ snowball, snowCrystal, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
             size: enemyRounds ? 6 : 5, damage, color: ship.color, enemyRound: enemyRounds });
@@ -1466,37 +1471,52 @@
       if (barrage.emitted === totalShots) run.barrage = null;
     }
 
+    updateSnowShot(shot, dt, reserved) {
+      const run = this.run;
+      const canTarget = enemy => enemy && !enemy.allied && enemy.y >= 0 && enemy.hp > 0 &&
+        (shot.snowCrystal || enemy.hp > (reserved.get(enemy) ?? 0));
+      let target = shot.target;
+      if (!run.enemies.includes(target) || !canTarget(target)) {
+        target = null;
+        const priority = shot.snowCrystal ? 'hp' : 'y';
+        for (const enemy of run.enemies) {
+          if (canTarget(enemy) && (!target || enemy[priority] > target[priority])) target = enemy;
+        }
+      }
+      shot.target = target;
+      if (!target) {
+        shot.y -= 550 * dt;
+        return shot.y > -24;
+      }
+
+      const dx = target.x - shot.x;
+      const dy = target.y - shot.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance > 0) {
+        shot.vx = dx / distance * 550;
+        shot.vy = dy / distance * 550;
+      }
+      if (distance <= 550 * dt + shot.size + target.size) {
+        if (shot.snowCrystal) {
+          target.frozen = 8;
+          run.hostile = run.hostile.filter(bullet => bullet.owner !== target);
+        } else {
+          this.hitEnemy(run.enemies.indexOf(target), shot.damage, 'shot', target.x);
+        }
+        return false;
+      }
+
+      if (!shot.snowCrystal) reserved.set(target, (reserved.get(target) ?? 0) + shot.damage);
+      shot.x += shot.vx * dt;
+      shot.y += shot.vy * dt;
+      return true;
+    }
+
     updatePlayerShots(dt) {
       const run = this.run;
+      const reserved = new Map();
       run.shots = run.shots.filter(shot => {
-        if (shot.snowball) {
-          const focus = shot.snowCrystal ? 'hp' : 'y';
-          let target = null;
-          for (const enemy of run.enemies) {
-            if (!enemy.allied && enemy.y >= 0 && (!target || enemy[focus] > target[focus])) target = enemy;
-          }
-          if (target && shot.snowCrystal) {
-            const angle = Math.atan2(target.y - shot.y, target.x - shot.x);
-            const current = Math.atan2(shot.vy, shot.vx);
-            const adjustment = Math.atan2(Math.sin(angle - current), Math.cos(angle - current));
-            const heading = current + clamp(adjustment, -9 * dt, 9 * dt);
-            shot.vx = 550 * Math.cos(heading);
-            shot.vy = 550 * Math.sin(heading);
-          }
-          shot.life = (shot.life ?? 4) - dt;
-          if (shot.life <= 0) return false;
-          // The crystal passes through other enemies on its way to the strongest.
-          if (shot.snowCrystal) {
-            shot.x += shot.vx * dt;
-            shot.y += shot.vy * dt;
-            if (target && touches(shot, target)) {
-              target.frozen = 8;
-              run.hostile = run.hostile.filter(bullet => bullet.owner !== target);
-              return false;
-            }
-            return shot.y > -24 && shot.y < HEIGHT + 24 && shot.x > -24 && shot.x < WIDTH + 24;
-          }
-        }
+        if (shot.snowball) return this.updateSnowShot(shot, dt, reserved);
         shot.x += shot.vx * dt;
         shot.y += shot.vy * dt;
         if (shot.barrage) {
@@ -1687,6 +1707,11 @@
       const collected = [];
       const magnet = this.upgradeEffects().magnet;
       run.drops = run.drops.filter(drop => {
+        if (drop.expired) {
+          drop.y += 120 * dt;
+          if (touches(drop, run.player)) { collected.push(drop); return false; }
+          return drop.y < HEIGHT + drop.size;
+        }
         if (drop.fallDelay !== undefined) {
           if (drop.type !== 'energyCore' && !AG.snowSeason(this.now())) return false;
           drop.fallDelay -= dt;
@@ -1716,7 +1741,8 @@
           if (drop.type !== 'alienSerum' || !this.profile.serumUsed || !AG.eventActive(this.now())) collected.push(drop);
           return false;
         }
-        return magnet || drop.age < 16;
+        if (!magnet && drop.age >= 16) drop.expired = true;
+        return true;
       });
       for (const drop of collected) {
         this.recordQuest('pickups');

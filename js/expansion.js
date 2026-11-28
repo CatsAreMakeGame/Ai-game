@@ -15,13 +15,13 @@
   };
   const RECIPES = {
     snowCrystal: { name: 'Snow Crystal', event: true, available: game => game.now() >= AG.SNOW_START, output: 'snowCrystal', pattern: ['', 'snowflake', '', 'snowflake', 'snowflake', 'snowflake', '', 'snowflake', ''] },
-    twinCannon: { name: 'Twin Cannon', output: 'twinCannon', gems: 15, pattern: ['nova', '', 'nova', '', 'seeker', '', '', 'quickload', ''] },
+    twinCannon: { name: 'Twin Cannon', output: 'twinCannon', gems: 15, pattern: ['nova', 'rocket', 'nova', '', 'quickload', '', '', '', ''], shift: true },
     tripleCannon: { name: 'Triple Cannon', output: 'tripleCannon', gems: 35, pattern: ['nova', 'nova', 'nova', '', 'salvoAmmo', '', '', '', ''], shift: true },
-    slimeCannon: { name: 'Slime Cannon', output: 'slimeCannon', ingredients: ['cannon', 'rocket', 'slime'] },
-    radioactiveSmoke: { name: 'Radioactive Smoke Bomb', output: 'radioactiveSmoke', pattern: ['', 'nova', '', 'uranium', 'smokeBomb', 'uranium', '', '', ''] },
-    ship: { name: 'Alien Ship', event: true, pattern: ['alienCell', 'alienSerum', 'alienCell', 'alienCell', 'donor', 'alienCell', 'alienCell', 'alienMind', 'alienCell'] },
-    mind: { name: 'Alien Mind', event: true, pattern: Array(9).fill('alienCell') },
-    serum: { name: 'Alien Mind Serum', event: true, pattern: ['alienCell', 'alienCell', 'alienCell', 'alienCell', 'alienMind', 'alienCell', 'alienCell', 'alienCell', 'alienCell'] },
+    slimeCannon: { name: 'Slime Cannon', output: 'slimeCannon', gems: 3, ingredients: ['cannon', 'rocket', 'slime'] },
+    radioactiveSmoke: { name: 'Radioactive Smoke Bomb', output: 'radioactiveSmoke', gems: 15, pattern: ['', 'nova', '', 'uranium', 'smokeBomb', 'uranium', '', '', ''] },
+    ship: { name: 'Alien Ship', event: true, gems: 60, pattern: ['alienCell', 'alienSerum', 'alienCell', 'alienCell', 'donor', 'alienCell', 'alienCell', 'alienMind', 'alienCell'] },
+    mind: { name: 'Alien Mind', event: true, gems: 5, pattern: Array(9).fill('alienCell') },
+    serum: { name: 'Alien Mind Serum', event: true, gems: 12, pattern: ['alienCell', 'alienCell', 'alienCell', 'alienCell', 'alienMind', 'alienCell', 'alienCell', 'alienCell', 'alienCell'] },
     control: { name: 'Mind Control', event: true, ingredients: ['alienShip', 'alienSerum', 'alienMind'] }
   };
   const BASE_SHIPS = { ...SHIPS };
@@ -300,9 +300,10 @@
       const profile = this.profile;
       const donor = grid[4];
       const output = RECIPES[recipe].output;
+      const price = RECIPES[recipe].gems ?? 0;
+      if (profile.gems < price) return '';
       if (output) {
-        const price = RECIPES[recipe].gems ?? 0;
-        if (this.profile.gems < price || !Number.isSafeInteger(this.itemCount(output) + 1)) return '';
+        if (!Number.isSafeInteger(this.itemCount(output) + 1)) return '';
         this.profile.gems -= price;
         for (const part of grid.filter(Boolean)) this.itemStock(part)[part]--;
         for (const [id, mounts] of Object.entries(profile.loadouts)) {
@@ -314,6 +315,7 @@
       if (recipe === 'mind' || recipe === 'serum') {
         const id = recipe === 'mind' ? 'alienMind' : 'alienSerum';
         if (!Number.isSafeInteger(this.itemCount(id) + 1)) return '';
+        profile.gems -= price;
         profile.materials.alienCell -= recipe === 'mind' ? 9 : 8;
         if (recipe === 'serum') profile.materials.alienMind--;
         this.grantItem(id);
@@ -329,6 +331,7 @@
         return id;
       }
       const id = this.addAlien(SHIPS[donor]);
+      profile.gems -= price;
       profile.materials.alienMind--;
       profile.materials.alienSerum--;
       profile.materials.alienCell -= 6;
@@ -365,10 +368,14 @@
         }
       }
       for (const [bucket, specs] of [['materials', MATERIALS], ['upgrades', AG.UPGRADES], ['boosts', BOOSTS], ['crates', AG.CRATES]]) {
-        for (const id of Object.keys(specs).filter(AG.itemAvailable)) this.profile[bucket][id] = Math.max(999, this.profile[bucket][id] ?? 0);
+        for (const id of Object.keys(specs).filter(AG.itemAvailable)) this.profile[bucket][id] = 999;
       }
-      this.profile.credits = Math.max(this.profile.credits, 1000000);
-      this.profile.gems = Math.max(this.profile.gems, 1000000);
+      for (const id of this.profile.unlocked) this.profile.copies[id] = 999;
+      this.profile.bestPilotLevel = 999;
+      this.profile.pilotXp = 0;
+      if (this.run) { this.run.level = 999; this.run.xp = 0; }
+      this.profile.credits = 999999999999;
+      this.profile.gems = 999999999999;
       return true;
     },
 

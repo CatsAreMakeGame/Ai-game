@@ -261,7 +261,12 @@ window.AG = (() => {
 
   function readProfile(storage) {
     let saved;
-    try { saved = JSON.parse(storage.getItem('alien-shooter.profile.v1')); } catch {}
+    for (const key of ['alien-shooter.profile.v1', 'alien-shooter.profile.v1.backup']) {
+      try {
+        const value = JSON.parse(storage.getItem(key));
+        if (value && typeof value === 'object' && !Array.isArray(value)) { saved = value; break; }
+      } catch {}
+    }
     const alienShips = Object.fromEntries(Object.entries(saved?.alienShips ?? {}).filter(([id, ship]) =>
       /^alien-[1-9]\d*$/.test(id) && ship?.alien === true && typeof ship.name === 'string' &&
       Object.values(shipRows).some(row => row[6] === ship.frame) && Number.isFinite(ship.damage) &&
