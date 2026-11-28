@@ -160,7 +160,7 @@
       }
       this.state = 'playing';
       this.notify('wave', diff.boss ? (BOSSES[lead].name + ' incoming') : 'Wave ' + number.toLocaleString());
-      if (!run.practice && number % 10 === 0 && AG.snowSeason(this.now()) && this.random() < .10) this.startSnowfall();
+      if (!run.practice && number % 10 === 0 && AG.snowSeason(this.now()) && this.random() < .10) this.startSnowfall(true);
     }
 
     canSkip() {
@@ -854,9 +854,9 @@
 
     openBundle(type, count = 1) {
       const spec = CRATES[type];
-      if (!AG.contentActive() || !spec?.bundle || !this.canVisitBase() || this.run?.practice ||
+      if (!AG.contentActive() || !(spec?.bundle || spec?.gift) || !this.canVisitBase() || this.run?.practice ||
           !Number.isSafeInteger(count) || count < 1 || count > this.crateBatchLimit() || count > this.itemCount(type)) return false;
-      const rewards = AG.bundleTotals(spec, count, this.random);
+      const rewards = spec.gift ? AG.jollyGiftTotals(count, this.random) : AG.bundleTotals(spec, count, this.random);
       if (Object.entries(rewards).some(([id, amount]) => !Number.isSafeInteger(this.itemCount(id) + amount))) return false;
       this.profile.crates[type] -= count;
       for (const [id, amount] of Object.entries(rewards)) {
@@ -1678,7 +1678,7 @@
       return this.run.ship.hull * this.snowmanMultiplier();
     }
 
-    startSnowfall() {
+    startSnowfall(natural = false) {
       const run = this.run;
       if (!AG.snowSeason(this.now()) || run.snowfall > 0 || run.practice) return false;
       const previousHull = this.maxHull();
@@ -1690,6 +1690,7 @@
       });
       for (let i = 0; i < count; i++) add('snowflake', i * .16, 12);
       if (this.random() < .01) add('snowman', 3, 20);
+      if (natural && this.random() < .10) add('jollyGiftBag', 3.8, 18);
       this.notify('upgrade', 'Snowfall · Catch the falling flakes');
       return true;
     }

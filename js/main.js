@@ -254,19 +254,16 @@
       $('home-gems').title = gems.toLocaleString();
       const release = $('update-time');
       const wallTime = Date.now();
-      const live = AG.contentActive(wallTime);
-      const deals = AG.launchDealsActive(wallTime);
-      const balancePending = live && !AG.balanceActive(wallTime);
-      const questsPending = live && !AG.questsActive(wallTime);
-      const target = balancePending ? AG.BALANCE_START : questsPending ? AG.QUESTS_START : deals ? AG.LAUNCH_DEALS_END : AG.CONTENT_START;
+      const christmasLive = AG.snowSeason(wallTime);
+      const target = christmasLive ? AG.SNOW_END : AG.SNOW_START;
       const datetime = new Date(target).toISOString();
       if (release.dateTime !== datetime) release.dateTime = datetime;
-      setText($('update-title'), balancePending ? 'Balance update' : questsPending ? 'Quests update' : deals ? 'Next update' : 'Asteroid update');
+      setText($('update-title'), 'Christmas Event');
       const left = Math.max(0, Math.ceil((target - wallTime) / 1000));
       const hours = Math.floor(left / 3600);
       const minutes = Math.floor(left / 60) % 60;
       const clock = String(minutes).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
-      setText(release, questsPending ? 'In ' + Math.ceil(left / 60) + ' min' : live && !deals && !balancePending ? 'Live now' : (deals || balancePending ? 'In ' : 'Launches in ') + hours + ':' + clock);
+      setText(release, wallTime >= AG.SNOW_END ? 'Event ended' : (christmasLive ? 'Ends in ' : 'Starts in ') + hours + ':' + clock);
       const seconds = Math.max(0, Math.ceil((AG.EVENT_END - game.now()) / 1000));
       const time = [Math.floor(seconds / 86400) + 'd', Math.floor(seconds / 3600) % 24 + 'h',
         Math.floor(seconds / 60) % 60 + 'm', seconds % 60 + 's'].join(' ');

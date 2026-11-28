@@ -1,4 +1,5 @@
 window.AG.CHANGELOG = [
+  ["2026-11-28T09:47:01.001Z","Christmas Event and recipe outputs\nAdded recipe output previews and the Jolly Gift Bag with guaranteed rewards and rarity-weighted bonus draws.",null],
   [
     "2026-11-28T09:32:03.913Z",
     "Smart Snowman aim and wave-50 loot recovery\nSnow shots reserve damage and track targets. Wave 50 waits for the Energy Core. Expiring loot falls offscreen. Added Claim All for quests, a browser save backup, new crafting costs, and the Admin max grant.",

@@ -356,8 +356,24 @@
       state.grid.fill(''); state.missing = []; state.ingredient = ''; refresh();
     }));
     body.append(element('p', 'Drag an ingredient or select it and tap a slot. Tap a filled slot with nothing selected to clear it.', 'panel-note'),
-      layout, actions);
+      layout);
+    if (recipe) body.append(recipeResult(recipe, recipe === 'control' ? game.controlRecipeShip(state.grid) : state.grid[4], element));
+    body.append(actions);
     ingredients.scrollTop = state.ingredientScroll ?? 0;
+  }
+
+  function recipeResult(key, donor, element) {
+    const recipe = AG.RECIPES[key];
+    if (!recipe) return null;
+    const id = recipe.output ?? ({ mind: 'alienMind', serum: 'alienSerum' })[key] ?? donor;
+    const result = element('div', '', 'recipe-result');
+    const text = key === 'ship' ? 'Alien Ship ×1' : key === 'control' ? 'Mind Control added to the Alien ship' : recipe.name + ' ×1';
+    const copy = element('div');
+    copy.append(element('small', 'Output'), element('strong', text));
+    if (key === 'ship') copy.append(element('small', 'Donor ship is converted to an Alien ship.'));
+    if (id && ITEMS[id]) result.append(graphic(id));
+    result.append(copy);
+    return result;
   }
 
   function renderRecipes(body, element, button, game, state, refresh) {
@@ -425,6 +441,7 @@
         legend.append(row);
       }
       card.append(legend);
+      card.append(recipeResult(key, key === 'control' ? alienExample : example, element));
       list.append(card);
     }
     if (!list.children.length) body.append(element('p', 'Normal recipes unlock with the Asteroid update.', 'panel-note'));
@@ -943,7 +960,7 @@
         for (const id of sortItems(CRATES, crate => crate.price)) {
           if (!AG.itemAvailable(id) || !profile.crates[id]) continue;
           const count = profile.crates[id];
-          const isBundle = Boolean(CRATES[id].bundle);
+          const isBundle = Boolean(CRATES[id].bundle || CRATES[id].gift);
           const limit = Math.min(count, game.crateBatchLimit());
           function openBatch(quantity) {
             if (isBundle) {

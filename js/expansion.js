@@ -27,6 +27,7 @@
   const BASE_SHIPS = { ...SHIPS };
   Object.assign(ITEMS, MATERIALS);
   for (const [id, icon] of Object.entries({
+  "jollyGiftBag": "Holiday/Gift Bag/Gift Bag 256.png",
   "shipCrate": "Items/Chest/Chest 1/Chest Large 1 256.png",
   "enemyCrate": "Items/Chest/Chest 2/Chest Large 2 256.png",
   "upgradeCrate": "Items/Crate/Crate Gold 256.png",
@@ -179,6 +180,29 @@
       }
     }
     return rewards;
+  }
+
+  function jollyGiftTotals(count, random) {
+    const totals = {};
+    for (const [id, low, high] of [['credit', 50, 250], ['gem', 3, 10], ['snowflake', 5, 15]]) {
+      const amounts = Array.from({ length: high - low + 1 }, (_, index) => low + index);
+      totals[id] = [...crateTotals({ outcomes: [{ weight: 100, items: amounts }] }, count, random)]
+        .reduce((sum, [quantity, bags]) => sum + quantity * bags, 0);
+    }
+
+    const rates = { common: 1, rare: .6, epic: .3, legendary: .12, mythical: .05, godly: .015 };
+    const tiers = Object.entries(rates).map(([rarity, rate]) => {
+      const items = Object.entries(ITEMS)
+        .filter(([id, item]) => id !== 'energyOverdrive' && (item.rarity ?? 'common') === rarity)
+        .map(([id]) => id);
+      return { rarity, items, weight: items.length * rate };
+    }).filter(tier => tier.items.length);
+    const weight = tiers.reduce((sum, tier) => sum + tier.weight, 0);
+    for (const tier of tiers) tier.weight *= 100 / weight;
+    for (const [id, quantity] of crateTotals({ outcomes: tiers }, count * 3, random)) {
+      totals[id] = (totals[id] ?? 0) + quantity;
+    }
+    return totals;
   }
 
   function syncShips(profile) {
@@ -678,5 +702,5 @@
     }
   });
 
-  Object.assign(AG, { createAlien, MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, crateTotals, bundleTotals, syncShips });
+  Object.assign(AG, { createAlien, MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, crateTotals, bundleTotals, jollyGiftTotals, syncShips });
 })();

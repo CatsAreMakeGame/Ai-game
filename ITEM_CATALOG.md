@@ -146,3 +146,9 @@ A Legendary-or-higher upgrade that appears in both the Upgrade Crate and Upgrade
 | Small | 3 minutes after first viewing Premium Shop that day | 50 | 1 | — | — |
 | Medium | 5 minutes after claiming Small | 100 | 2 | 1 of each | — |
 | Large | 12 minutes after claiming Medium | 150 | 3 | 3 of each | 1 of each |
+
+### Jolly Gift Bag
+
+The Legendary Jolly Gift Bag uses the Holiday Gift Bag icon. Each natural December snowfall has a 10% chance to drop a bag. Open collected bags year-round from Inventory → Crates.
+
+Every bag gives 50–250 Credits, 3–10 Star Gems and 5–15 Snowflakes, plus three independent random items from the game catalogue, including currencies, ships, existing Alien variants, the bag itself and retired event rewards. Per-item weights are Common 1, Rare 0.6, Epic 0.3, Legendary 0.12, Mythical 0.05 and Godly 0.015. Items of the same rarity have equal odds.

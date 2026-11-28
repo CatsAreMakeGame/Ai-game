@@ -137,6 +137,8 @@ window.AG = (() => {
       description: 'Holds up to 150 each of three boost types and activates eligible boosts without a delay.' }
   };
   const CRATES = {
+    jollyGiftBag: { name: 'Jolly Gift Bag', rarity: 'legendary', glyph: '◆', gift: true,
+      description: 'Contains 50–250 Credits, 3–10 Star Gems, 5–15 Snowflakes, and 3 random items. Higher rarities are harder to draw. Retired event rewards can appear.' },
     shipCrate: { name: 'Spaceship Crate', rarity: 'epic', glyph: '▣', price: 4, outcomes: [
       { rarity: 'rare', weight: 68, items: ['comet'] }, { rarity: 'epic', weight: 23, items: ['eclipse'] },
       { rarity: 'legendary', weight: 8, items: ['zenith'] },
@@ -427,6 +429,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { QUESTS_START, questsActive, SNOW_START, snowSeason, BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { QUESTS_START, questsActive, SNOW_START, SNOW_END, snowSeason, BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();
