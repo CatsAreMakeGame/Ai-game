@@ -82,7 +82,7 @@
   }
   ITEMS.alienToken.icon = 'icons/ui/alien_token.svg';
   const clone = value => JSON.parse(JSON.stringify(value));
-  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'activeSeconds', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn', 'asteroidDelay', 'asteroidField', 'asteroids', 'barrage', 'snowfall', 'snowCooldown', 'snowShotCount', 'tridentCooldown'];
+  const checkpointKeys = ['level', 'xp', 'score', 'energy', 'total', 'spawned', 'resolved', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'activeSeconds', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn', 'asteroidDelay', 'asteroidField', 'asteroids', 'barrage', 'snowfall', 'snowCooldown', 'snowShotCount', 'tridentCooldown'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
   const mainBoss = wave => wave >= 10 && wave % 10 === 0 ? Object.keys(BOSSES)[Math.min(wave / 10 - 1, 4)] : null;
 
@@ -255,9 +255,10 @@
   Object.assign(Game.prototype, {
     checkpoint() {
       const run = this.run;
-      if (this.testing || run.practice || run.wave >= this.waveLimit) return;
+      if (this.testing || !run || run.practice) return;
+      run.drops.forEach((drop, id) => { drop.checkpointId = id; });
       this.profile.checkpoint = clone({
-        wave: run.wave, mode: run.mode, shipId: run.shipId,
+        wave: run.wave, mode: run.mode, shipId: run.shipId, breakTime: run.breakTime,
         player: { x: run.player.x, y: run.player.y, hp: run.player.hp },
         anchors: run.tendrils.map(({ anchorX, anchorY }) => ({ anchorX, anchorY })),
         allies: run.enemies.filter(enemy => enemy.allied).map(({ grips, freed, ...enemy }) => enemy),
@@ -268,7 +269,8 @@
     canContinue() {
       const saved = this.profile.checkpoint;
       return !this.testing && Boolean(saved && Object.hasOwn(MODES, saved.mode) && Number.isInteger(saved.wave) &&
-        saved.wave >= 1 && saved.wave < MODES[saved.mode] && this.profile.unlocked.includes(saved.shipId) &&
+        saved.wave >= 1 && (saved.wave < MODES[saved.mode] ||
+          (saved.wave === MODES[saved.mode] && Number.isFinite(saved.breakTime))) && this.profile.unlocked.includes(saved.shipId) &&
         saved.player?.hp > 0 && saved.stats?.bossKills && Array.isArray(saved.drops) && Array.isArray(saved.allies));
     },
 
@@ -286,8 +288,23 @@
       if (this.run.loadout.ability3 && !this.run.loadout.ability1) this.run.loadout.ability1 = this.run.loadout.ability3;
       else if (this.run.loadout.ability3 && !this.run.loadout.ability2) this.run.loadout.ability2 = this.run.loadout.ability3;
       delete this.run.loadout.ability3;
+      this.run.loadout = AG.fitLoadout(this.run.ship, this.run.loadout, this.profile.upgrades);
       if (!this.upgradeEffects().vertical) this.run.player.y = HEIGHT - 58;
-      this.beginWave(saved.wave + 1);
+      // Older checkpoints had no break timer. Resume them at the next wave as before.
+      if (!Number.isFinite(saved.breakTime)) {
+        this.run.drops.forEach((drop, id) => { drop.checkpointId = saved.drops[id].checkpointId = id; });
+        this.profile.checkpoint.drops = clone(saved.drops);
+        this.beginWave(saved.wave + 1);
+      } else {
+        this.run.wave = saved.wave;
+        this.run.diff = AG.difficultyFor(saved.wave);
+        this.run.pending = [];
+        this.run.total = saved.total ?? 0;
+        this.run.spawned = saved.spawned ?? this.run.total;
+        this.run.resolved = saved.resolved ?? this.run.total;
+        this.run.breakTime = saved.breakTime;
+        this.state = 'intermission';
+      }
       return true;
     },
 
@@ -670,11 +687,11 @@
 
     actAsAlly(enemy, dt, followingOnly = false) {
       const run = this.run;
-      if (!followingOnly && enemy.alliedFor !== null) {
+      if (Number.isFinite(enemy.alliedFor)) {
         enemy.alliedFor -= dt;
         if (enemy.alliedFor <= 0) {
-          this.releaseControlledEnemy(enemy);
-          return;
+          if (!followingOnly) this.releaseControlledEnemy(enemy);
+          return false;
         }
       }
 
@@ -687,7 +704,7 @@
       enemy.x += (targetX - enemy.x) * step;
       enemy.y += (targetY - enemy.y) * step;
 
-      if (followingOnly) return;
+      if (followingOnly) return true;
       const boss = BOSSES[enemy.type];
       if (!boss && !['shooter', 'tank'].includes(enemy.type)) return;
       enemy.fireIn -= dt;

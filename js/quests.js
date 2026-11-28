@@ -29,11 +29,12 @@
         this.profile.quests = { day, progress: 0, completed: 0, claimed: [] };
       }
       const daily = this.profile.quests;
-      if (!Number.isInteger(daily.completed)) {
+      if (!Number.isInteger(daily.completed) || daily.completed < 0 || daily.completed > QUESTS.length) {
         daily.completed = 0;
         while (daily.completed < 30 && daily.claimed.includes(daily.completed + 1)) daily.completed++;
         daily.progress = 0;
       }
+      if (!Number.isFinite(daily.progress) || daily.progress < 0) daily.progress = 0;
       return daily;
     },
 
@@ -62,7 +63,7 @@
     },
 
     claimQuest(id) {
-      if (!AG.questsActive(this.now())) return false;
+      if (!AG.questsActive(this.now()) || !Number.isInteger(id)) return false;
       const quest = QUESTS[id - 1];
       const daily = this.questDay();
       if (!quest || id > daily.completed || daily.claimed.includes(id) || this.run?.practice) return false;

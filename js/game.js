@@ -63,7 +63,7 @@
 
     save() {
       if (this.testing || this.run?.practice) return;
-      if (this.state === 'intermission') this.checkpoint();
+      if (this.state === 'intermission' || (this.state === 'paused' && this.resumeState === 'intermission')) this.checkpoint();
       try {
         const key = 'alien-shooter.profile.v1';
         const data = JSON.stringify(this.profile);
@@ -180,7 +180,7 @@
 
     finishWave() {
       const run = this.run;
-      const credits = Math.floor((18 + Math.min(500, run.wave * 2)) / 4);
+      const credits = Math.min(Number.MAX_SAFE_INTEGER - this.profile.credits, Math.floor((18 + Math.min(500, run.wave * 2)) / 4));
       this.profile.credits += credits;
       const before = run.player.hp;
       this.gainXp(12);
@@ -381,7 +381,7 @@
       if (AG.balanceActive() && !run.practice) this.queueRewards(this.runFinishRewards(run.wave, run.mode, run.activeSeconds), false);
       else if (state === 'victory') this.awardModeClear();
       run.milestoneRewards = this.settleMilestones();
-      if (run.milestoneRewards.length) this.profile.lastRewards = Object.fromEntries(run.milestoneRewards);
+      this.profile.lastRewards = Object.fromEntries(run.milestoneRewards);
       this.save();
     }
 
@@ -610,9 +610,9 @@
         !this.run?.practice && this.profile.gems >= this.premiumTrailPrice(id) && Number.isSafeInteger(this.itemCount(id) + 1));
     }
 
-    buyPremiumTrail(id) {
-      if (!this.canBuyPremiumTrail(id)) return false;
-      this.payGems('trail:' + id, this.premiumTrailPrice(id));
+    buyPremiumTrail(id, quotedPrice = this.premiumTrailPrice(id)) {
+      if (!this.canBuyPremiumTrail(id) || quotedPrice !== this.premiumTrailPrice(id)) return false;
+      this.payGems('trail:' + id, quotedPrice);
       return this.grantItem(id);
     }
 
@@ -630,9 +630,9 @@
         this.premiumUpgradeWait() === 0 && Number.isSafeInteger(this.itemCount(id) + 1));
     }
 
-    buyPremiumUpgrade(id) {
-      if (!this.canBuyPremiumUpgrade(id)) return false;
-      this.payGems(id, this.premiumUpgradePrice(id));
+    buyPremiumUpgrade(id, quotedPrice = this.premiumUpgradePrice(id)) {
+      if (!this.canBuyPremiumUpgrade(id) || quotedPrice !== this.premiumUpgradePrice(id)) return false;
+      this.payGems(id, quotedPrice);
       this.profile.boostOverdrivePurchases++;
       this.profile.boostOverdriveTime = this.now();
       return this.grantItem(id);
@@ -761,7 +761,7 @@
     }
 
     adjustBoostReserve(type, amount, id = 'boostRelay') {
-      if (!Object.hasOwn(BOOSTS, type) || ![-1, 1].includes(amount) || this.run?.practice) return false;
+      if (!Object.hasOwn(BOOSTS, type) || ![-1, 1].includes(amount) || this.run?.practice || (amount > 0 && !AG.isRelayBoost(type))) return false;
       const limits = UPGRADES[id]?.boostRelay;
       if (!limits || !this.canVisitBase() || !this.itemCount(id)) return false;
       const { boosts, boostReserves } = this.profile;
@@ -785,7 +785,7 @@
       const types = new Set(Object.keys(reserve));
       let added = 0;
       for (const type of [...new Set([...types, ...Object.keys(BOOSTS)])]) {
-        if (!boosts[type] || BOOSTS[type].coreWeapon || BOOSTS[type].snowfall || (!types.has(type) && types.size >= limits.types)) continue;
+        if (!boosts[type] || !AG.isRelayBoost(type) || (!types.has(type) && types.size >= limits.types)) continue;
         const transfer = Math.min(boosts[type], limits.capacity - (reserve[type] ?? 0));
         if (transfer <= 0) continue;
         types.add(type);
@@ -817,7 +817,7 @@
       for (const [type, count] of Object.entries(reserve)) {
         const boost = BOOSTS[type];
         const shield = type === 'shield' || type === 'fortress';
-        if (boost.snowfall || boost.coreWeapon) continue;
+        if (!AG.isRelayBoost(type)) continue;
         if (boost.repair ? run.ship.hull - run.player.hp < Math.min(boost.repair, run.ship.hull / 2) :
             this.boostCount(type) || (shield && (this.boostCount('shield') || this.boostCount('fortress')))) continue;
         if (count === 1) delete reserve[type];
@@ -866,23 +866,23 @@
       return true;
     }
 
-    cratePurchasePrice(type, count, now = Date.now()) {
-      if (CRATES[type]?.price && AG.CRATE_BUY_AMOUNTS.includes(count) && this.alienTokenFree('crate:' + type + ':' + count)) return 0;
+    cratePurchasePrice(type, count, now = this.now()) {
+      if (CRATES[type]?.price && AG.CRATE_BUY_AMOUNTS.includes(count) && this.alienTokenFree('crate:' + type + ':' + count, now)) return 0;
       const price = AG.crateUnitPrice(type, now);
       const discount = type === 'enemyCrate' && AG.CRATE_BUY_AMOUNTS.includes(count) && AG.launchDealsActive(now);
       return count * price * (discount ? .75 : 1);
     }
 
-    canBuyCrates(type, count, now = Date.now()) {
-      if (!CRATES[type]?.price || !AG.itemAvailable(type) || !this.canVisitBase() || this.run?.practice ||
+    canBuyCrates(type, count, now = this.now()) {
+      if (!CRATES[type]?.price || !AG.itemAvailable(type, now) || !this.canVisitBase() || this.run?.practice ||
           !Number.isSafeInteger(count) || count < 1 ||
           (!this.canBuyCustomCrateAmount && !AG.CRATE_BUY_AMOUNTS.includes(count))) return false;
       return Number.isSafeInteger(this.itemCount(type) + count) && this.cratePurchasePrice(type, count, now) <= this.profile.gems;
     }
 
     cratePurchaseLimit(type) {
-      if (!CRATES[type]?.price || !AG.itemAvailable(type) || !this.canVisitBase()) return 0;
-      const regularLimit = Math.min(Math.floor(this.profile.gems / AG.crateUnitPrice(type)),
+      if (!CRATES[type]?.price || !AG.itemAvailable(type, this.now()) || !this.canVisitBase()) return 0;
+      const regularLimit = Math.min(Math.floor(this.profile.gems / AG.crateUnitPrice(type, this.now())),
         Number.MAX_SAFE_INTEGER - this.itemCount(type));
       return Math.max(regularLimit, ...AG.CRATE_BUY_AMOUNTS.filter(count => this.canBuyCrates(type, count)));
     }
@@ -891,15 +891,15 @@
       return !AG.contentActive() || this.testing || this.adminUnlocked;
     }
 
-    buyCrates(type, count) {
-      const now = Date.now();
-      if (!this.canBuyCrates(type, count, now)) return false;
-      this.payGems('crate:' + type + ':' + count, this.cratePurchasePrice(type, count, now));
+    buyCrates(type, count, quotedPrice = this.cratePurchasePrice(type, count)) {
+      const now = this.now();
+      if (!this.canBuyCrates(type, count, now) || this.cratePurchasePrice(type, count, now) !== quotedPrice) return false;
+      this.payGems('crate:' + type + ':' + count, quotedPrice);
       return this.grantItem(type, count);
     }
 
-    canBuyIntroShipCrate(now = Date.now()) {
-      return AG.launchDealsActive(now) && !this.profile.shipCrateOfferUsed && this.canVisitBase() &&
+    canBuyIntroShipCrate(now = this.now()) {
+      return AG.launchDealsActive(now) && !this.alienTokenFree('crate:shipCrate:1', now) && !this.profile.shipCrateOfferUsed && this.canVisitBase() &&
         !this.run?.practice && this.profile.gems >= AG.SHIP_CRATE_OFFER_PRICE &&
         Number.isSafeInteger(this.itemCount('shipCrate') + 1);
     }
@@ -967,7 +967,7 @@
     openCrates(type, count) {
       const crate = CRATES[type];
       const profile = this.profile;
-      if (!crate?.outcomes || !AG.itemAvailable(type) || !Number.isSafeInteger(count) || count < 1 || this.run?.practice ||
+      if (!crate?.outcomes || !AG.itemAvailable(type) || !this.canVisitBase() || !Number.isSafeInteger(count) || count < 1 || this.run?.practice ||
           count > this.crateBatchLimit() || count > (profile.crates[type] ?? 0)) return false;
 
       const totals = AG.crateTotals(AG.liveCrate(type), count, this.random);
@@ -988,8 +988,8 @@
 
     canBuy(type) {
       const run = this.run;
-      return Boolean(SUPPLIES[type] && this.state === 'intermission' && run.level >= SUPPLY_LEVEL &&
-        this.credits >= SUPPLIES[type].price && (type !== 'heal' || run.player.hp < run.ship.hull));
+      return Boolean(SUPPLIES[type] && this.state === 'intermission' && !run.practice && run.level >= SUPPLY_LEVEL &&
+        this.credits >= SUPPLIES[type].price && (type !== 'heal' || run.player.hp < this.maxHull()));
     }
 
     buy(type) {
@@ -1022,9 +1022,9 @@
         this.profile.gems >= price && this.flagshipWait() === 0 && Number.isSafeInteger(this.shipCount(id) + 1);
     }
 
-    unlockFlagship(id) {
-      if (!this.canUnlockFlagship(id)) return false;
-      this.payGems(id, this.flagshipPrice(id));
+    unlockFlagship(id, quotedPrice = this.flagshipPrice(id)) {
+      if (!this.canUnlockFlagship(id) || quotedPrice !== this.flagshipPrice(id)) return false;
+      this.payGems(id, quotedPrice);
       const copies = this.shipCount(id);
       if (!copies) this.profile.unlocked.push(id);
       this.profile.copies[id] = copies + 1;
@@ -1060,7 +1060,7 @@
       const hp = boss ? Math.round(spec.hp * run.diff.bossHealth) : Math.ceil(spec.hp * run.diff.health);
       run.enemies.push({
         type, x, origin: x, y: -spec.size, size: spec.size, hp, maxHp: hp,
-        speed: run.diff.speed * (spec.speed ?? 0), lane: (run.spawned + 2) % 5, fireIn: 1 + this.random() * run.diff.fire,
+        speed: run.diff.speed * (formation ? .91 : spec.speed ?? 0), lane: (run.spawned + 2) % 5, fireIn: 1 + this.random() * run.diff.fire,
         fireDelay: run.diff.fire, damageScale: run.diff.damage, smokeIn: 0, age: 0, bornWave: run.wave, waveEnemyCount: run.total, flash: 0, volley: 0, formation,
         escort: Boolean(boss && (run.spawned !== 0 || extra))
       });
@@ -1114,13 +1114,16 @@
       this.updateBarrage(dt);
       this.updateSlime(dt);
       this.updateAsteroids(dt);
+      this.tickBoosts(dt);
       if (this.state === 'intermission') {
         const waitingForCore = run.wave === 50 && run.drops.some(drop => drop.type === 'energyCore');
         if (run.wave < this.waveLimit && !waitingForCore) {
           this.updateEnemySmoke(dt);
           if (run.player.hp <= 0) { this.finish('gameover'); return; }
         }
-        for (const enemy of run.enemies) if (enemy.allied) this.actAsAlly(enemy, dt, true);
+        for (let i = run.enemies.length - 1; i >= 0; i--) {
+          if (run.enemies[i].allied && !this.actAsAlly(run.enemies[i], dt, true)) run.enemies.splice(i, 1);
+        }
         this.updatePlayerShots(dt);
         this.updateMissiles(dt);
         this.collectDrops(dt);
@@ -1133,7 +1136,6 @@
       }
 
       run.activeSeconds += dt;
-      this.tickBoosts(dt);
       this.updateBoostRelay(dt);
       run.spawnIn = Math.max(0, run.spawnIn - dt);
       if (run.wave === 50 && run.pending.length && run.spawnIn === 0) {
@@ -1229,7 +1231,7 @@
             enemy.teleportOffset = enemy.x < WIDTH / 2 ? 165 : -165;
           }
         } else {
-          enemy.y += (enemy.formation ? run.diff.speed * .91 : enemy.speed) * travel;
+          enemy.y += enemy.speed * travel;
           const diver = enemy.type === 'diver';
           enemy.x = clamp(enemy.origin + Math.sin(enemy.age * (diver ? 4.2 : 1.5)) * (diver ? 73 : 17), enemy.size, WIDTH - enemy.size);
         }
@@ -1820,6 +1822,8 @@
     collectDrops(dt) {
       const run = this.run;
       const collected = [];
+      const checkpoint = this.profile.checkpoint;
+      const trackedDrops = checkpoint?.drops?.length ? run.drops.filter(drop => drop.checkpointId != null) : [];
       const magnet = this.upgradeEffects().magnet;
       run.drops = run.drops.filter(drop => {
         if (drop.expired) {
@@ -1853,12 +1857,19 @@
           else if (drop.y > FLIGHT_LANE) drop.y = Math.max(FLIGHT_LANE, drop.y - speed * elapsed);
         }
         if (touches(drop, run.player)) {
-          if (drop.type !== 'alienSerum' || !this.profile.serumUsed || !AG.eventActive(this.now())) collected.push(drop);
+          collected.push(drop);
           return false;
         }
         if (!magnet && drop.age >= 16) drop.expired = true;
         return true;
       });
+      const savedDropCount = checkpoint?.drops?.length ?? 0;
+      if (trackedDrops.length) {
+        const activeIds = new Set(run.drops.map(drop => drop.checkpointId));
+        const removed = new Set(trackedDrops.map(drop => drop.checkpointId).filter(id => !activeIds.has(id)));
+        if (removed.size) checkpoint.drops = checkpoint.drops.filter(drop => !removed.has(drop.checkpointId));
+      }
+      const removedSavedDrop = savedDropCount !== (checkpoint?.drops?.length ?? 0);
       for (const drop of collected) {
         this.recordQuest('pickups');
         if (drop.type === 'gem') run.stats.gems += drop.amount;
@@ -1871,13 +1882,15 @@
             if (this.grantItem(type, amount, true) && type === 'gem') run.stats.gems += amount;
           }
           this.notify('upgrade', 'Alien Chest opened');
-        } else if (Object.hasOwn(BOOSTS, drop.type) && !BOOSTS[drop.type].pickupChance && !BOOSTS[drop.type].storePickup) {
+        } else if (Object.hasOwn(BOOSTS, drop.type) && !BOOSTS[drop.type].pickupChance && !BOOSTS[drop.type].storePickup &&
+            !BOOSTS[drop.type].snowfall && !BOOSTS[drop.type].coreWeapon) {
           this.discoverItem(drop.type, true);
           for (let i = 0; i < drop.amount; i++) this.applyBoost(drop.type);
           this.notify('loot', { type: drop.type, amount: drop.amount });
           this.save();
         } else this.grantItem(drop.type, drop.amount, true);
       }
+      if (removedSavedDrop) this.save();
     }
   }
 

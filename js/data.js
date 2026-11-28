@@ -255,6 +255,8 @@ window.AG = (() => {
     return { ...crate, outcomes: crate.outcomes.map(tier =>
       tier.rarity === 'epic' ? { ...tier, items: tier.items.filter(item => item !== 'boostRelay') } : tier) };
   }
+  const isFlightItem = id => Object.hasOwn(BOOSTS, id) || id === 'alienSerum' || id === 'energyCore';
+  const isRelayBoost = id => Object.hasOwn(BOOSTS, id) && !BOOSTS[id].snowfall && !BOOSTS[id].coreWeapon;
   const newContent = new Set(['zenith', 'enemyCrate', 'enemyGrunt', 'enemyShooter', 'enemyDiver', 'enemyTank', 'enemySmokeNinja', 'boostCascade', 'boostOverdrive', 'twinCannon', 'tripleCannon', 'slimeCannon', 'radioactiveSmoke', 'slime', 'uranium', 'boostBundle', 'upgradeBundle']);
   function itemAvailable(id, now = Date.now()) {
     if (Object.hasOwn(TRAILS, id)) return trailsActive(now);
@@ -350,7 +352,9 @@ window.AG = (() => {
     }
     const checkpoint = saved?.checkpoint ?? null;
     if (Array.isArray(checkpoint?.drops)) {
-      checkpoint.drops = checkpoint.drops.map(drop => ({ ...drop, type: canonicalMaterial(drop.type) }));
+      checkpoint.drops = checkpoint.drops.filter(drop => drop && Number.isFinite(drop.x) && Number.isFinite(drop.y) &&
+        Number.isSafeInteger(drop.amount) && drop.amount > 0 && Object.hasOwn(ITEMS, canonicalMaterial(drop.type)))
+        .map(drop => ({ ...drop, type: canonicalMaterial(drop.type) }));
     }
     if (checkpoint?.stats?.rarest) checkpoint.stats.rarest = canonicalMaterial(checkpoint.stats.rarest);
     const discoveries = new Set((Array.isArray(saved?.discoveries) ? saved.discoveries : [])
@@ -416,7 +420,7 @@ window.AG = (() => {
       bounties: (Array.isArray(saved?.bounties) ? saved.bounties : []).filter(id => Object.hasOwn(BOSSES, id)),
       boostSlots: Array.from({ length: 3 }, (_, i) => {
         const id = (saved?.boostSlots ?? saved?.favoriteBoosts)?.[i];
-        return Object.hasOwn(BOOSTS, id) || Object.hasOwn(window.AG?.MATERIALS ?? {}, id) ? id : '';
+        return isFlightItem(id) ? id : '';
       }),
       bestPilotLevel: Math.min(50, Math.max(1, readNumber('bestPilotLevel'), Number.isInteger(checkpoint?.level) ? checkpoint.level : 1)),
       pilotXp: saved?.pilotXp === undefined ? Math.max(0, Number.isSafeInteger(checkpoint?.xp) ? checkpoint.xp : 0) : readNumber('pilotXp'),
@@ -433,7 +437,8 @@ window.AG = (() => {
       nameStyle: ['original', 'roman', 'numeric'].includes(saved?.nameStyle) ? saved.nameStyle : 'original',
       bindings, boostReserves, discoveries: [...discoveries],
       mode: Object.hasOwn(window.AG?.MODES ?? {}, saved?.mode) ? saved.mode : 'hard',
-      checkpoint, modeRecords: saved?.modeRecords ?? {},
+      checkpoint, modeRecords: Object.fromEntries(Object.entries(saved?.modeRecords ?? {}).filter(([mode, wave]) =>
+        Object.hasOwn(window.AG?.MODES ?? {}, mode) && Number.isSafeInteger(wave) && wave > 0)),
       credits: readNumber('credits'), gems: readNumber('gems'), upgrades, loadouts,
       boosts: boostStock, crates: counts('crates', CRATES), bestScore: readNumber('bestScore'),
       bestWave: Math.min(LAST_WAVE, readNumber('bestWave')),
@@ -466,6 +471,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { CHRISTMAS_DROPS, TRAILS, TRAILS_START, ALIEN_TOKEN_START, ALIEN_TOKEN_DURATION, ALIEN_TOKEN_ODDS, WISP_TRAIL_ODDS, trailsActive, alienTokenActive, alienChestEvent, QUESTS_START, questsActive, SNOW_START, SNOW_END, snowSeason, BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { isFlightItem, isRelayBoost, CHRISTMAS_DROPS, TRAILS, TRAILS_START, ALIEN_TOKEN_START, ALIEN_TOKEN_DURATION, ALIEN_TOKEN_ODDS, WISP_TRAIL_ODDS, trailsActive, alienTokenActive, alienChestEvent, QUESTS_START, questsActive, SNOW_START, SNOW_END, snowSeason, BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

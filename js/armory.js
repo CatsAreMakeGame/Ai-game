@@ -70,7 +70,7 @@
     if (!SHIPS[id]) return item.description ?? '';
     const barrage = AG.contentActive() && !item.alien && item.barrage;
     return item.description + ' · ' + AG.energyCapacity(item) + '% energy' +
-      (id === 'snowman' ? ' · Aimed snow missiles. Every 25th projectile launches a crystal that freezes the strongest enemy for 8 seconds. Hull, speed, damage and fire rate are 1.5× during snowfall.' : '') +
+      (id === 'snowman' ? ' · Homing snowballs. Every 25th projectile launches a crystal that freezes the strongest enemy for 8 seconds. Hull, speed, damage and fire rate are 1.5× during snowfall.' : '') +
       (barrage ? ' · ' + barrage.name + ' fires ' + barrage.shots + ' shots at 115% energy with at least two-thirds of the wave left. Requires an empty Ultimate slot.' : '');
   };
 
@@ -526,17 +526,29 @@
       const title = element('h3', crate.name);
       const pricing = element('p', crate.price + ' Star Gems each · ' + game.itemCount(id).toLocaleString() + ' owned', 'panel-note');
       const quick = element('div', '', 'crate-quick-buy');
-      function purchase(count) {
-        const introductory = game.cratePurchasePrice(id, count) !== 0 && AG.balanceActive() && id === 'shipCrate' && count === 1 && AG.launchDealsActive() && !game.profile.shipCrateOfferUsed;
-        if (!(introductory ? game.buyIntroShipCrate() : game.buyCrates(id, count))) return;
+      function quote(count) {
+        const now = game.now();
+        const price = game.cratePurchasePrice(id, count, now);
+        const introductory = price !== 0 && AG.balanceActive(now) && id === 'shipCrate' && count === 1 &&
+          AG.launchDealsActive(now) && !game.profile.shipCrateOfferUsed;
+        return { introductory, price: introductory ? AG.SHIP_CRATE_OFFER_PRICE : price };
+      }
+      function purchase(count, shown) {
+        const current = quote(count);
+        if (shown.price !== current.price || shown.introductory !== current.introductory) {
+          state.result = 'The price changed. Check the new price and try again.';
+          refresh();
+          return;
+        }
+        if (!(current.introductory ? game.buyIntroShipCrate() : game.buyCrates(id, count, current.price))) return refresh();
         state.result = count.toLocaleString() + (count === 1 ? ' crate saved in Inventory.' : ' crates saved in Inventory.');
         state.crateFlash = id;
         refresh();
       }
       for (const count of AG.CRATE_BUY_AMOUNTS) {
-        const introductory = game.cratePurchasePrice(id, count) !== 0 && AG.balanceActive() && id === 'shipCrate' && count === 1 && AG.launchDealsActive() && !game.profile.shipCrateOfferUsed;
-        const price = introductory ? AG.SHIP_CRATE_OFFER_PRICE : game.cratePurchasePrice(id, count);
-        const choice = button('Buy ' + count, () => purchase(count), { disabled: !(introductory ? game.canBuyIntroShipCrate() : game.canBuyCrates(id, count)) });
+        const shown = quote(count);
+        const { introductory, price } = shown;
+        const choice = button('Buy ' + count, () => purchase(count, shown), { disabled: !(introductory ? game.canBuyIntroShipCrate() : game.canBuyCrates(id, count)) });
         const amount = element('small', '', price < count * crate.price ? 'sale-price' : '');
 
         if (introductory) amount.classList.add('intro-price');
@@ -549,10 +561,10 @@
       info.append(title, pricing);
       if (id === 'shipCrate') info.append(element('p', 'Singularity got a new ultimate, and Zenith joined the crate.', 'panel-note'));
       info.append(quick);
-      if (id === 'enemyCrate' && AG.launchDealsActive()) {
+      if (id === 'enemyCrate' && AG.launchDealsActive(game.now())) {
         info.append(element('p', '25% off Buy 1, Buy 4 and Buy 10', 'sale-note'));
       }
-      if (!AG.balanceActive() && id === 'shipCrate' && AG.launchDealsActive() && !game.profile.shipCrateOfferUsed) {
+      if (!AG.balanceActive(game.now()) && id === 'shipCrate' && AG.launchDealsActive(game.now()) && !game.profile.shipCrateOfferUsed) {
         const offer = button('One-time offer · ' + AG.SHIP_CRATE_OFFER_PRICE + ' Star Gem', () => {
           if (!game.buyIntroShipCrate()) return;
           state.result = 'Spaceship Crate saved in Inventory.';
@@ -572,16 +584,18 @@
         quantity.value = '1';
         quantity.disabled = limit < 1;
         quantity.setAttribute('aria-label', crate.name + ' custom purchase quantity');
-        const buy = button('Buy custom', () => purchase(quantity.valueAsNumber), { disabled: limit < 1 });
+        let shown;
+        const buy = button('Buy custom', () => purchase(quantity.valueAsNumber, shown), { disabled: limit < 1 });
         buy.type = 'button';
         function updateTotal() {
           const count = quantity.valueAsNumber;
-          buy.disabled = !game.canBuyCrates(id, count);
-          buy.textContent = buy.disabled ? 'Buy custom' : 'Buy custom · ' + AG.formatCurrency(game.cratePurchasePrice(id, count)) + ' Gems';
+          shown = quote(count);
+          buy.disabled = !(shown.introductory ? game.canBuyIntroShipCrate() : game.canBuyCrates(id, count));
+          buy.textContent = buy.disabled ? 'Buy custom' : 'Buy custom · ' + (shown.price === 0 ? 'Free · Alien Token' : AG.formatCurrency(shown.price) + ' Gems');
         }
         controls.addEventListener('submit', event => {
           event.preventDefault();
-          if (!buy.disabled) purchase(quantity.valueAsNumber);
+          if (!buy.disabled) purchase(quantity.valueAsNumber, shown);
         });
         quantity.addEventListener('input', updateTotal);
         updateTotal();
@@ -687,7 +701,7 @@
       itemHover(tile, id, false);
       tile.setAttribute('aria-label', AG.itemName(id) + ', ' + rarity + ', quantity ' + (count || 1));
       tile.append(graphic(id), element('b', '×' + (count || 1).toLocaleString(), 'inventory-count'));
-      if (id !== 'alienToken' && (BOOSTS[id] || AG.MATERIALS[id])) {
+      if (AG.isFlightItem(id)) {
         tile.draggable = true;
         tile.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', id));
       }
@@ -773,7 +787,7 @@
         const available = profile.boosts[id] ?? 0;
         const stored = stock[id] ?? 0;
         const unloading = state.relayTab === 'queue';
-        if (unloading ? !stored : !available) continue;
+        if (unloading ? !stored : !available || !AG.isRelayBoost(id)) continue;
         const row = element('div', '', 'reserve-row');
         const action = button(unloading ? 'Unload' : 'Load', () => {
           if (game.adjustBoostReserve(id, unloading ? -1 : 1, relay)) refresh();
@@ -822,18 +836,19 @@
           stat.append(element('dt', label), element('dd', String(value)));
           stats.append(stat);
         }
-        const price = game.flagshipPrice('supernova');
+        let price = game.flagshipPrice('supernova');
         const savings = element('progress');
         savings.max = Number.isSafeInteger(price) && price > 0 ? price : 100;
         savings.hidden = price === 0;
         savings.value = Math.min(profile.gems, savings.max);
         savings.setAttribute('aria-label', 'Star Gems saved toward next Supernova');
         const buy = button((Number.isSafeInteger(price) ? gemLabel(price) : 'Maximum price'), () => {
-          if (game.unlockFlagship('supernova')) state.result = 'Supernova acquired. Equip it in the Hangar.';
+          if (game.unlockFlagship('supernova', price)) state.result = 'Supernova acquired. Equip it in the Hangar.';
           refresh();
         }, { primary: true, disabled: !game.canUnlockFlagship('supernova') });
         const wait = element('p');
         const status = () => {
+          price = game.flagshipPrice('supernova');
           const retired = game.now() >= AG.SNOW_START;
           const seconds = Math.ceil(game.flagshipWait() / 1000);
           wait.textContent = retired ? 'Permanently out of stock' : seconds ? 'Next purchase in ' + premiumTime(seconds * 1000) : 'Available to purchase';
@@ -869,16 +884,17 @@
           ]) benefits.append(element('li', benefit));
           const rarity = element('span', 'Mythical · Ability upgrade', 'overdrive-rarity');
           const wait = element('p', '', 'panel-note');
-          const buyLabel = () => gemLabel(game.premiumUpgradePrice(id));
-          const buy = button(buyLabel(), () => {
-            if (game.buyPremiumUpgrade(id)) state.result = item.name + ' purchased.';
+          let price = game.premiumUpgradePrice(id);
+          const buy = button(gemLabel(price), () => {
+            if (game.buyPremiumUpgrade(id, price)) state.result = item.name + ' purchased.';
             refresh();
           }, { primary: true, disabled: !game.canBuyPremiumUpgrade(id) });
           function refreshCooldown() {
+            price = game.premiumUpgradePrice(id);
             const seconds = Math.ceil(game.premiumUpgradeWait() / 1000);
             wait.textContent = seconds ? 'Next purchase in ' + premiumTime(seconds * 1000) : 'Available to purchase';
             buy.disabled = !game.canBuyPremiumUpgrade(id);
-            buy.textContent = seconds ? 'Out of stock' : buyLabel();
+            buy.textContent = seconds ? 'Out of stock' : gemLabel(price);
             return seconds;
           }
           if (refreshCooldown()) {
@@ -896,8 +912,9 @@
           trailTitle.id = 'premium-trails-title';
           trailShop.setAttribute('aria-labelledby', trailTitle.id);
           for (const id of ['bubbleTrail', 'rainbowTrail']) {
-            card(id, AG.TRAILS[id].description, button(gemLabel(game.premiumTrailPrice(id)), () => {
-              if (game.buyPremiumTrail(id)) state.result = AG.itemName(id) + ' acquired.';
+            const price = game.premiumTrailPrice(id);
+            card(id, AG.TRAILS[id].description, button(gemLabel(price), () => {
+              if (game.buyPremiumTrail(id, price)) state.result = AG.itemName(id) + ' acquired.';
               refresh();
             }, { disabled: !game.canBuyPremiumTrail(id) }), game.itemCount(id));
           }
@@ -987,7 +1004,7 @@
       } else if (tab === 'boosts' || tab === 'items') {
         const assigned = element('div', '', 'boost-assign');
         profile.boostSlots.forEach((id, i) => {
-          const slot = button('', () => assign(BOOSTS[state.selectedItem] || AG.MATERIALS[state.selectedItem] ? state.selectedItem : ''));
+          const slot = button('', () => { if (AG.isFlightItem(state.selectedItem)) assign(state.selectedItem); });
           slot.setAttribute('aria-label', 'Flight item slot ' + (i + 1));
           const unlocked = game.boostSlotOpen(i);
           slot.disabled = !unlocked;
@@ -999,7 +1016,7 @@
           } else if (id) slot.append(graphic(id));
           slot.append(element('small', 'Level ' + [1, 5, 10][i]));
           function assign(type) {
-            if (!game.boostSlotOpen(i) || type === 'alienToken' || (type && (!(BOOSTS[type] || AG.MATERIALS[type]) || !game.itemCount(type)))) return;
+            if (!game.boostSlotOpen(i) || (type && (!AG.isFlightItem(type) || !game.itemCount(type)))) return;
             profile.boostSlots[i] = type;
             game.save();
             refresh();
@@ -1009,7 +1026,7 @@
           slot.addEventListener('drop', event => {
             event.preventDefault();
             const type = event.dataTransfer.getData('text/plain');
-            if (BOOSTS[type] || AG.MATERIALS[type]) assign(type);
+            if (AG.isFlightItem(type)) assign(type);
           });
           assigned.append(slot);
         });

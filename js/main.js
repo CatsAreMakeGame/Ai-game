@@ -387,7 +387,7 @@
     $('hull').max = maxHull;
     $('hull').value = run.player.hp;
     $('xp').value = run.level >= 50 ? 100 : 100 * run.xp / AG.xpForLevel(run.level);
-    const percent = Math.round(100 * run.resolved / run.total);
+    const percent = run.total ? Math.round(100 * run.resolved / run.total) : 100;
     $('completion').value = percent;
     setText($('completion-value'), run.spawned + '/' + run.total + ' spawned · ' + run.resolved + ' cleared');
     $('skip').disabled = !game.canSkip() || Boolean(panelKind);
@@ -433,7 +433,8 @@
     if (!$('continue').hidden) {
       const saved = game.profile.checkpoint;
       setText($('continue'), 'Continue saved run');
-      $('continue').title = saved.mode[0].toUpperCase() + saved.mode.slice(1) + ' · Next wave ' + (saved.wave + 1).toLocaleString();
+      const step = saved.wave === AG.MODES[saved.mode] ? 'Final wave cleared' : 'Next wave ' + (saved.wave + 1).toLocaleString();
+      $('continue').title = saved.mode[0].toUpperCase() + saved.mode.slice(1) + ' · ' + step;
     }
     setText($('record'), 'BEST WAVE ' + wave.toLocaleString() + '  ·  HIGH SCORE ' + game.profile.bestScore.toLocaleString());
   }
@@ -775,7 +776,7 @@
       note.hidden = false;
       const cards = element('div', '', 'cards');
       for (const [type, supply] of Object.entries(AG.SUPPLIES)) {
-        const full = type === 'heal' && game.run.player.hp === game.run.ship.hull;
+        const full = type === 'heal' && game.run.player.hp >= game.maxHull();
         cards.append(card(supply.name, supply.description, button(full ? 'Hull full' : supply.price + ' Credits', () => {
           game.buy(type);
           drawPanel(true);
@@ -967,9 +968,11 @@
     } else if (key === bindings.laser && !panelKind && game.state === 'playing' && game.upgradeEffects().laser) {
       event.preventDefault();
       if (!event.repeat) game.laserInput('hold');
-    } else if (!panelKind && !event.repeat && game.run?.ship.alien && (key === bindings.extend || key === bindings.retract)) {
-      if (key === bindings.extend) game.extendTendril();
-      else if (!game.releaseMindControl()) game.retractTendril();
+    } else if (!panelKind && !event.repeat && key === bindings.retract && ['playing', 'intermission'].includes(game.state)) {
+      if (game.run.serumAim) { game.run.serumAim = false; game.notify('upgrade', 'Alien Mind Serum cancelled'); }
+      else if (!game.releaseMindControl() && game.run.ship.alien) game.retractTendril();
+    } else if (!panelKind && !event.repeat && key === bindings.extend && game.run?.ship.alien) {
+      game.extendTendril();
     } else if (key === 'i' && !event.repeat && (!panelKind || panelKind === 'inventory')) {
       openInventory();
     } else if (key === 'escape' || key === 'p') {
@@ -994,6 +997,7 @@
     game.keys.delete(key);
     if (key === game.profile.bindings.laser) game.laserInput('release');
   });
+  window.addEventListener('pagehide', () => game.save());
   window.addEventListener('blur', () => {
     game.releaseInput();
     pointerId = null;
@@ -1006,10 +1010,10 @@
   let accumulated = 0;
   const tick = 1 / 120;
   let contentLive = AG.contentActive();
-  let launchDealsLive = AG.launchDealsActive();
+  let launchDealsLive = AG.launchDealsActive(game.now());
   let balanceLive = AG.balanceActive();
   const cosmeticShopState = time => [
-    AG.trailsActive(time), AG.alienTokenActive(time), time < game.profile.alienTokenUntil,
+    AG.trailsActive(time), AG.alienTokenActive(time), AG.snowSeason(time), time < game.profile.alienTokenUntil,
     game.profile.alienTokenUntil > time ? AG.updateGiftDay(time) : ''
   ].join('|');
   let cosmeticState = cosmeticShopState(game.now());
@@ -1029,7 +1033,7 @@
       balanceLive = balance;
       if (armoryPanels.includes(panelKind) && !contentChanged) drawPanel(true);
     }
-    const sale = AG.launchDealsActive(wallTime);
+    const sale = AG.launchDealsActive(game.now());
     if (sale !== launchDealsLive) {
       launchDealsLive = sale;
       if (panelKind === 'shop' && armory.shopTab === 'crates' && !contentChanged) drawPanel(true);
@@ -1071,6 +1075,10 @@
     }
     if (!panelKind && ['gameover', 'victory'].includes(game.state)) open('result');
     view.draw(game, panelKind && game.run ? 0 : game.run ? (game.simulationSpeed > 10 ? steps * tick : gameDt) : dt);
+    if (hoveredDrop && !game.run?.drops.includes(hoveredDrop)) {
+      AG.hideItemTooltip();
+      hoveredDrop = null;
+    }
     renderHUD(now);
     if (hoveredDrop && !game.run?.drops.includes(hoveredDrop)) { hoveredDrop = null; AG.hideItemTooltip(); }
     requestAnimationFrame(frame);
