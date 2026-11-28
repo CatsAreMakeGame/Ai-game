@@ -733,3 +733,7 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 @media (max-width: 620px) {
   .home-wallet { position: static; width: fit-content; margin: 0 0 8px auto; }
 }
+
+.quest-reward-entry { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.recipe-card.alien-recipe { border: 2px solid #8be67f; }
+.alien-recipe-label { margin: 0 0 8px; color: #a4ef91; font-size: .8rem; }

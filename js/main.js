@@ -168,6 +168,16 @@
     slot.replaceChildren(AG.itemGraphic(id, false));
   }
 
+  function questDescription(quest) {
+    const count = quest.target;
+    const plural = count === 1 ? '' : 's';
+    if (quest.key === 'kills') return 'Defeat ' + count + (count === 1 ? ' enemy' : ' enemies');
+    if (quest.key === 'pickups') return 'Collect ' + count + ' loot drop' + plural;
+    if (quest.key === 'waves') return 'Clear ' + count + ' wave' + plural;
+    if (quest.key === 'depth') return 'Clear wave ' + count;
+    return 'Defeat ' + count + (count === 1 ? ' boss' : ' bosses');
+  }
+
   function renderQuestPanel() {
     const anchor = $('quest-anchor');
     const drawer = $('quest-panel');
@@ -189,17 +199,19 @@
       const finished = quest.id <= completed;
       const progress = finished ? quest.target : quest.id === completed + 1 ? Math.min(quest.target, daily.progress) : 0;
       const row = element('article', '', 'quest-row');
-      row.append(element('strong', quest.id + '. ' + quest.label + ' ' + quest.target),
+      row.append(element('strong', quest.id + '. ' + questDescription(quest)),
         element('small', locked ? 'Locked' : done ? 'Claimed' : finished ? 'Ready to claim' : quest.id > completed + 1 ? 'Complete previous quest' : progress + '/' + quest.target));
       const reward = element('div', '', 'quest-reward');
       for (const [item, quantity] of Object.entries(quest.reward)) {
+        const entry = element('span', '', 'quest-reward-entry');
         if (item === 'randomCrate') {
           const rotatingIcon = element('span');
           rotatingIcon.dataset.questCrate = '';
           rotatingIcon.setAttribute('aria-hidden', 'true');
-          reward.append(rotatingIcon, element('span', quantity + ' × Random crate'));
+          entry.append(rotatingIcon, element('span', quantity + ' × Random crate'));
         }
-        else reward.append(AG.itemGraphic(item), element('span', quantity + ' × ' + AG.itemName(item)));
+        else entry.append(AG.itemGraphic(item), element('span', quantity + ' × ' + AG.itemName(item)));
+        reward.append(entry);
       }
       row.append(reward);
       if (!locked && !done && finished) row.append(button('Claim', () => {

@@ -69,7 +69,7 @@
     if (!SHIPS[id]) return item.description ?? '';
     const barrage = AG.contentActive() && !item.alien && item.barrage;
     return item.description + ' · ' + AG.energyCapacity(item) + '% energy' +
-      (id === 'snowman' ? ' · Homing snowballs. Every 25th projectile launches a crystal that freezes the strongest enemy for 10 seconds. Hull, speed, damage and fire rate are 1.5× during snowfall.' : '') +
+      (id === 'snowman' ? ' · Aimed snow missiles. Every 25th projectile launches a crystal that freezes the strongest enemy for 8 seconds. Hull, speed, damage and fire rate are 1.5× during snowfall.' : '') +
       (barrage ? ' · ' + barrage.name + ' fires ' + barrage.shots + ' shots at 115% energy with at least two-thirds of the wave left. Requires an empty Ultimate slot.' : '');
   };
 
@@ -345,13 +345,14 @@
     const label = recipe === 'ship' ? 'Consume ' + AG.itemName(state.grid[4]) + ' and craft Alien Ship' :
       recipe === 'mind' ? 'Craft Alien Mind' : recipe === 'serum' ? 'Craft Alien Mind Serum' :
         recipe === 'control' ? 'Add Mind Control' : recipe ? 'Craft ' + AG.RECIPES[recipe].name : 'Craft';
+    const gemCost = AG.RECIPES[recipe]?.gems ?? 0;
     const actions = element('div', '', 'home-actions');
-    actions.append(button(label, () => {
+    actions.append(button(gemCost ? label + ' · ' + gemCost + ' Star Gems' : label, () => {
       const id = game.craft(state.grid);
       if (id) { state.grid.fill(''); state.missing = []; state.ingredient = ''; }
       state.result = id ? AG.itemName(id) + (recipe === 'control' ? ' gained Mind Control.' : ' added to Inventory.') : 'Check the ingredients in the grid.';
       refresh();
-    }, { primary: true, disabled: !recipe }), button('Clear grid', () => {
+    }, { primary: true, disabled: !recipe || game.profile.gems < gemCost }), button('Clear grid', () => {
       state.grid.fill(''); state.missing = []; state.ingredient = ''; refresh();
     }));
     body.append(element('p', 'Drag an ingredient or select it and tap a slot. Tap a filled slot with nothing selected to clear it.', 'panel-note'),
@@ -386,6 +387,11 @@
       if (Boolean(recipe.event) !== (activeTab === 'event') || (!recipe.event && !AG.contentActive())) continue;
       const card = element('article', '', 'recipe-card');
       card.append(element('h3', recipe.name));
+      if (key === 'ship') {
+        card.classList.add('alien-recipe');
+        card.append(element('p', 'Enhanced ship · 1.1× donor stats', 'alien-recipe-label'));
+      }
+      if (recipe.gems) card.append(element('p', recipe.gems + ' Star Gems', 'panel-note'));
       if (recipe.pattern) {
         const grid = element('div', '', 'craft-grid recipe-grid');
         for (const id of recipe.pattern) {

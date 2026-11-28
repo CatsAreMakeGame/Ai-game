@@ -439,7 +439,14 @@
         for (const shot of shots) {
           if (shot.snowball) {
             if (shot.snowCrystal) polygon(ctx, [[shot.x, shot.y - 10], [shot.x + 7, shot.y], [shot.x, shot.y + 10], [shot.x - 7, shot.y]], '#78ddff');
-            else disc(ctx, shot.x, shot.y, 5, '#f4fdff');
+            else {
+              ctx.save();
+              ctx.translate(shot.x, shot.y);
+              ctx.rotate(Math.atan2(shot.vy, shot.vx));
+              polygon(ctx, [[8,0],[1,-4],[-7,-4],[-7,4],[1,4]], '#f4fdff');
+              polygon(ctx, [[-6,-3],[-14,0],[-6,3]], '#79d4ff');
+              ctx.restore();
+            }
             continue;
           }
           if (shot.enemyRound) {

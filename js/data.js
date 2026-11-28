@@ -31,7 +31,7 @@ window.AG = (() => {
     enemyDiver: ['Diver', 112, 615, .21, 2, 2, 'enemyDiver', '#ff927c', 'epic', null],
     enemyTank: ['Tank', 195, 390, .27, 4, 3, 'enemyTank', '#fbd575', 'epic', null],
     enemySmokeNinja: ['Smoke Ninja', 166, 570, .19, 4, 3, 'enemySmokeNinja', '#cbb4e5', 'legendary', null],
-    snowman: ['Snowman', 165, 560, .22, 4, 3, 'snowman', '#d9f7ff', 'mythical', null],
+    snowman: ['Snowman', 145, 600, .22, 4, 3, 'snowman', '#d9f7ff', 'mythical', null],
     supernova: ['Supernova', 205, 630, .17, 5, 3, 'supernova', '#b99aff', 'godly', null]
   };
   const SHIPS = Object.fromEntries(Object.entries(shipRows).map(([id, row]) => {
@@ -118,10 +118,10 @@ window.AG = (() => {
     radioactiveSmoke: { name: 'Radioactive Smoke Bomb', slot: 'Engine', rarity: 'mythical', glyph: '☢', smoke: 6, radioactive: true,
       description: 'Leaves radioactive smoke with range 6. Poisons enemies for four seconds after exposure and deals 4 damage every half second.' },
     slimeCannon: { name: 'Slime Cannon', slot: 'Wings', rarity: 'epic', glyph: '●', slime: true,
-      description: 'Fires slime balls that splash and slow enemies by 50% for four seconds.' },
-    twinCannon: { name: 'Twin Cannon', slot: 'Weapon', rarity: 'epic', glyph: 'Ⅱ', barrels: 2,
+      description: 'Fires straight slime shots that splash and slow enemies by 50% for six seconds. Deals 75% of unmodified base shot damage on ships with at least 4 base damage.' },
+    twinCannon: { name: 'Twin Cannon', slot: 'Weapon', rarity: 'mythical', glyph: 'Ⅱ', barrels: 2,
       description: 'Fires two parallel projectiles per shot.' },
-    tripleCannon: { name: 'Triple Cannon', slot: 'Weapon', rarity: 'mythical', glyph: 'Ⅲ', barrels: 3,
+    tripleCannon: { name: 'Triple Cannon', slot: 'Weapon', rarity: 'godly', glyph: 'Ⅲ', barrels: 3,
       description: 'Fires three parallel projectiles per shot.' },
     beacon: { name: 'Lightning Beacon', slot: 'Special', rarity: 'godly', glyph: '⚡', laser: true,
       description: 'Giant energy beam. Aim with the pointer. Right-click to toggle, or hold the Lightning Beacon key. Each 0.1-second pulse uses 1% energy and deals shot damage divided by 2.75.' },

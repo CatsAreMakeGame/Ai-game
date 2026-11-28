@@ -648,9 +648,9 @@
 
     spreadEnemySmoke(enemy) {
       const { enemySmoke } = this.run;
-      enemySmoke.push({ x: enemy.x, y: enemy.y, size: 98, life: 10 });
+      enemySmoke.push({ owner: enemy, x: enemy.x, y: enemy.y, size: 98, life: 10 });
       for (let i = 0; i < 9; i++) {
-        enemySmoke.push({ x: (i % 3 + .5) * WIDTH / 3 + (this.random() - .5) * 80,
+        enemySmoke.push({ owner: enemy, x: (i % 3 + .5) * WIDTH / 3 + (this.random() - .5) * 80,
           y: (Math.floor(i / 3) + .5) * HEIGHT / 3 + (this.random() - .5) * 65,
           size: 92 + this.random() * 30, life: 10 });
       }
@@ -660,7 +660,7 @@
 
     updateEnemySmoke(dt) {
       const run = this.run;
-      const exposed = run.enemySmoke.some(puff => touches(run.player, puff));
+      const exposed = run.enemySmoke.some(puff => !puff.owner?.frozen && touches(run.player, puff));
       for (const puff of run.enemySmoke) puff.life -= dt;
       run.enemySmoke = run.enemySmoke.filter(puff => puff.life > 1e-8);
       run.smokeDamageIn = Math.max(0, run.smokeDamageIn - dt);
@@ -1057,11 +1057,16 @@
         const barrels = Math.max(fittedBarrels, this.boostCount('salvoAmmo') ? 3 : this.boostCount('quickload') ? 2 : 1);
         const enemyRounds = AG.balanceActive() && Boolean(AG.SHIPS[run.shipId]?.enemyFrame);
         const barrelDelay = AG.balanceActive() && fittedBarrels > 1 ? 2 : 1;
+        const snowball = run.shipId === 'snowman';
+        const target = snowball ? this.pickMissileTarget('bottom') : null;
         for (let i = 0; i < barrels; i++) {
-          const snowball = run.shipId === 'snowman';
           const snowCrystal = snowball && ++run.snowShotCount % 25 === 0;
-          run.shots.push({ snowball, snowCrystal, x: player.x + (i - (barrels - 1) / 2) * 19,
-            y: player.y - 20, vx: 0, vy: enemyRounds ? -205 : -720, size: enemyRounds ? 6 : 5, damage, color: ship.color, enemyRound: enemyRounds });
+          const x = player.x + (i - (barrels - 1) / 2) * 19;
+          const y = player.y - 20;
+          const angle = target && !snowCrystal ? Math.atan2(target.y - y, target.x - x) : -Math.PI / 2;
+          const speed = snowball ? 550 : enemyRounds ? 205 : 720;
+          run.shots.push({ snowball, snowCrystal, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+            size: enemyRounds ? 6 : 5, damage, color: ship.color, enemyRound: enemyRounds });
         }
         player.fireIn = Math.max(.055,
           ship.delay * barrelDelay / this.snowmanMultiplier() * .52 ** this.boostCount('rapidFire') * .68 ** this.overdriveStacks());
@@ -1176,14 +1181,14 @@
         const angle = aim + sweep + offset * spread;
         const shotSpeed = enemy.type === 'prism' && index % 2 ? speed * 1.32 :
           enemy.type === 'nexus' && index % 2 ? speed * .72 : speed;
-        hostile.push({ x: enemy.x, y: enemy.y + 4, size: 6, vx: Math.cos(angle) * shotSpeed,
+        hostile.push({ owner: enemy, x: enemy.x, y: enemy.y + 4, size: 6, vx: Math.cos(angle) * shotSpeed,
           vy: Math.sin(angle) * shotSpeed, damage: Math.round((boss ? 12 + boss.tier : 9) * (enemy.damageScale ?? this.run.diff.damage)),
           color: ENEMIES[enemy.type].color, source: (boss?.name ?? enemy.type) + ' fire', splitIn: enemy.type === 'prism' && index % 2 === 0 ? .53 : null });
       }
     }
 
-    pickMissileTarget() {
-      const { enemies, player, targetMode } = this.run;
+    pickMissileTarget(targetMode = this.run.targetMode) {
+      const { enemies, player } = this.run;
       const score = {
         nearest: enemy => -Math.hypot(enemy.x - player.x, enemy.y - player.y),
         bottom: enemy => enemy.y,
@@ -1206,14 +1211,11 @@
       const run = this.run;
       run.slimeIn = Math.max(0, run.slimeIn - dt);
       const mounts = this.upgradeEffects().slimeMounts;
-      if (run.slimeIn > 0 || !mounts.length) return;
-      const target = this.pickMissileTarget();
-      if (!target) return;
+      if (run.slimeIn > 0 || !mounts.length || !run.enemies.some(enemy => !enemy.allied && enemy.y >= 0)) return;
+      const baseDamage = run.ship.donorDamage ?? run.ship.damage;
       for (const mount of mounts) {
         const x = run.player.x + (mount === 'leftWing' ? -22 : 22);
-        const y = run.player.y - 13;
-        const range = Math.max(1, Math.hypot(target.x - x, target.y - y));
-        run.slimeShots.push({ x, y, vx: (target.x - x) / range, vy: (target.y - y) / range, range, size: 6 });
+        run.slimeShots.push({ x, y: run.player.y - 13, vx: 0, vy: -1, size: 6, damage: baseDamage >= 4 ? .75 * baseDamage : 0 });
       }
       run.slimeIn = 2;
     }
@@ -1223,13 +1225,14 @@
       if (!slimeShots.length) return;
       const radius = BOSSES.boss.size / 2;
       this.run.slimeShots = slimeShots.filter(shot => {
-        const step = Math.min(shot.range, dt * 540);
-        shot.x += shot.vx * step;
-        shot.y += shot.vy * step;
-        shot.range -= step;
-        if (shot.range > 1e-8 && !enemies.some(enemy => !enemy.allied && touches(enemy, shot))) return true;
-        for (const enemy of enemies) {
-          if (!enemy.allied && (enemy.x - shot.x) ** 2 + (enemy.y - shot.y) ** 2 <= (radius + enemy.size) ** 2) enemy.slimeTime = 4;
+        shot.y -= dt * 540;
+        if (shot.y < -shot.size) return false;
+        if (!enemies.some(enemy => !enemy.allied && touches(enemy, shot))) return true;
+        for (let i = enemies.length - 1; i >= 0; i--) {
+          const enemy = enemies[i];
+          if (enemy.allied || (enemy.x - shot.x) ** 2 + (enemy.y - shot.y) ** 2 > (radius + enemy.size) ** 2) continue;
+          enemy.slimeTime = 6;
+          if (shot.damage) this.hitEnemy(i, shot.damage, 'slime');
         }
         this.notify('blast', { x: shot.x, y: shot.y, radius, color: '#7bfa65' });
         return false;
@@ -1472,7 +1475,7 @@
           for (const enemy of run.enemies) {
             if (!enemy.allied && enemy.y >= 0 && (!target || enemy[focus] > target[focus])) target = enemy;
           }
-          if (target) {
+          if (target && shot.snowCrystal) {
             const angle = Math.atan2(target.y - shot.y, target.x - shot.x);
             const current = Math.atan2(shot.vy, shot.vx);
             const adjustment = Math.atan2(Math.sin(angle - current), Math.cos(angle - current));
@@ -1486,7 +1489,11 @@
           if (shot.snowCrystal) {
             shot.x += shot.vx * dt;
             shot.y += shot.vy * dt;
-            if (target && touches(shot, target)) { target.frozen = 10; return false; }
+            if (target && touches(shot, target)) {
+              target.frozen = 8;
+              run.hostile = run.hostile.filter(bullet => bullet.owner !== target);
+              return false;
+            }
             return shot.y > -24 && shot.y < HEIGHT + 24 && shot.x > -24 && shot.x < WIDTH + 24;
           }
         }

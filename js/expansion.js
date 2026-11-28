@@ -15,8 +15,8 @@
   };
   const RECIPES = {
     snowCrystal: { name: 'Snow Crystal', event: true, available: game => game.now() >= AG.SNOW_START, output: 'snowCrystal', pattern: ['', 'snowflake', '', 'snowflake', 'snowflake', 'snowflake', '', 'snowflake', ''] },
-    twinCannon: { name: 'Twin Cannon', output: 'twinCannon', pattern: ['rail', 'nova', 'rail', '', 'quickload', '', '', '', ''], shift: true },
-    tripleCannon: { name: 'Triple Cannon', output: 'tripleCannon', pattern: ['nova', 'nova', 'nova', '', 'salvoAmmo', '', '', '', ''], shift: true },
+    twinCannon: { name: 'Twin Cannon', output: 'twinCannon', gems: 15, pattern: ['nova', '', 'nova', '', 'seeker', '', '', 'quickload', ''] },
+    tripleCannon: { name: 'Triple Cannon', output: 'tripleCannon', gems: 35, pattern: ['nova', 'nova', 'nova', '', 'salvoAmmo', '', '', '', ''], shift: true },
     slimeCannon: { name: 'Slime Cannon', output: 'slimeCannon', ingredients: ['cannon', 'rocket', 'slime'] },
     radioactiveSmoke: { name: 'Radioactive Smoke Bomb', output: 'radioactiveSmoke', pattern: ['', 'nova', '', 'uranium', 'smokeBomb', 'uranium', '', '', ''] },
     ship: { name: 'Alien Ship', event: true, pattern: ['alienCell', 'alienSerum', 'alienCell', 'alienCell', 'donor', 'alienCell', 'alienCell', 'alienMind', 'alienCell'] },
@@ -301,7 +301,9 @@
       const donor = grid[4];
       const output = RECIPES[recipe].output;
       if (output) {
-        if (!Number.isSafeInteger(this.itemCount(output) + 1)) return '';
+        const price = RECIPES[recipe].gems ?? 0;
+        if (this.profile.gems < price || !Number.isSafeInteger(this.itemCount(output) + 1)) return '';
+        this.profile.gems -= price;
         for (const part of grid.filter(Boolean)) this.itemStock(part)[part]--;
         for (const [id, mounts] of Object.entries(profile.loadouts)) {
           profile.loadouts[id] = AG.fitLoadout(SHIPS[id], mounts, profile.upgrades);

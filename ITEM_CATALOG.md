@@ -26,7 +26,7 @@ Speeds include the 20% base movement reduction. A dash in the price column means
 | Tank | epic | 195 | 312 | 0.27 | 4 | 3 | 80% | — |
 | Smoke Ninja | legendary | 166 | 456 | 0.19 | 4 | 3 | 100% | — |
 | Supernova | godly | 205 | 504 | 0.17 | 5 | 3 | 110% | — |
-| Snowman | mythical | 165 | 448 | 0.22 | 4 | 3 | 105% | — |
+| Snowman | mythical | 145 | 480 | 0.22 | 4 | 3 | 105% | — |
 
 - **Supernova:** 100 Star Gems initially, price and restock wait double after every purchase, starting with a one-hour wait. Permanently out of stock from 1 December 2026 at midnight AEDT. Owned ships stay playable. Nova Aegis starts with a 24-second cooldown and absorbs 1.5× max hull. Recharges 24 seconds after breaking.
 - **Singularity:** Obtained from the Spaceship Crate. Barrage uses 115% energy if at least two-thirds of the wave remains. Fires 960 shots over 8 seconds in six passes over an 80° forward arc. Shots deal 1.25× base damage, benefit from boosts, and can hit three enemies or reflect off side walls. Rapid Fire at activation can raise the shot count up to 4×. A fitted Ultimate disables Barrage. The main gun pauses during Barrage.
@@ -48,9 +48,9 @@ Speeds include the 20% base movement reduction. A dash in the price column means
 | Heat-Seeking Missile | legendary | Weapon | Steers after its target and can retarget if the original enemy is destroyed. | — |
 | Smoke Bomb | rare | Engine | Leaves a five-second smoke trail with range 8. Deals 3 damage every half second. | 60% from Smoke Ninja |
 | Radioactive Smoke Bomb | mythical | Engine | Leaves radioactive smoke with range 6. Poisons enemies for four seconds after exposure and deals 4 damage every half second. | — |
-| Slime Cannon | epic | Wings | Fires slime balls that splash and slow enemies by 50% for four seconds. | — |
-| Twin Cannon | epic | Weapon | Fires two parallel projectiles per shot. | — |
-| Triple Cannon | mythical | Weapon | Fires three parallel projectiles per shot. | — |
+| Slime Cannon | epic | Wings | Fires straight slime shots that splash and slow enemies by 50% for six seconds. Deals 75% of unmodified ship damage if the ship has at least 4 base damage. | — |
+| Twin Cannon | mythical | Weapon | Fires two parallel projectiles per shot. | — |
+| Triple Cannon | godly | Weapon | Fires three parallel projectiles per shot. | — |
 | Lightning Beacon | godly | Special | Giant energy beam. Aim with the pointer. Right-click to toggle, or hold the Lightning Beacon key. Each 0.1-second pulse uses 1% energy and deals shot damage divided by 2.75. | — |
 | Loot Magnet | legendary | Ability | Makes drops accelerate toward your ship much faster after their one-second pause. | — |
 | Boost Cycle | epic | Ability | Holds up to 15 each of three boost types, with two seconds between activations. Right-click its equipped slot in Ship Loadout to configure it. Switch it on manually during flight. | — |
@@ -108,8 +108,8 @@ A Legendary-or-higher upgrade that appears in both the Upgrade Crate and Upgrade
 
 | Recipe | Ingredients / layout |
 | --- | --- |
-| Twin Cannon | Rail Lance / Nova Emitter / Rail Lance · — / Quickload Cache / — · — / — / — (can shift down one row) |
-| Triple Cannon | Nova Emitter / Nova Emitter / Nova Emitter · — / Salvo Cache / — · — / — / — (can shift down one row) |
+| Twin Cannon | Nova Emitter / — / Nova Emitter · — / Heat-Seeking Missile / — · — / Quickload Cache / —, plus 15 Star Gems |
+| Triple Cannon | Nova Emitter / Nova Emitter / Nova Emitter · — / Salvo Cache / — · — / — / — (can shift down one row), plus 35 Star Gems |
 | Slime Cannon | Pulse Cannon, Blast Missile, Slime |
 | Radioactive Smoke Bomb | — / Nova Emitter / — · Uranium Ore / Smoke Bomb / Uranium Ore · — / — / — |
 | Alien Ship | Alien Cell / Alien Mind Serum / Alien Cell · Alien Cell / Donor ship / Alien Cell · Alien Cell / Alien Mind / Alien Cell |
@@ -121,7 +121,7 @@ A Legendary-or-higher upgrade that appears in both the Upgrade Crate and Upgrade
 
 - **Natural snowfall:** 10% chance at each tenth wave in December 2026, Melbourne time. Each snowfall lasts 18 seconds and releases 15–30 Common Snowflakes. The Mythical Snowman has a 1% chance per snowfall. It shines white as a pickup. Uncaught pickups fall offscreen.
 - **Snow Crystal:** Rare, crafted with five Snowflakes in a plus pattern. Triggers snowfall from a boost slot, with a 90-second cooldown. Crafted crystals can summon snowfall only during December 2026.
-- **Snowman:** Fires homing snowballs that prioritize the hostile enemy closest to the bottom. Every 25th projectile is a crystal that targets the highest-HP hostile enemy and freezes it for 10 seconds on impact, including bosses. Each projectile in a multi-shot volley counts. Snowfall boosts base hull, movement speed, damage and fire rate by 1.5×. Its energy cap stays at 105%.
+- **Snowman:** Fires aimed snow missiles at the hostile enemy closest to the bottom. They travel straight after launch. Every 25th projectile is a crystal that targets the highest-HP hostile enemy and freezes it for eight seconds on impact, including bosses. Frozen enemies cannot fire, damage the ship or die from ship contact. Each projectile in a multi-shot volley counts. Snowfall boosts base hull, movement speed, damage and fire rate by 1.5×. Its energy cap stays at 105%.
 - **Wave and run payouts:** Credits, Star Gems, and crates from finish rewards and milestones pay 25% of their previous quantities, rounded down. Wave-clear Credits follow the same reduction.
 
 
