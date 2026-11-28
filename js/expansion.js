@@ -6,13 +6,13 @@
   const EVENT_END = Date.parse('2026-12-01T00:00:00+11:00');
   const MATERIALS = {
     alienToken: { name: 'Alien Token', rarity: 'godly', glyph: '◈', description: 'Redeem one of each eligible Star Gem shop option free per Melbourne calendar day for 72 hours. Shop stock and purchase cooldowns still apply.' },
-    energyCore: { name: 'Energy Core', rarity: 'mythical', glyph: '◉', description: 'Catch it after defeating a charged Nexus Overlord. Redeem it for Supernova in Quests.' },
+    energyCore: { name: 'Energy Core', rarity: 'mythical', glyph: '◉', description: 'Redeem it for Supernova in Quests, or consume it from an item slot to fill your energy bar.' },
     snowflake: { name: 'Snowflake', rarity: 'common', glyph: '❄', description: 'Catch during snowfall. Craft five into a Snow Crystal.' },
     slime: { name: 'Slime', rarity: 'common', glyph: '●', description: 'Dropped by green Grunts. Used to craft a Slime Cannon.' },
     uranium: { name: 'Uranium Ore', rarity: 'epic', glyph: '◆', description: 'Found in green asteroids. Used to craft a Radioactive Smoke Bomb.' },
     alienCell: { name: 'Alien Cell', rarity: 'rare', description: 'Used in both Alien recipes.' },
     alienMind: { name: 'Alien Mind', rarity: 'legendary', description: 'Crafted from nine Alien Cells. Place below the ship used in the recipe to craft an Alien Ship.' },
-    alienSerum: { name: 'Alien Mind Serum', rarity: 'mythical', description: 'Use in the crafting grid to make an Alien ship or give an Alien ship Mind Control.' }
+    alienSerum: { name: 'Alien Mind Serum', rarity: 'mythical', description: 'Craft an Alien ship or unlock its Mind Control. From a flight item slot, consume it to control one enemy.' }
   };
   const RECIPES = {
     snowCrystal: { name: 'Snow Crystal', event: true, available: game => game.now() >= AG.SNOW_START, output: 'snowCrystal', pattern: ['', 'snowflake', '', 'snowflake', 'snowflake', 'snowflake', '', 'snowflake', ''] },
@@ -28,8 +28,9 @@
   const BASE_SHIPS = { ...SHIPS };
   Object.assign(ITEMS, MATERIALS);
   for (const [id, icon] of Object.entries({
-  "alienChest": "Items/Chest/Chest 2/Chest Large 2 256.png",
-  "alienToken": "Currency/Gem/Gem Green 256.png",
+  "alienChest": "Items/Chest/Chest 3/Chest Large 3 256.png",
+  "gingerbread": "Holiday/Gingerbread Man/Gingerbread Man 256.png",
+  "candyCane": "Holiday/Candy Cane/Candy Cane 256.png",
   "jollyGiftBag": "Holiday/Gift Bag/Gift Bag 256.png",
   "shipCrate": "Items/Chest/Chest 1/Chest Large 1 256.png",
   "enemyCrate": "Items/Chest/Chest 2/Chest Large 2 256.png",
@@ -79,6 +80,7 @@
     ITEMS[id].icon = 'new-icons/vector-icon-pack/' + icon;
     ITEMS[id].glyph ??= '◆';
   }
+  ITEMS.alienToken.icon = 'icons/ui/alien_token.svg';
   const clone = value => JSON.parse(JSON.stringify(value));
   const checkpointKeys = ['level', 'xp', 'score', 'energy', 'targetMode', 'boosts', 'aegisCooldown', 'aegisShield', 'mindCooldown', 'stats', 'drops', 'boostCycleOn', 'boostCycleDelay', 'cleared', 'activeSeconds', 'loadout', 'energyOverdrive', 'overdriveTick', 'overdriveSuppressed', 'controlSequence', 'enemySmoke', 'smokeDamageIn', 'asteroidDelay', 'asteroidField', 'asteroids', 'barrage', 'snowfall', 'snowCooldown', 'snowShotCount', 'tridentCooldown'];
   const eventActive = (time = Date.now()) => time < EVENT_END;
@@ -185,15 +187,16 @@
     return rewards;
   }
 
-  function alienChestTotals(count, random) {
-    const sumAmounts = (low, length, rolls) => [...crateTotals({ outcomes: [{
-      weight: 100, items: Array.from({ length }, (_, i) => low + i)
-    }] }, rolls, random)].reduce((sum, [amount, copies]) => sum + amount * copies, 0);
-    const rewards = { credit: sumAmounts(5, 21, count) };
-    const gems = binomial(count, .05, random);
-    const tokens = binomial(count, AG.ALIEN_TOKEN_ODDS, random);
-    if (gems) rewards.gem = sumAmounts(1, 3, gems);
-    if (tokens) rewards.alienToken = tokens;
+  function alienChestRewards(random, now) {
+    const rewards = { credit: 5 + Math.floor(random() * 21) };
+    if (random() < .05) rewards.gem = 1 + Math.floor(random() * 3);
+    if (random() < AG.ALIEN_TOKEN_ODDS) rewards.alienToken = 1;
+    const seasonal = AG.snowSeason(now) ? ['snowflake', 'snowCrystal', 'jollyGiftBag'] :
+      eventActive(now) ? ['alienCell', 'alienMind', 'alienSerum'] : [];
+    if (seasonal.length && random() < .25) {
+      const roll = random();
+      rewards[seasonal[roll < .6 ? 0 : roll < .9 ? 1 : 2]] = 1;
+    }
     return rewards;
   }
 
@@ -212,6 +215,7 @@
     const tiers = Object.entries(rates).flatMap(([rarity, rate]) => {
       const items = Object.entries(ITEMS)
         .filter(([id, item]) => !['energyOverdrive', 'alienChest', 'alienToken'].includes(id) &&
+          (!BOOSTS[id]?.storePickup || AG.snowSeason(now)) &&
           (!AG.TRAILS[id] || id === 'christmasTrail') && AG.itemAvailable(id, now) && (item.rarity ?? 'common') === rarity)
         .map(([id]) => id);
       for (const [id, ship] of newAliens) if (ship.rarity === rarity) items.push('giftAlien:' + id);
@@ -437,7 +441,7 @@
 
     alienHit(enemy, source, damage) {
       if (!this.run.practice && eventActive(this.now()) && BOSSES[enemy.type] && damage > 0 &&
-          source !== 'ally' && this.random() < .009) this.dropItem('alienCell', enemy.x, enemy.y);
+          source !== 'ally' && this.rollLoot(.009)) this.dropItem('alienCell', enemy.x, enemy.y);
     },
 
     rewardAlien(enemy) {
@@ -455,15 +459,15 @@
         }
       }
       if (eventActive(this.now())) {
-        if (this.random() < (boss ? .06 : .0015)) this.dropItem('alienCell', x, y);
+        if (this.rollLoot(boss ? .06 : .0015)) this.dropItem('alienCell', x, y);
         if (!boss) return;
-        if (this.random() < .01) this.dropItem('alienMind', x - 20, y);
-        if (run.wave === 50 && enemy.type === 'nexus' && !this.profile.serumUsed && this.random() < .005) {
+        if (this.rollLoot(.01)) this.dropItem('alienMind', x - 20, y);
+        if (run.wave === 50 && enemy.type === 'nexus' && !this.profile.serumUsed && this.rollLoot(.005)) {
           this.dropItem('alienSerum', x + 20, y);
         }
       } else if (boss) {
         this.dropItem('alienCell', x, y, 6);
-        if (enemy.type === mainBoss(run.wave) && this.random() < .5) this.dropItem('alienMind', x - 20, y);
+        if (enemy.type === mainBoss(run.wave) && this.rollLoot(.5)) this.dropItem('alienMind', x - 20, y);
         if (enemy.type === 'nexus') this.dropItem('alienSerum', x + 20, y);
       }
     },
@@ -622,7 +626,9 @@
 
     mindControl(point) {
       const run = this.run;
-      if (this.state !== 'playing' || !run?.ship.mindControl || run.mindCooldown > 0) return false;
+      if (this.state !== 'playing' || !run) return false;
+      const serum = run.serumAim && this.itemCount('alienSerum') > 0;
+      if (!serum && (!run.ship.mindControl || run.mindCooldown > 0)) return false;
       const enemy = run.enemies.find(target => !target.allied && target.y >= 0 &&
         Math.hypot(target.x - point.x, target.y - point.y) <= target.size + 8);
       if (!enemy) return false;
@@ -636,7 +642,12 @@
       enemy.allied = true;
       enemy.alliedFor = BOSSES[enemy.type] ? 8 : null;
       if (enemy.bornWave === run.wave) run.resolved++;
-      run.mindCooldown = 30;
+      if (serum) {
+        run.serumAim = false;
+        this.profile.materials.alienSerum--;
+        this.recordQuest('boosts');
+        this.save();
+      } else run.mindCooldown = 30;
       this.notify('upgrade', 'Mind control active');
       return true;
     },
@@ -725,5 +736,5 @@
     }
   });
 
-  Object.assign(AG, { createAlien, MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, crateTotals, bundleTotals, jollyGiftTotals, alienChestTotals, syncShips });
+  Object.assign(AG, { createAlien, MODES, EVENT_END, MATERIALS, BASE_SHIPS, RECIPES, eventActive, mainBoss, crateRoll, crateTotals, bundleTotals, jollyGiftTotals, alienChestRewards, syncShips });
 })();

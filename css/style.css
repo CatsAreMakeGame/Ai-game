@@ -649,6 +649,8 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
   background: #10282a;
 }
 .update-gifts h3, .gift-step h4 { margin: 0; }
+.premium-trails { display: grid; gap: 10px; }
+.premium-trails h3 { margin: 0; color: #b5f9f2; }
 .gift-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
 .gift-step {
   display: grid; grid-template-rows: auto 1fr auto; align-items: start; gap: 8px;

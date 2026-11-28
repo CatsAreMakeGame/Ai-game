@@ -162,7 +162,7 @@
       }
       this.state = 'playing';
       this.notify('wave', diff.boss ? (BOSSES[lead].name + ' incoming') : 'Wave ' + number.toLocaleString());
-      if (!run.practice && number % 10 === 0 && AG.snowSeason(this.now()) && this.random() < .10) this.startSnowfall(true);
+      if (!run.practice && number % 10 === 0 && AG.snowSeason(this.now()) && this.random() < .10) this.startSnowfall();
     }
 
     canSkip() {
@@ -246,6 +246,11 @@
         const scale = this.run.mode === 'endless' ? Math.min(12, .5 + wave / 100) : .5;
         this.queueRewards(this.waveRewards(wave, scale), false);
         if (this.run.mode === 'endless' && this.random() < .1) this.queueRewards({ enemyCrate: 1 }, false);
+      }
+      if (AG.snowSeason(this.now())) {
+        for (const [id, odds] of Object.entries(AG.CHRISTMAS_DROPS)) {
+          if (this.random() < odds.milestone) this.queueRewards({ [id]: 1 }, false);
+        }
       }
       this.notify('milestone', 'Wave ' + wave + ' milestone · Rewards earned');
     }
@@ -437,6 +442,18 @@
       return Number(Boolean(this.run.boosts[type]?.length));
     }
 
+    lootLuck() {
+      return 1 + .15 * this.boostCount('gingerbread');
+    }
+
+    rollLoot(chance) {
+      return this.random() < chance * this.lootLuck();
+    }
+
+    projectileSpeed() {
+      return 1 + .2 * this.boostCount('candyCane');
+    }
+
     shotDamage(includeNose = true, includeTestDamage = true) {
       const run = this.run;
       if (includeTestDamage && this.testing && run.testDamage != null) return run.testDamage;
@@ -513,7 +530,7 @@
     }
 
     grantItem(type, amount = 1, announceDiscovery) {
-      if (!Object.hasOwn(AG.ITEMS, type) || !AG.itemAvailable(type, this.now()) || !Number.isSafeInteger(amount) || amount < 1 ||
+      if (type === 'alienChest' || !Object.hasOwn(AG.ITEMS, type) || !AG.itemAvailable(type, this.now()) || !Number.isSafeInteger(amount) || amount < 1 ||
           !Number.isSafeInteger(this.itemCount(type) + amount) || this.run?.practice) return false;
       this.addItem(type, amount);
       this.discoverItem(type, announceDiscovery);
@@ -814,6 +831,12 @@
     }
 
     canUseBoost(type) {
+      if (type === 'alienSerum' || type === 'energyCore') {
+        const run = this.run;
+        if (!run || run.practice || run.player.hp <= 0 || !this.itemCount(type)) return false;
+        return type === 'alienSerum' ? this.state === 'playing' :
+          ['playing', 'intermission'].includes(this.state) && run.energy < run.energyCap;
+      }
       return Boolean(BOOSTS[type] && this.run && !this.run.practice && !this.canVisitBase() && this.run.player.hp > 0 && this.profile.boosts[type] &&
         (!BOOSTS[type].repair || this.run.player.hp < this.maxHull()) &&
         (!BOOSTS[type].snowfall || (AG.snowSeason(this.now()) && (this.itemCooldownsSkipped() || this.run.snowCooldown <= 0) && this.run.snowfall <= 0)) &&
@@ -822,6 +845,19 @@
 
     useBoost(type) {
       if (!this.canUseBoost(type)) return false;
+      if (type === 'alienSerum') {
+        this.run.serumAim = !this.run.serumAim;
+        this.notify('upgrade', this.run.serumAim ? 'Select an enemy to use Alien Mind Serum' : 'Alien Mind Serum cancelled');
+        return true;
+      }
+      if (type === 'energyCore') {
+        this.profile.materials.energyCore--;
+        this.run.energy = this.run.energyCap;
+        this.tryEnergyOverdrive();
+        this.recordQuest('boosts');
+        this.save();
+        return true;
+      }
       this.profile.boosts[type]--;
       if (BOOSTS[type].coreWeapon) this.fireCoreWeapon();
       else this.applyBoost(type);
@@ -907,10 +943,9 @@
 
     openBundle(type, count = 1) {
       const spec = CRATES[type];
-      if (!AG.itemAvailable(type, this.now()) || !(spec?.bundle || spec?.gift || spec?.alienChest) || !this.canVisitBase() || this.run?.practice ||
+      if (!AG.itemAvailable(type, this.now()) || !(spec?.bundle || spec?.gift) || !this.canVisitBase() || this.run?.practice ||
           !Number.isSafeInteger(count) || count < 1 || count > this.crateBatchLimit() || count > this.itemCount(type)) return false;
-      const rewards = spec.alienChest ? AG.alienChestTotals(count, this.random) :
-        spec.gift ? AG.jollyGiftTotals(count, this.random, this.profile, this.now()) : AG.bundleTotals(spec, count, this.random);
+      const rewards = spec.gift ? AG.jollyGiftTotals(count, this.random, this.profile, this.now()) : AG.bundleTotals(spec, count, this.random);
       if (Object.entries(rewards).some(([id, amount]) => !Number.isSafeInteger(this.itemCount(id) + amount))) return false;
       this.profile.crates[type] -= count;
       for (const [id, amount] of Object.entries(rewards)) {
@@ -1293,7 +1328,7 @@
       if (!slimeShots.length) return;
       const radius = BOSSES.boss.size / 2;
       this.run.slimeShots = slimeShots.filter(shot => {
-        shot.y -= dt * 540;
+        shot.y -= dt * 540 * this.projectileSpeed();
         if (shot.y < -shot.size) return false;
         if (!enemies.some(enemy => !enemy.allied && touches(enemy, shot))) return true;
         for (let i = enemies.length - 1; i >= 0; i--) {
@@ -1386,7 +1421,8 @@
             missile.angle += clamp(delta, -5.5 * dt, 5.5 * dt);
           }
         }
-        const step = guided ? 395 * dt : Math.min(510 * dt, missile.range);
+        const travel = dt * this.projectileSpeed();
+        const step = guided ? 395 * travel : Math.min(510 * travel, missile.range);
         missile.x += Math.cos(missile.angle) * step;
         missile.y += Math.sin(missile.angle) * step;
         missile.range -= step;
@@ -1578,6 +1614,7 @@
     updatePlayerShots(dt) {
       const run = this.run;
       const reserved = new Map();
+      dt *= this.projectileSpeed();
       run.shots = run.shots.filter(shot => {
         if (shot.snowball) return this.updateSnowShot(shot, dt, reserved);
         shot.x += shot.vx * dt;
@@ -1696,22 +1733,27 @@
       this.dropItem('credit', enemy.x, enemy.y, boss ? 95 + boss.tier * 25 : Math.max(4, Math.ceil(score / 3)));
       if (boss) this.dropItem('gem', enemy.x + 12, enemy.y, 1);
       this.gainXp(boss ? 25 : 2);
-      if (this.random() < (boss ? .10 : .014)) {
-        const types = Object.keys(BOOSTS).filter(id => !BOOSTS[id].pickupChance && !BOOSTS[id].coreWeapon && !BOOSTS[id].snowfall);
+      if (this.rollLoot(boss ? .10 : .014)) {
+        const types = Object.keys(BOOSTS).filter(id => !BOOSTS[id].pickupChance && !BOOSTS[id].storePickup && !BOOSTS[id].coreWeapon && !BOOSTS[id].snowfall);
         this.dropItem(boss ? 'shield' : types[Math.floor(this.random() ** 1.65 * types.length)], enemy.x - 20, enemy.y);
       }
       for (const id of ['quickload', 'salvoAmmo']) {
-        if (this.random() < BOOSTS[id].pickupChance) this.dropItem(id, enemy.x - 35, enemy.y + 18);
+        if (this.rollLoot(BOOSTS[id].pickupChance)) this.dropItem(id, enemy.x - 35, enemy.y + 18);
       }
       const cosmeticTime = this.now();
-      if (AG.trailsActive(cosmeticTime) && this.random() < AG.WISP_TRAIL_ODDS) {
+      if (AG.trailsActive(cosmeticTime) && this.rollLoot(AG.WISP_TRAIL_ODDS)) {
         this.dropItem('wispTrail', enemy.x + 42, enemy.y + 15);
       }
-      if (AG.alienChestEvent(cosmeticTime) && this.random() < 1 / (5 * Math.max(1, enemy.waveEnemyCount ?? run.total))) {
+      if (AG.alienChestEvent(cosmeticTime) && this.rollLoot(1 / (5 * Math.max(1, enemy.waveEnemyCount ?? run.total)))) {
         this.dropItem('alienChest', enemy.x - 42, enemy.y + 15);
       }
+      if (AG.snowSeason(cosmeticTime)) {
+        for (const [id, odds] of Object.entries(AG.CHRISTMAS_DROPS)) {
+          if (this.rollLoot(odds.enemy)) this.dropItem(id, enemy.x, enemy.y - 18);
+        }
+      }
       const updateLive = AG.contentActive();
-      let roll = this.random();
+      let roll = this.random() / this.lootLuck();
       for (const [type, upgrade] of Object.entries(UPGRADES)) {
         if (updateLive && upgrade.killDropChance) continue;
         roll -= (upgrade.chance ?? 0) / 10;
@@ -1719,18 +1761,18 @@
         this.dropItem(type, enemy.x + 21, enemy.y);
         break;
       }
-      if (updateLive && this.random() < UPGRADES.cannon.killDropChance) {
+      if (updateLive && this.rollLoot(UPGRADES.cannon.killDropChance)) {
         this.dropItem('cannon', enemy.x + 21, enemy.y - 19);
       }
       const lead = boss && !enemy.escort && enemy.bornWave === run.wave && AG.mainBoss(run.wave) === enemy.type;
-      if (AG.contentActive() && enemy.type === 'grunt' && this.random() < (AG.balanceActive() ? .024 : .12)) this.dropItem('slime', enemy.x - 20, enemy.y);
-      if (AG.contentActive() && this.random() < (boss ? .04 : .002)) {
+      if (AG.contentActive() && enemy.type === 'grunt' && this.rollLoot(AG.balanceActive() ? .024 : .12)) this.dropItem('slime', enemy.x - 20, enemy.y);
+      if (AG.contentActive() && this.rollLoot(boss ? .04 : .002)) {
         this.dropItem(this.random() < .7 ? 'boostBundle' : 'upgradeBundle', enemy.x + 33, enemy.y);
       }
       const ninja = enemy.type === 'smokeNinja';
-      if (ninja && this.random() < .6) this.dropItem('smokeBomb', enemy.x + 27, enemy.y);
+      if (ninja && this.rollLoot(.6)) this.dropItem('smokeBomb', enemy.x + 27, enemy.y);
       const crateChance = ninja ? .45 : lead ? Math.min(.6, (run.wave / 10 + 1) / 10) : boss ? 0 : .0005;
-      if (crateChance && this.random() < crateChance) {
+      if (crateChance && this.rollLoot(crateChance)) {
         this.dropItem(this.random() < .25 ? 'shipCrate' : 'upgradeCrate', enemy.x - 31, enemy.y);
       }
     }
@@ -1748,7 +1790,7 @@
       return this.run.ship.hull * this.snowmanMultiplier();
     }
 
-    startSnowfall(natural = false) {
+    startSnowfall() {
       const run = this.run;
       if (!AG.snowSeason(this.now()) || run.snowfall > 0 || run.practice) return false;
       const previousHull = this.maxHull();
@@ -1760,7 +1802,9 @@
       });
       for (let i = 0; i < count; i++) add('snowflake', i * .16, 12);
       if (this.random() < .01) add('snowman', 3, 20);
-      if (natural && this.random() < .10) add('jollyGiftBag', 3.8, 18);
+      for (const [id, odds] of Object.entries(AG.CHRISTMAS_DROPS)) {
+        if (this.random() < odds.snowfall) add(id, 3.8, 18);
+      }
       this.notify('upgrade', 'Snowfall · Catch the falling flakes');
       return true;
     }
@@ -1821,7 +1865,13 @@
         const ranks = Object.keys(AG.RARITIES);
         const rank = id => ranks.indexOf(AG.ITEMS[id]?.rarity ?? 'common');
         if (!run.stats.rarest || rank(drop.type) > rank(run.stats.rarest)) run.stats.rarest = drop.type;
-        if (Object.hasOwn(BOOSTS, drop.type) && !BOOSTS[drop.type].pickupChance) {
+        if (drop.type === 'alienChest') {
+          const rewards = AG.alienChestRewards(this.random, this.now());
+          for (const [type, amount] of Object.entries(rewards)) {
+            if (this.grantItem(type, amount, true) && type === 'gem') run.stats.gems += amount;
+          }
+          this.notify('upgrade', 'Alien Chest opened');
+        } else if (Object.hasOwn(BOOSTS, drop.type) && !BOOSTS[drop.type].pickupChance && !BOOSTS[drop.type].storePickup) {
           this.discoverItem(drop.type, true);
           for (let i = 0; i < drop.amount; i++) this.applyBoost(drop.type);
           this.notify('loot', { type: drop.type, amount: drop.amount });

@@ -1,4 +1,5 @@
 window.AG.CHANGELOG = [
+  ["2026-11-28T11:55:00.000Z","Alien Chest and seasonal boosts\nAlien Chests open on pickup and can award seasonal loot. Added Gingerbread and Candy Cane, item-slot uses for Alien Mind Serum and Energy Core, and distinct Alien Chest and Alien Token icons.",null],
   ["2026-11-28T11:55:00.000Z","Alien Token Update\nAdded limited-time Alien Chests and the Godly Alien Token, with one free redemption per eligible gem-priced shop option per day for three days.",null],
   ["2026-11-28T11:53:00.000Z","Trails Update\nAdded five cosmetic trails, the Exclusive rarity, trail equipping, Christmas countdown formatting, and slightly rarer Alien Snowman and Alien Singularity prizes.",null],
   ["2026-11-28T10:07:31.649Z","Christmas decorations and bundle reveals\nRestored Snowman homing visuals and added green Alien Snowman shots, Mythical and Godly Alien ship prizes, bulk-opening rewards, Admin cooldown bypass, and a Golden Trident cooldown.",null],

@@ -127,8 +127,7 @@
         for (const id of Object.keys(AG.TRAILS)) if (!game.itemCount(id)) game.grantItem(id);
         refresh();
       }, { disabled: !AG.trailsActive(game.now()) }),
-      button('Grant Alien Token', () => { game.grantItem('alienToken'); refresh(); }, { disabled: !AG.alienTokenActive(game.now()) }),
-      button('Grant Alien Chest', () => { game.grantItem('alienChest'); refresh(); }, { disabled: !AG.alienTokenActive(game.now()) }));
+      button('Grant Alien Token', () => { game.grantItem('alienToken'); refresh(); }, { disabled: !AG.alienTokenActive(game.now()) }));
     if (run) actions(cosmetics, button('Spawn Alien Chest pickup', () => {
       game.dropItem('alienChest', run.player.x, run.player.y - 90);
       resumeFlight();

@@ -660,7 +660,7 @@
         const item = AG.ITEMS[drop.type];
         ctx.save();
         ctx.translate(drop.x, drop.y);
-        if (AG.CRATES[drop.type] || ['legendary', 'mythical', 'godly'].includes(item.rarity)) {
+        if (drop.type === 'alienChest' || AG.CRATES[drop.type] || ['legendary', 'mythical', 'godly'].includes(item.rarity)) {
           const pulse = .5 + .5 * Math.sin(this.time * 6 + drop.x);
           const light = drop.type === 'snowman' ? '#fff' : AG.RARITIES[item.rarity ?? 'legendary'];
           ctx.globalAlpha = .22 + pulse * .25;

@@ -149,7 +149,7 @@ A Legendary-or-higher upgrade that appears in both the Upgrade Crate and Upgrade
 
 ### Jolly Gift Bag
 
-The Legendary Jolly Gift Bag uses the Holiday Gift Bag icon. Each natural December snowfall has a 10% chance to drop a bag. Open collected bags year-round from Inventory → Crates.
+The Legendary Jolly Gift Bag uses the Holiday Gift Bag icon. Each December snowfall has a 10% chance to drop a bag. Open collected bags year-round from Inventory → Crates.
 
 Every bag gives 50–250 Credits, 3–10 Star Gems and 5–15 Snowflakes, plus three independent random items from the game catalogue, including currencies, ships, all Mythical and Godly ships and their Alien variants, existing lower-rarity Alien variants, the bag itself and retired event rewards. Per-item weights are Common 1, Rare 0.6, Epic 0.3, Legendary 0.12, Mythical 0.05 and Godly 0.015. Items of the same rarity have equal weight except Alien Singularity and Alien Snowman, which each have 20% less weight than other Mythical rewards from the Trails Update onward. The Christmas Trail joins the bonus pool at its Legendary weight.
 
@@ -167,6 +167,21 @@ The Trails Update starts 28 November 2026 at 10:53 p.m. AEDT. Trails are cosmeti
 
 ## Alien Chest and Alien Token
 
-- **Alien Chest:** Rare. Each enemy defeated during the event rolls a chest drop with probability 1 ÷ (5 × the number of enemies scheduled for its wave), averaging one chest per five fully cleared waves. The event starts 28 November 2026 at 10:55 p.m. AEDT and ends at midnight at the start of 1 January 2027 AEDT. Collected chests can still be opened afterward.
-- **Chest rewards:** 5–25 Credits guaranteed. Independent rolls give a 5% chance of 1–3 Star Gems and a 1 in 9,975 chance of an Alien Token.
+- **Alien Chest:** Rare. Each enemy defeated during the event rolls a chest drop with probability 1 ÷ (5 × the number of enemies scheduled for its wave), averaging one chest per five fully cleared waves. The event starts 28 November 2026 at 10:55 p.m. AEDT and ends at midnight at the start of 1 January 2027 AEDT. Chests open on pickup and cannot be stored.
+- **Chest rewards:** 5–25 Credits guaranteed. Independent rolls give a 5% chance of 1–3 Star Gems and a 1 in 9,975 chance of an Alien Token. A separate 25% roll grants one seasonal item. During the Alien Event the pool is Alien Cell, Alien Mind and Alien Mind Serum. During Christmas it is Snowflake, Snow Crystal and Jolly Gift Bag. Within each pool the three items are weighted 60%, 30% and 10%, respectively.
 - **Alien Token:** Godly. Confirm use in Inventory → Items for 72 hours of free daily redemptions. Each gem-priced shop option is claimable once per Melbourne calendar day, including Buy 1, Buy 4 and Buy 10 separately for each crate. Premium items retain their stock, retirement, and cooldown rules. Using a second token extends the expiry by 72 hours and preserves that day’s redemptions.
+
+## Christmas boosts and seasonal loot
+
+- **Gingerbread (Rare):** Increases random enemy loot drop chances by 15% of the original chance for 30 seconds.
+- **Candy Cane (Rare):** Increases player projectile travel speed by 20% for 30 seconds.
+- Both boosts can be drawn from Jolly Gift Bags during Christmas. Collected boosts can be saved and used later.
+
+| Reward | Per snowfall | Per defeated enemy | Per 10-wave milestone |
+| --- | ---: | ---: | ---: |
+| Gingerbread | 12% | 0.6% | 20% |
+| Candy Cane | 8% | 0.4% | 15% |
+| Jolly Gift Bag | 10% | 0.1% | 10% |
+
+- **Alien Mind Serum flight use:** Arm from a flight item slot and select an enemy. Consumes one Serum after a valid target is controlled. The current wave's lead boss is immune. Returning bosses remain controlled for eight seconds.
+- **Energy Core flight use:** Consume from a flight item slot to fill the ship’s energy meter.

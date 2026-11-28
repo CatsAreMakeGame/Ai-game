@@ -83,7 +83,16 @@ window.AG = (() => {
   const snowSeason = (now = Date.now()) => now >= SNOW_START && now < SNOW_END;
   const QUESTS_START = Date.parse('2026-11-28T15:00:00+11:00');
   const questsActive = (now = Date.now()) => now >= QUESTS_START;
+  const CHRISTMAS_DROPS = {
+    gingerbread: { snowfall: .12, enemy: .006, milestone: .20 },
+    candyCane: { snowfall: .08, enemy: .004, milestone: .15 },
+    jollyGiftBag: { snowfall: .10, enemy: .001, milestone: .10 }
+  };
   const BOOSTS = {
+    gingerbread: { name: 'Gingerbread', rarity: 'rare', glyph: '✦', duration: 30, storePickup: true,
+      description: 'Increases the chance of random enemy loot drops by 15% for 30 seconds.' },
+    candyCane: { name: 'Candy Cane', rarity: 'rare', glyph: '✦', duration: 30, storePickup: true,
+      description: 'Increases the speed of your projectiles by 20% for 30 seconds.' },
     goldenTrident: { name: 'Golden Trident', rarity: 'legendary', duration: 0, coreWeapon: true, glyph: '♆',
       description: 'Halves current enemy health. On wave 50, use once to destroy the other enemies, halve the lead Nexus Overlord’s health, and expose its Energy Core.' },
     snowCrystal: { name: 'Snow Crystal', rarity: 'rare', duration: 0, snowfall: true,
@@ -152,8 +161,6 @@ window.AG = (() => {
     christmasTrail: { name: 'Christmas Trail', rarity: 'legendary', glyph: '🎄', description: 'Red and green sparks celebrate Christmas.' }
   };
   const CRATES = {
-    alienChest: { name: 'Alien Chest', rarity: 'rare', glyph: '▣', alienChest: true,
-      description: 'Contains 5–25 Credits. 5% chance of 1–3 Star Gems and a separate 1 in 9,975 chance of an Alien Token.' },
     jollyGiftBag: { name: 'Jolly Gift Bag', rarity: 'legendary', glyph: '◆', gift: true,
       description: 'Contains 50–250 Credits, 3–10 Star Gems, 5–15 Snowflakes, and 3 random items. Higher rarities are harder to draw. Retired event rewards can appear.' },
     shipCrate: { name: 'Spaceship Crate', rarity: 'epic', glyph: '▣', price: 4, outcomes: [
@@ -184,6 +191,7 @@ window.AG = (() => {
     gem: { name: 'Star Gems', rarity: 'legendary', glyph: '◆', file: 'icons/currency/star_gem.png' }
   };
   const ITEMS = { ...SHIPS, ...UPGRADES, ...BOOSTS, ...CRATES, ...CURRENCIES, ...TRAILS,
+    alienChest: { name: 'Alien Chest', rarity: 'rare', glyph: '▣', description: 'Opens immediately on pickup. Contains 5–25 Credits, plus chances for Star Gems, seasonal loot and an Alien Token.' },
     energyOverdrive: { name: 'Energy Overdrive', rarity: 'epic', glyph: '⚡',
       description: 'At full energy, grants 40% more movement speed and a faster fire rate until 25% energy remains.' }
   };
@@ -458,6 +466,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { TRAILS, TRAILS_START, ALIEN_TOKEN_START, ALIEN_TOKEN_DURATION, ALIEN_TOKEN_ODDS, WISP_TRAIL_ODDS, trailsActive, alienTokenActive, alienChestEvent, QUESTS_START, questsActive, SNOW_START, SNOW_END, snowSeason, BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { CHRISTMAS_DROPS, TRAILS, TRAILS_START, ALIEN_TOKEN_START, ALIEN_TOKEN_DURATION, ALIEN_TOKEN_ODDS, WISP_TRAIL_ODDS, trailsActive, alienTokenActive, alienChestEvent, QUESTS_START, questsActive, SNOW_START, SNOW_END, snowSeason, BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

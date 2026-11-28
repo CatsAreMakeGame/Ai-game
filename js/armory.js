@@ -169,7 +169,7 @@
     title.id = 'bundle-reward-title';
     dialog.setAttribute('aria-labelledby', title.id);
     const grid = element('div', '', 'inventory-tiles');
-    const guaranteed = CRATES[type].gift ? ['credit', 'gem', 'snowflake'] : CRATES[type].alienChest ? ['credit'] : [];
+    const guaranteed = CRATES[type].gift ? ['credit', 'gem', 'snowflake'] : [];
     const rarityOrder = Object.keys(RARITIES);
     const items = Object.keys(rewards).filter(id => !guaranteed.includes(id)).sort((a, b) =>
       rarityOrder.indexOf(ITEMS[a].rarity ?? 'common') - rarityOrder.indexOf(ITEMS[b].rarity ?? 'common') ||
@@ -891,14 +891,18 @@
           body.append(feature);
         }
         if (AG.trailsActive(game.now())) {
-          body.append(element('h3', 'Trails'));
+          const trailShop = element('section', '', 'premium-trails');
+          const trailTitle = element('h3', 'Cosmetic Trails');
+          trailTitle.id = 'premium-trails-title';
+          trailShop.setAttribute('aria-labelledby', trailTitle.id);
           for (const id of ['bubbleTrail', 'rainbowTrail']) {
             card(id, AG.TRAILS[id].description, button(gemLabel(game.premiumTrailPrice(id)), () => {
               if (game.buyPremiumTrail(id)) state.result = AG.itemName(id) + ' acquired.';
               refresh();
             }, { disabled: !game.canBuyPremiumTrail(id) }), game.itemCount(id));
           }
-          body.append(cards);
+          trailShop.append(trailTitle, cards);
+          body.append(trailShop);
         }
         if (AG.contentActive(game.now())) body.append(renderUpdateGifts(game, state, element, button, refresh));
       } else if (AG.contentActive()) {
@@ -1038,14 +1042,14 @@
         for (const id of sortItems(CRATES, crate => crate.price)) {
           if (!AG.itemAvailable(id, game.now()) || !profile.crates[id]) continue;
           const count = profile.crates[id];
-          const isBundle = Boolean(CRATES[id].bundle || CRATES[id].gift || CRATES[id].alienChest);
+          const isBundle = Boolean(CRATES[id].bundle || CRATES[id].gift);
           const limit = Math.min(count, game.crateBatchLimit());
           function openBatch(quantity) {
             if (isBundle) {
               const rewards = game.openBundle(id, quantity);
               state.result = rewards ? Object.entries(rewards).map(([reward, amount]) => AG.itemName(reward) + ' ×' + amount.toLocaleString()).join(' · ') : 'Bundle could not be opened.';
               refresh();
-              if (rewards && (quantity > 1 || CRATES[id].alienChest)) revealBundleRewards(id, rewards, element, button);
+              if (rewards && quantity > 1) revealBundleRewards(id, rewards, element, button);
               return;
             }
             const batch = game.openCrates(id, quantity);

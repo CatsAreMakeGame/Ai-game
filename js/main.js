@@ -343,10 +343,10 @@
     relay.setAttribute('aria-pressed', String(run.boostCycleOn));
     relay.title = 'Toggle with ' + game.profile.bindings.relay.toUpperCase();
     setText(relay, 'Auto · ' + (run.boostCycleOn ? 'On' : 'Off'));
-    $('alien-actions').hidden = !run.ship.alien || !run.ship.mindControl;
-    setText($('mind-countdown'), !run.ship.mindControl ? '' :
+    $('alien-actions').hidden = !run.serumAim && (!run.ship.alien || !run.ship.mindControl);
+    setText($('mind-countdown'), run.serumAim ? 'Alien Mind Serum · Select an enemy' : !run.ship.mindControl ? '' :
       run.mindCooldown > 0 ? 'Mind control · ' + Math.ceil(run.mindCooldown) + 's' : 'Mind control · Ready');
-    $('mind-toggle').hidden = !run.ship.mindControl || run.mindCooldown > 0;
+    $('mind-toggle').hidden = run.serumAim || !run.ship.mindControl || run.mindCooldown > 0;
     $('mind-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.mindCooldown > 0;
     $('mind-toggle').setAttribute('aria-pressed', String(mindAim));
     setText($('mind-toggle'), mindAim ? 'Tap an enemy' : 'Choose a target');
@@ -916,8 +916,8 @@
   canvas.addEventListener('pointerdown', event => {
     if (event.button !== 0 || pointerId !== null || panelKind || !['playing', 'intermission'].includes(game.state)) return;
     const point = trackAim(event);
-    if ((event.pointerType === 'mouse' || mindAim) && game.mindControl(point)) { mindAim = false; return; }
-    if (mindAim) return;
+    if ((event.pointerType === 'mouse' || mindAim || game.run.serumAim) && game.mindControl(point)) { mindAim = false; return; }
+    if (mindAim || game.run.serumAim) return;
     pointerId = event.pointerId;
     canvas.setPointerCapture(pointerId);
     game.pointer = point;
@@ -933,7 +933,7 @@
   });
   function hoverFlightDrop(event, aim) {
     const drop = aim && event.pointerType !== 'touch' && !panelKind && game.run?.drops.find(item => {
-      const rare = AG.CRATES[item.type] || ['legendary', 'mythical', 'godly'].includes(AG.ITEMS[item.type]?.rarity);
+      const rare = item.type === 'alienChest' || AG.CRATES[item.type] || ['legendary', 'mythical', 'godly'].includes(AG.ITEMS[item.type]?.rarity);
       return (!(event.buttons & 1) || rare || !game.isDiscovered(item.type)) &&
         Math.hypot(aim.x - item.x, aim.y - item.y) <= item.size;
     });
