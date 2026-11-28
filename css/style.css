@@ -693,7 +693,7 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 @media (prefers-reduced-motion: reduce) { .shop-crate .intro-price span { animation: none; } }
 
 .console { position: relative; }
-.home-tools { display: grid; justify-items: end; gap: 8px; margin-bottom: 10px; }
+.home-tools { grid-area: tools; display: grid; justify-items: end; align-content: start; gap: 8px; min-width: 0; }
 .quest-anchor { position: relative; z-index: 12; }
 .quest-anchor[hidden], .quest-panel[hidden] { display: none; }
 .quest-panel {
@@ -739,3 +739,35 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .christmas-cane { transform: rotate(16deg); }
 .bundle-reveal .inventory-tiles { padding: 6px 0; }
 .bundle-reveal .inventory-tile { min-width: 0; }
+
+/* Fit the hangar to the available space without changing the flight layout. */
+.stage:has(.home:not([hidden])) { min-height: min(440px, 76svh); }
+.stage:has(.home:not([hidden])) > canvas { position: absolute; inset: 0; object-fit: cover; }
+.stage:has(.home:not([hidden])) .overlay {
+  position: relative; overflow: visible; padding: clamp(12px, 3vw, 34px);
+}
+.home:not([hidden]) {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "events tools" "title title" "launch launch" "links links" "record record";
+  align-items: start;
+  gap: clamp(8px, 1.5vh, 16px) clamp(8px, 2vw, 22px);
+  min-width: 0;
+}
+.home-events { grid-area: events; min-width: 0; }
+.home .update-banner, .home .event-banner { max-width: 100%; }
+.home #title { grid-area: title; margin: 0; font-size: clamp(1.4rem, min(12cqw, 15svh), 7rem); }
+.home .launch-options { grid-area: launch; margin: 0; }
+.home .home-actions { grid-area: links; }
+.home #record { grid-area: record; margin: 0; }
+.home-wallet > div { grid-template-columns: 17px minmax(0, 1fr) auto; }
+@media (max-width: 620px) {
+  .home:not([hidden]) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "tools" "events" "title" "launch" "links" "record";
+  }
+  .home-tools { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; }
+  .home .christmas-sprig, .home .christmas-cane { display: none; }
+  .home .quest-panel { width: min(320px, calc(100vw - 46px)); }
+}
