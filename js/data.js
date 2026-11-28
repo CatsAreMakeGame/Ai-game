@@ -44,6 +44,7 @@ window.AG = (() => {
   });
   SHIPS.singularity.barrage = { name: 'Singularity Barrage', energy: 115, shots: 960, duration: 8, sweepPasses: 6, arcDegrees: 120, damageScale: 1.25 };
   const aegisCapacity = ship => contentActive() ? ship.hull * 1.5 : ship.ability?.capacity ?? 0;
+  for (const id of ['enemyGrunt', 'enemyShooter', 'enemyDiver', 'enemyTank', 'enemySmokeNinja']) SHIPS[id].enemyFrame = true;
   const BOSSES = {
     boss: { name: 'Mothership', hp: 95, size: 49, color: '#ff7894', score: 600, tier: 0, shots: 5, spread: .18, cadence: 2.2 },
     prism: { name: 'Prism Carrier', hp: 145, size: 44, color: '#bf8cff', score: 850, tier: 1, shots: 3, spread: .15, cadence: 1.8 },
@@ -177,6 +178,8 @@ window.AG = (() => {
   const SHIP_ORDER = ['supernova', 'singularity', 'aurora', 'zenith', 'enemySmokeNinja', 'leviathan', 'enemyTank', 'eclipse', 'solaris', 'enemyDiver', 'tempest', 'bastion', 'enemyShooter', 'comet', 'wraith', 'falcon', 'enemyGrunt', 'scout'];
   const BOOST_LOCK = 'new-icons/vector-icon-pack/General/Lock/Lock 256.png';
   const CONTENT_START = Date.parse('2026-11-28T12:15:00+11:00');
+  const BALANCE_START = Date.parse('2026-11-28T02:08:22.000Z');
+  const balanceActive = (now = Date.now()) => now >= BALANCE_START;
   const contentActive = (now = Date.now()) => now >= CONTENT_START;
   const LAUNCH_DEALS_END = Date.parse('2026-11-29T00:00:00+11:00');
   const SHIP_CRATE_OFFER_PRICE = CRATES.shipCrate.price / 4;
@@ -195,6 +198,10 @@ window.AG = (() => {
   const crateUnitPrice = (id, now = Date.now()) => id === 'shipCrate' && !contentActive(now) ? 3 : (CRATES[id]?.price ?? 0);
   function liveCrate(id) {
     const crate = CRATES[id];
+    if (id === 'enemyCrate' && balanceActive()) {
+      const weights = [42, 23, 17, 13, 5];
+      return { ...crate, outcomes: crate.outcomes.map((tier, i) => ({ ...tier, weight: weights[i] })) };
+    }
     if (contentActive() || !crate) return crate;
     if (id === 'shipCrate') return { ...crate, price: crateUnitPrice(id), outcomes: crate.outcomes.filter(tier => tier.rarity !== 'legendary')
       .map(tier => tier.rarity === 'rare' ? { ...tier, weight: 76 } : tier) };
@@ -386,6 +393,6 @@ window.AG = (() => {
     return String(amount);
   }
 
-  return { aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
+  return { BALANCE_START, balanceActive, aegisCapacity, crateUnitPrice, CONTENT_START, LAUNCH_DEALS_END, SHIP_CRATE_OFFER_PRICE, launchDealsActive, PREMIUM_PURCHASE_COOLDOWN, updateGiftDay, CRATE_BUY_AMOUNTS, UPDATE_GIFTS, contentActive, itemAvailable, liveCrate, merchantCatalog, formatCurrency, energyCapacity, itemName, slotAvailable, fitLoadout, SHIP_ORDER, MERCHANT, BOOST_LOCK, WIDTH, HEIGHT, LAST_WAVE, MAX_WAVE, TARGET_MODES, BOSSES, bossLineup, RARITIES, CRATES, ITEMS, SLOTS, SUPPLY_LEVEL, AUTO_SKIP_AT, ICONS, SHIPS, ENEMIES,
     BOOSTS, UPGRADES, SUPPLIES, clamp, difficultyFor, xpForLevel, readProfile };
 })();

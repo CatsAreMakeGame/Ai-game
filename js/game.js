@@ -140,7 +140,7 @@
       for (let index = 0; index < count; index++) {
         run.pending.push(pool[Math.floor(this.random() * pool.length)]);
       }
-      if (number >= 30 && !run.practice && this.random() < (run.mode === 'endless' ? .03 : .1)) {
+      if (number >= 30 && !run.practice && this.random() < (AG.balanceActive() ? .05 : run.mode === 'endless' ? .03 : .1)) {
         run.pending.splice(lead ? 1 : 0, 0, 'smokeNinja');
       }
       run.total = run.pending.length;
@@ -186,11 +186,43 @@
       run.allyShots = [];
       for (const tendril of run.tendrils) for (const enemy of tendril.captures.keys()) this.releaseCapture(tendril, enemy);
       run.cleared++;
-      this.awardMilestone();
-      this.awardEndlessWave();
-      if (run.cleared % 5 === 0 || (run.mode === 'endless' && run.wave % 10 === 0) || run.wave === this.waveLimit) this.rollBonusRewards();
+      if (AG.balanceActive()) {
+        if (run.wave % 10 === 0) this.awardWaveMilestone(run.wave);
+      } else {
+        this.awardMilestone();
+        this.awardEndlessWave();
+        if (run.cleared % 5 === 0 || (run.mode === 'endless' && run.wave % 10 === 0) || run.wave === this.waveLimit) this.rollBonusRewards();
+      }
       this.save();
       this.notify('wave', 'Wave ' + run.wave + ' clear');
+    }
+
+    waveRewards(wave, scale = 1) {
+      const base = Math.min(1000, wave / 50);
+      const pack = { credit: 12000, gem: 36, upgradeCrate: 15, shipCrate: 10, boostBundle: 9, upgradeBundle: 6 };
+      if (AG.eventActive(this.now())) pack.alienCell = 6;
+      return Object.fromEntries(Object.entries(pack)
+        .map(([id, amount]) => [id, Math.floor(amount * base * scale)])
+        .filter(([, amount]) => amount > 0));
+    }
+
+    awardWaveMilestone(wave) {
+      if (wave % 100 === 0) {
+        // The wave-100 milestone pays 2.5 times the full Hard wave-50 run plus its five milestones.
+        const hardTotal = this.waveRewards(50);
+        for (let mark = 10; mark <= 50; mark += 10) {
+          for (const [id, count] of Object.entries(this.waveRewards(mark, .5))) hardTotal[id] = (hardTotal[id] ?? 0) + count;
+        }
+        const scale = 2.5 * Math.min(100, wave / 100);
+        this.queueRewards(Object.fromEntries(Object.entries(hardTotal).map(([id, count]) => [id, Math.round(count * scale)])), false);
+        if (this.random() < .5) this.queueRewards({ enemyCrate: Math.max(1, Math.round(scale)) }, false);
+        if (this.random() < .12) this.queueRewards({ beacon: 1 }, false);
+      } else {
+        const scale = this.run.mode === 'endless' ? Math.min(12, .5 + wave / 100) : .5;
+        this.queueRewards(this.waveRewards(wave, scale), false);
+        if (this.run.mode === 'endless' && this.random() < .1) this.queueRewards({ enemyCrate: 1 }, false);
+      }
+      this.notify('milestone', 'Wave ' + wave + ' milestone · Rewards earned');
     }
 
     awardMilestone() {
@@ -281,6 +313,7 @@
     }
 
     abandonSavedRun() {
+      if (AG.balanceActive() && this.canContinue()) this.queueRewards(this.waveRewards(this.profile.checkpoint.wave), false);
       this.profile.checkpoint = null;
       const rewards = this.settleMilestones();
       if (rewards.length) this.profile.lastRewards = Object.fromEntries(rewards);
@@ -292,7 +325,7 @@
       return this.profile.discoveries.includes(type);
     }
 
-    discoverItem(type, announce = !AG.contentActive()) {
+    discoverItem(type, announce = !AG.contentActive() || (AG.balanceActive() && !['playing', 'intermission'].includes(this.state))) {
       if (this.isDiscovered(type)) return false;
       this.profile.discoveries.push(type);
       if (announce) this.notify('discovery', type);
@@ -311,7 +344,8 @@
       this.profile.checkpoint = null;
       this.releaseInput();
       this.state = state;
-      if (state === 'victory') this.awardModeClear();
+      if (AG.balanceActive() && !run.practice) this.queueRewards(this.waveRewards(run.wave), false);
+      else if (state === 'victory') this.awardModeClear();
       run.milestoneRewards = this.settleMilestones();
       if (run.milestoneRewards.length) this.profile.lastRewards = Object.fromEntries(run.milestoneRewards);
       this.save();
@@ -374,9 +408,9 @@
       return this.run.boosts[type]?.length ?? 0;
     }
 
-    shotDamage(includeNose = true) {
+    shotDamage(includeNose = true, includeTestDamage = true) {
       const run = this.run;
-      if (this.testing && run.testDamage != null) return run.testDamage;
+      if (includeTestDamage && this.testing && run.testDamage != null) return run.testDamage;
       return Math.min(Number.MAX_SAFE_INTEGER,
         (run.ship.damage + (includeNose ? this.upgradeEffects().damage : 0)) * 2 ** this.boostCount('doubleDamage'));
     }
@@ -528,7 +562,11 @@
 
     updateSmoke(dt, lastX, lastY) {
       const run = this.run;
-      const { smoke, normalSmoke, radioactive } = this.upgradeEffects();
+      const effects = this.upgradeEffects();
+      const ninjaSmoke = AG.balanceActive() && run.shipId === 'enemySmokeNinja';
+      const { radioactive } = effects;
+      const normalSmoke = effects.normalSmoke || ninjaSmoke;
+      const smoke = effects.smoke + Number(ninjaSmoke);
       for (const puff of run.smoke) puff.life -= dt;
       run.smoke = run.smoke.filter(puff => puff.life > 1e-8);
       run.smokeIn -= dt;
@@ -959,12 +997,14 @@
       if (player.fireIn <= 0 && !barrageWasFiring && !run.barrage && !this.laserActive()) {
         const damage = this.shotDamage();
         const { barrels } = this.upgradeEffects();
+        const enemyRounds = AG.balanceActive() && Boolean(AG.SHIPS[run.shipId]?.enemyFrame);
+        const barrelDelay = AG.balanceActive() && barrels > 1 ? 2 : 1;
         for (let i = 0; i < barrels; i++) {
           run.shots.push({ x: player.x + (i - (barrels - 1) / 2) * 19,
-            y: player.y - 20, vx: 0, vy: -720, size: 5, damage, color: ship.color });
+            y: player.y - 20, vx: 0, vy: enemyRounds ? -205 : -720, size: enemyRounds ? 6 : 5, damage, color: ship.color, enemyRound: enemyRounds });
         }
         player.fireIn = Math.max(.055,
-          ship.delay * .52 ** this.boostCount('rapidFire') * .68 ** this.overdriveStacks());
+          ship.delay * barrelDelay * .52 ** this.boostCount('rapidFire') * .68 ** this.overdriveStacks());
         this.notify('fire');
       }
 
@@ -1021,7 +1061,9 @@
           enemy.x = clamp(enemy.origin + Math.sin(enemy.age * (diver ? 4.2 : 1.5)) * (diver ? 73 : 17), enemy.size, WIDTH - enemy.size);
         }
 
-        if (enemy.type === 'smokeNinja' && enemy.y > 45) {
+        const recognized = !AG.balanceActive() || Math.hypot(enemy.x - player.x, enemy.y - player.y) <=
+          Math.hypot(WIDTH, HEIGHT) * (run.ship.enemyFrame ? .5 : 1);
+        if (enemy.type === 'smokeNinja' && enemy.y > 45 && recognized) {
           enemy.smokeIn -= dt;
           if (enemy.smokeIn <= 0) { this.spreadEnemySmoke(enemy); enemy.smokeIn = 12; }
         }
@@ -1034,7 +1076,7 @@
           if (!boss) this.removeEnemy(index, false);
           continue;
         }
-        if (enemy.y < 75 || !boss && !['shooter', 'tank'].includes(enemy.type)) continue;
+        if (!recognized || enemy.y < 75 || !boss && !['shooter', 'tank'].includes(enemy.type)) continue;
         enemy.fireIn -= dt;
         if (enemy.fireIn <= 0) {
           const phase = enemy.hp / enemy.maxHp < 0.45;
@@ -1332,25 +1374,28 @@
         if (this.state !== 'playing' || run.total < 1 || remaining * 3 < run.total * 2 ||
             run.energy + 1e-8 < spec.energy) return;
         run.energy = Math.max(0, run.energy - spec.energy);
-        run.barrage = { elapsed: 0, emitted: 0 };
+        const rateBoost = AG.balanceActive() ? Math.min(4, .52 ** -this.boostCount('rapidFire')) : 1;
+        run.barrage = { elapsed: 0, emitted: 0, shots: Math.round(spec.shots * rateBoost), arcDegrees: AG.balanceActive() ? 80 : spec.arcDegrees };
         this.notify('upgrade', spec.name + ' active');
       }
       const barrage = run.barrage;
       barrage.elapsed = Math.min(spec.duration, barrage.elapsed + dt);
-      const due = Math.min(spec.shots, Math.floor(barrage.elapsed * spec.shots / spec.duration + 1e-8));
+      const totalShots = barrage.shots ?? spec.shots;
+      const due = Math.min(totalShots, Math.floor(barrage.elapsed * totalShots / spec.duration + 1e-8));
+      const damage = (AG.balanceActive() ? this.shotDamage(false, false) : run.ship.damage) * spec.damageScale;
       const { x, y } = run.player;
       while (barrage.emitted < due) {
         const i = barrage.emitted++;
-        const progress = i / (spec.shots - 1);
+        const progress = i / (totalShots - 1);
         const sweep = Math.cos(progress * spec.sweepPasses * Math.PI);
-        const halfArc = spec.arcDegrees * Math.PI / 360;
+        const halfArc = (barrage.arcDegrees ?? spec.arcDegrees) * Math.PI / 360;
         const angle = -Math.PI / 2 + sweep * halfArc;
         const vx = Math.cos(angle);
         const vy = Math.sin(angle);
         run.shots.push({ x: x + vx * 16, y: y + vy * 16, vx: vx * 780, vy: vy * 780,
-          size: 5, damage: run.ship.damage * spec.damageScale, color: '#ffabeb', barrage: true });
+          size: 5, damage, color: '#ffabeb', barrage: true });
       }
-      if (barrage.emitted === spec.shots) run.barrage = null;
+      if (barrage.emitted === totalShots) run.barrage = null;
     }
 
     updatePlayerShots(dt) {
@@ -1486,7 +1531,7 @@
         this.dropItem('cannon', enemy.x + 21, enemy.y - 19);
       }
       const lead = boss && !enemy.escort && enemy.bornWave === run.wave && AG.mainBoss(run.wave) === enemy.type;
-      if (AG.contentActive() && enemy.type === 'grunt' && this.random() < .12) this.dropItem('slime', enemy.x - 20, enemy.y);
+      if (AG.contentActive() && enemy.type === 'grunt' && this.random() < (AG.balanceActive() ? .024 : .12)) this.dropItem('slime', enemy.x - 20, enemy.y);
       if (AG.contentActive() && this.random() < (boss ? .04 : .002)) {
         this.dropItem(this.random() < .7 ? 'boostBundle' : 'upgradeBundle', enemy.x + 33, enemy.y);
       }

@@ -47,8 +47,8 @@
   "beacon": "General/Lightning Bolt/Lightning Bolt 256.png",
   "smokeBomb": "Nature/Cloud/Cloud 256.png",
   "magnet": "Tools/Magnet/Magnet 256.png",
-  "boostBundle": "Clothing/Backpack/Backpack Blue 256.png",
-  "upgradeBundle": "Items/Crate/Crate Silver 256.png",
+  "boostBundle": "Items/Pouch/Pouch Blue 256.png",
+  "upgradeBundle": "Items/Pouch/Pouch Purple 256.png",
   "boostCascade": "General/Lightning Bolt/Lightning Bolt Yellow 256.png",
   "boostOverdrive": "General/Lightning Bolt/Lightning Bolt Purple 256.png",
   "radioactiveSmoke": "UI/Radioactive Sign/Radioactive Sign 256.png",
@@ -374,8 +374,13 @@
         !this.run.ship.alien && !this.hasSingularityBarrage() && !this.upgradeEffects().laser;
     },
 
+    hasEnergyOverdriveBoost() {
+      const run = this.run;
+      return run.energyOverdrive && this.canEnergyOverdrive() && (!AG.balanceActive() || run.energy > run.energyCap / 4 + 1e-8);
+    },
+
     overdriveStacks() {
-      return this.boostCount('overdrive') + Number(this.run.energyOverdrive && this.canEnergyOverdrive());
+      return this.boostCount('overdrive') + Number(this.hasEnergyOverdriveBoost());
     },
 
     gainEnergy(amount, ceiling = this.run.energyCap) {
@@ -411,7 +416,10 @@
     updateEnergy(dt) {
       const run = this.run;
       if (!this.canEnergyOverdrive()) run.energyOverdrive = false;
-      if (run.energyOverdrive) {
+      if (run.energyOverdrive && AG.balanceActive()) {
+        run.energy = Math.max(0, run.energy - 6 * dt);
+        if (run.energy <= 1e-8) { run.energy = 0; run.energyOverdrive = false; run.overdriveTick = 0; }
+      } else if (run.energyOverdrive) {
         run.overdriveTick += dt;
         const intervals = Math.floor((run.overdriveTick + 1e-9) / .25);
         if (intervals) {

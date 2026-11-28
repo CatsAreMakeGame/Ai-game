@@ -137,15 +137,16 @@
       const wallTime = Date.now();
       const live = AG.contentActive(wallTime);
       const deals = AG.launchDealsActive(wallTime);
-      const target = deals ? AG.LAUNCH_DEALS_END : AG.CONTENT_START;
+      const balancePending = live && !AG.balanceActive(wallTime);
+      const target = balancePending ? AG.BALANCE_START : deals ? AG.LAUNCH_DEALS_END : AG.CONTENT_START;
       const datetime = new Date(target).toISOString();
       if (release.dateTime !== datetime) release.dateTime = datetime;
-      setText($('update-title'), deals ? 'Next update' : 'Asteroid update');
+      setText($('update-title'), balancePending ? 'Balance update' : deals ? 'Next update' : 'Asteroid update');
       const left = Math.max(0, Math.ceil((target - wallTime) / 1000));
       const hours = Math.floor(left / 3600);
       const minutes = Math.floor(left / 60) % 60;
       const clock = String(minutes).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
-      setText(release, live && !deals ? 'Live now' : (deals ? 'In ' : 'Launches in ') + hours + ':' + clock);
+      setText(release, live && !deals && !balancePending ? 'Live now' : (deals || balancePending ? 'In ' : 'Launches in ') + hours + ':' + clock);
       const seconds = Math.max(0, Math.ceil((AG.EVENT_END - game.now()) / 1000));
       const time = [Math.floor(seconds / 86400) + 'd', Math.floor(seconds / 3600) % 24 + 'h',
         Math.floor(seconds / 60) % 60 + 'm', seconds % 60 + 's'].join(' ');
@@ -165,6 +166,7 @@
     topToggle.setAttribute('aria-label', hideTopMenu ? 'Show top menu' : 'Hide top menu');
     setText(topToggle, hideTopMenu ? '▴' : '▾');
     $('flight-layout').classList.toggle('top-menu-hidden', active && hideTopMenu);
+    $('flight-layout').classList.toggle('compact-energy', active && hideTopMenu && AG.balanceActive());
     $('flight-layout').classList.toggle('boost-left', game.profile.boostSide === 'left');
     $('combat-rim').hidden = !active;
     setText($('admin'), game.testing ? 'Admin · Testing' : 'Admin');
@@ -221,7 +223,7 @@
     overdrive.hidden = !game.canEnergyOverdrive();
     overdrive.disabled = !!panelKind || (!run.energyOverdrive && run.energy + 1e-8 < run.energyCap);
     overdrive.setAttribute('aria-pressed', String(run.energyOverdrive));
-    setText(overdrive, run.energyOverdrive ? 'Overdrive · On' : 'Overdrive · Off');
+    setText(overdrive, game.hasEnergyOverdriveBoost() ? 'Overdrive · On' : run.energyOverdrive ? 'Overdrive · Draining' : 'Overdrive · Off');
     $('mind-toggle').hidden = !run.ship.mindControl || run.mindCooldown > 0;
     $('mind-toggle').disabled = Boolean(panelKind) || game.state !== 'playing' || run.mindCooldown > 0;
     $('mind-toggle').setAttribute('aria-pressed', String(mindAim));
@@ -332,7 +334,7 @@
 
   function start() {
     panelHistory.length = 0;
-    if (Object.keys(game.profile.pendingMilestones).length) {
+    if (Object.keys(game.profile.pendingMilestones).length || (AG.balanceActive() && game.canContinue())) {
       abandonedRewards = game.abandonSavedRun();
       open('queuedRewards');
       return;
@@ -507,7 +509,7 @@
       const ended = ['gameover', 'victory', 'quit'].includes(game.state);
       const earned = ended ? (game.run?.milestoneRewards ?? []) : Object.entries(game.profile.lastRewards);
       if (earned.length) appendMilestoneRewards(earned);
-      else body.append(element('p', 'Finish a campaign or reach a wave milestone to earn rewards.', 'panel-note'));
+      else body.append(element('p', 'End a run to collect rewards based on the wave you reached.', 'panel-note'));
       body.append(button('Back', dismiss));
     } else if (panelKind === 'queuedRewards') {
       setText(title, 'Previous run ended');
@@ -859,6 +861,7 @@
   const tick = 1 / 120;
   let contentLive = AG.contentActive();
   let launchDealsLive = AG.launchDealsActive();
+  let balanceLive = AG.balanceActive();
   function frame(now) {
     const dt = Math.min(0.05, (now - previous) / 1000);
     previous = now;
@@ -868,6 +871,11 @@
     if (contentChanged) {
       contentLive = unlocked;
       if (armoryPanels.includes(panelKind) || panelKind === 'admin') drawPanel(true);
+    }
+    const balance = AG.balanceActive(wallTime);
+    if (balance !== balanceLive) {
+      balanceLive = balance;
+      if (armoryPanels.includes(panelKind) && !contentChanged) drawPanel(true);
     }
     const sale = AG.launchDealsActive(wallTime);
     if (sale !== launchDealsLive) {

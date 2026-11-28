@@ -235,7 +235,7 @@
       dialog.remove();
       for (const reward of rewards) {
         game.notify('loot', reward);
-        if (reward.discovered && !AG.contentActive()) game.notify('discovery', reward.type);
+        if (reward.discovered && (!AG.contentActive() || (AG.balanceActive() && game.canVisitBase()))) game.notify('discovery', reward.type);
       }
     }, { once: true });
     dialog.showModal();
@@ -468,17 +468,19 @@
       const pricing = element('p', crate.price + ' Star Gems each · ' + game.itemCount(id).toLocaleString() + ' owned', 'panel-note');
       const quick = element('div', '', 'crate-quick-buy');
       function purchase(count) {
-        if (!game.buyCrates(id, count)) return;
+        const introductory = AG.balanceActive() && id === 'shipCrate' && count === 1 && AG.launchDealsActive() && !game.profile.shipCrateOfferUsed;
+        if (!(introductory ? game.buyIntroShipCrate() : game.buyCrates(id, count))) return;
         state.result = count.toLocaleString() + (count === 1 ? ' crate saved in Inventory.' : ' crates saved in Inventory.');
         state.crateFlash = id;
         refresh();
       }
       for (const count of AG.CRATE_BUY_AMOUNTS) {
-        const price = game.cratePurchasePrice(id, count);
-        const choice = button('Buy ' + count, () => purchase(count), { disabled: !game.canBuyCrates(id, count) });
+        const introductory = AG.balanceActive() && id === 'shipCrate' && count === 1 && AG.launchDealsActive() && !game.profile.shipCrateOfferUsed;
+        const price = introductory ? AG.SHIP_CRATE_OFFER_PRICE : game.cratePurchasePrice(id, count);
+        const choice = button('Buy ' + count, () => purchase(count), { disabled: !(introductory ? game.canBuyIntroShipCrate() : game.canBuyCrates(id, count)) });
         const amount = element('small', '', price < count * crate.price ? 'sale-price' : '');
         if (price < count * crate.price) amount.append(element('s', String(count * crate.price)));
-        amount.append(element('span', price + ' Gems'));
+        amount.append(element('span', price + (price === 1 ? ' Gem' : ' Gems')));
         choice.append(amount);
         choice.setAttribute('aria-label', 'Buy ' + count + ' ' + crate.name + (count === 1 ? '' : 's') + ' for ' + price + ' Star Gems');
         quick.append(choice);
@@ -489,7 +491,7 @@
       if (id === 'enemyCrate' && AG.launchDealsActive()) {
         info.append(element('p', '25% off Buy 1, Buy 4 and Buy 10', 'sale-note'));
       }
-      if (id === 'shipCrate' && AG.launchDealsActive() && !game.profile.shipCrateOfferUsed) {
+      if (!AG.balanceActive() && id === 'shipCrate' && AG.launchDealsActive() && !game.profile.shipCrateOfferUsed) {
         const offer = button('One-time offer · ' + AG.SHIP_CRATE_OFFER_PRICE + ' Star Gem', () => {
           if (!game.buyIntroShipCrate()) return;
           state.result = 'Spaceship Crate saved in Inventory.';

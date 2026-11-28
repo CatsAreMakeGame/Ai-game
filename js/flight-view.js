@@ -270,7 +270,17 @@
     }
 
     burst(enemy) {
-      const count = AG.BOSSES[enemy.type] ? 40 : 10;
+      const boss = AG.BOSSES[enemy.type];
+      if (boss && AG.balanceActive()) {
+        const pieces = boss.tier % 2 ? 2 : 3;
+        for (let i = 0; i < pieces; i++) {
+          const offset = i - (pieces - 1) / 2;
+          this.effects.push({ x: enemy.x + offset * enemy.size * .48, y: enemy.y, vx: offset * 46,
+            vy: 115 + i * 20, life: Infinity, debris: enemy.size * .46, spin: (i % 2 ? -1 : 1) * 1.6,
+            angle: i * .9, color: boss.color });
+        }
+      }
+      const count = boss ? 40 : 10;
       for (let index = 0; index < count; index++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 38 + Math.random() * 160;
@@ -426,6 +436,11 @@
       }
       for (const shots of [run.shots, run.allyShots]) {
         for (const shot of shots) {
+          if (shot.enemyRound) {
+            disc(ctx, shot.x, shot.y, 7, '#e1516355');
+            disc(ctx, shot.x, shot.y, 4, '#ffa280');
+            continue;
+          }
           ctx.save();
           ctx.translate(shot.x, shot.y);
           ctx.rotate(Math.atan2(shot.vy, shot.vx) + Math.PI / 2);
@@ -590,6 +605,18 @@
         particle.life -= dt;
         particle.x += particle.vx * dt;
         particle.y += particle.vy * dt;
+        if (particle.debris) {
+          const r = particle.debris;
+          particle.vy += 150 * dt;
+          particle.angle += particle.spin * dt;
+          ctx.save();
+          ctx.translate(particle.x, particle.y);
+          ctx.rotate(particle.angle);
+          polygon(ctx, [[-r, -.2 * r], [-.3 * r, -r], [.9 * r, -.4 * r], [.45 * r, .25 * r], [.65 * r, .85 * r], [-.65 * r, .6 * r]], particle.color);
+          polygon(ctx, [[-.55 * r, -.13 * r], [-.1 * r, -.63 * r], [.45 * r, -.33 * r], [.1 * r, .35 * r]], '#433248');
+          ctx.restore();
+          return particle.y < HEIGHT + r;
+        }
         ctx.globalAlpha = Math.max(0, particle.life);
         disc(ctx, particle.x, particle.y, 2.7, particle.color);
         ctx.globalAlpha = 1;

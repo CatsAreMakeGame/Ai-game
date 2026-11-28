@@ -679,3 +679,8 @@ input:focus-visible, select:focus-visible { outline: 2px solid #d5fa74; outline-
 .sale-note { font-size: .75rem; }
 
 .crate-intro-offer { justify-self: start; border-color: #82bf79; color: #d8ffd0; }
+
+.top-menu-hidden.compact-energy .hud { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.top-menu-hidden.compact-energy .hud > .health-hud { grid-area: 1 / 1; }
+.top-menu-hidden.compact-energy .hud > .wave-hud { grid-area: 1 / 2; }
+.top-menu-hidden.compact-energy .hud > #energy-hud { display: grid; grid-area: 2 / 1; }
